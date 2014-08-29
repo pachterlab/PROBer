@@ -7,6 +7,8 @@
 #include<string>
 #include<fstream>
 
+#include "sampling.hpp"
+
 /*
   The coordinate system used outside is 0-based, starting from 5' end.
   The coordinate system used internally is 1-based, starting from 5' end:
@@ -17,10 +19,16 @@
 class DMSTransModel {
 public:
   /*
+    @param   learning    if we need to learn parameters
     @param   transcript_length  the length of this transcript
-    @param   learning  if ture, try to learn parameters 
    */
-  DMSTransModel(int transcript_length, bool learning = false);
+  DMSTransModel(bool learning, int transcript_length = -1);
+
+  /*
+    @param   o   the DMSTransModel object to copy from
+    @comment: copy constructor
+   */
+  DMSTransModel(const DMSTransModel& o);
 
   ~DMSTransModel();
 
@@ -28,6 +36,21 @@ public:
     @comment: This function sets parameters shared by all transcripts, should be called before any DMSTransModel object is created.
    */
   static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len);
+
+  /*
+    @return   primer length
+   */
+  static int get_primer_length() { return primer_length; }
+
+  /*
+    @return   minimum fragment length
+   */
+  static int get_minimum_fragment_length() { return min_frag_len + primer_length; }
+
+  /*
+    @return   maximum fragment length
+   */
+  static int get_maximum_fragment_length() { return max_frag_len + primer_length; }
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  
@@ -38,6 +61,9 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * margin_prob[pos] * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+
+    res /= prob_pass;
+
     return res;
   }
   
@@ -51,6 +77,9 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    
+    res /= prob_pass;
+
     return res;
   }
 
@@ -75,11 +104,14 @@ public:
     if (pos + fragment_length - primer_length > len || pos < 0) return;
     end[pos] += frac;
     start[pos + fragment_length - primer_length] += frac; 
+
+
+    c_obs[pos][pos + fragment_length - primer_length] += frac;
   }
 
   /*
     @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
-    @comment: It should be called after the model is initialized and parameters are loaded
+    @comment: It should be called before getProb or EM is called
    */
   void calcAuxiliaryArrays();
 
@@ -94,23 +126,48 @@ public:
   void init();
 
   /*
-    @param   N_tot   calculated expected total counts for this transcript
+    @param   N_obs   expected observed counts for this transcript
     @param   round   number of EM rounds to go through
     @comment: Run EM algorithm on a single transcript
    */
-  void EM(double N_tot, int round = 1);
+  void EM(double N_obs, int round = 1);
 
   /*
     @param   fin   input stream
     @format:  len [beta/gamma] ... 
    */
-  void read(std::ifstream fin);
+  void read(std::ifstream& fin);
 
   /*
     @param   fout output stream
     @format: the same as read
    */
-  void write(std::ofstream fout);
+  void write(std::ofstream& fout);
+
+  /*
+    @param   sampler  a sampler used for sampling
+    @param   pos      sampled 5' position (0-based)
+    @param   fragment_length   sampled fragment length, with primer length considered
+   */
+  void simulate(Sampler* sampler, int& pos, int& fragment_length);
+
+  // For sanity check
+  double calcProbPass();
+  void EM2(double N_obs, int round = 1);
+
+  int getLen() { return len; }
+  double* getGamma() { return gamma; }
+  double* getBeta() { return beta; }
+
+  double calcLogLik() {
+    double loglik = 0.0;
+    for (int i = 0; i <= len; ++i)
+      for (int j = i; j <= len; ++j) 
+	if (c_obs[i][j] > 0.0) {
+	  loglik += c_obs[i][j] * log(getProb(i, j - i + primer_length));
+	}
+    return loglik;
+  }
 
 private:
   static const double eps; // Epsilon used as an allowance on floating point error
@@ -119,6 +176,7 @@ private:
   static int primer_length; // primer_length, the length of primers
   static int min_frag_len, max_frag_len; // min_frag_len and max_frag_len, the min and max fragment length (primer length excluded)
 
+  bool learning; // if learn parameters
   bool isSE; // if reads are SE reads 
   int len; // len, number of position can learn parameters, transcript_length - primer_length
   int efflen; // efflen, number of positions can generate a valid fragment, len - min_frag_len + 1
@@ -134,6 +192,10 @@ private:
   double *margin_prob; // For SE reads, margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
+
+
+
+  double **c_obs, **c_tot; // temp arrays
 };
 
 #endif

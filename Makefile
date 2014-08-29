@@ -190,6 +190,19 @@ GroupInfo.cpp : my_assert.h GroupInfo.hpp
 GroupInfo.o : GroupInfo.cpp my_assert.h GroupInfo.hpp
 	$(CC) $(COFLAGS) $<
 
+DMSTransModel.hpp : sampling.hpp
+
+DMSTransModel.cpp : sampling.hpp DMSTransModel.hpp
+
+DMSTransModel.o : DMSTransModel.cpp boost/random.hpp sampling.hpp DMSTransModel.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_single_transcript.o : dms_single_transcript.cpp boost/random.hpp sampling.hpp DMSTransModel.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_single_transcript : DMSTransModel.o dms_single_transcript.o 
+	$(CC) -O3 -o $@ $^
+
 clean :
 	rm -rf $(PROGRAMS) *.o *~
 	cd sam ; $(MAKE) clean
