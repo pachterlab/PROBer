@@ -104,9 +104,6 @@ public:
     if (pos + fragment_length - primer_length > len || pos < 0) return;
     end[pos] += frac;
     start[pos + fragment_length - primer_length] += frac; 
-
-
-    c_obs[pos][pos + fragment_length - primer_length] += frac;
   }
 
   /*
@@ -151,23 +148,9 @@ public:
    */
   void simulate(Sampler* sampler, int& pos, int& fragment_length);
 
-  // For sanity check
-  long double calcProbPass();
-  void EM2(double N_obs, int round = 1);
-
   int getLen() { return len; }
   double* getGamma() { return gamma; }
   double* getBeta() { return beta; }
-
-  double calcLogLik() {
-    double loglik = 0.0;
-    for (int i = 0; i <= len; ++i)
-      for (int j = i; j <= len; ++j) 
-	if (c_obs[i][j] > 0.0) {
-	  loglik += c_obs[i][j] * log(getProb(i, j - i + primer_length));
-	}
-    return loglik;
-  }
 
 private:
   static const double eps; // Epsilon used as an allowance on floating point error
@@ -192,10 +175,6 @@ private:
   double *margin_prob; // For SE reads, margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
-
-
-
-  long double **c_obs, **c_tot; // temp arrays
 };
 
 #endif

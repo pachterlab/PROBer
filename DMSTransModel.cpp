@@ -13,8 +13,6 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   start2 = end2 = NULL;
   isSE = false;
 
-  c_obs = c_tot = NULL;
-
   this->learning = learning;
 
   if (!learning) return;
@@ -44,14 +42,6 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   
   start2 = new double[len + 1];
   end2 = new double[len + 1];
-
-
-  c_obs = new long double*[len + 1];
-  c_tot = new long double*[len + 1];
-  for (int i = 0; i <= len; ++i) {
-    c_obs[i] = new long double[len + 1];
-    c_tot[i] = new long double[len + 1];
-  }
 }
 
 DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isSE(o.isSE), len(o.len), efflen(o.efflen), delta(o.delta), prob_pass(o.prob_pass) {
@@ -92,16 +82,6 @@ DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isS
     end2 = new double[len + 1];
     memcpy(end2, o.end2, sizeof(double) * (len + 1));
   }
-
-  c_obs = c_tot = NULL;
-  if (o.c_obs != NULL) {
-    c_obs = new long double*[len + 1];
-    c_tot = new long double*[len + 1];
-    for (int i = 0; i <= len; ++i) {
-      c_obs[i] = new long double[len + 1];
-      c_tot[i] = new long double[len + 1];
-    }
-  }
 }
 
 DMSTransModel::~DMSTransModel() {
@@ -120,17 +100,6 @@ DMSTransModel::~DMSTransModel() {
   // If shared across a thread of transcripts, no need to delete
   if (start2 != NULL) delete[] start2;
   if (end2 != NULL) delete[] end2;
-
-
-
-  if (c_obs != NULL) {
-    for (int i = 0; i <= len; ++i) { 
-      delete[] c_obs[i];
-      delete[] c_tot[i];
-    }
-    delete[] c_obs;
-    delete[] c_tot;
-  }
 }
 
 const double DMSTransModel::eps = 1e-8;
@@ -179,9 +148,6 @@ void DMSTransModel::calcAuxiliaryArrays() {
 void DMSTransModel::init() {
   memset(start, 0, sizeof(double) * (len + 1));
   memset(end, 0, sizeof(double) * (len + 1));
-
-  for (int i = 0; i <= len; ++i) 
-    memset(c_obs[i], 0, sizeof(long double) * (len + 1));
 }
 
 // May consider implement Kahan summation algorithm if precision is really a concern
@@ -330,89 +296,4 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
     }
   } while (fragment_length < min_frag_len || fragment_length > max_frag_len);
   fragment_length += primer_length;
-}
-
-
-
-// Temp methods
-
-long double DMSTransModel::calcProbPass() {
-  long double value, prob_pass;
-
-  prob_pass = 0.0;
-  for (int i = 0; i < efflen; ++i) {
-    value = 1.0;
-    for (int j = std::min(i + max_frag_len, len); j > i + min_frag_len; --j) 
-      value = value * (beta == NULL ? (1.0 - gamma[j]) : (1.0 - gamma[j]) * (1.0 - beta[j])) + 1.0;
-    for (int j = i + min_frag_len; j > i; --j) value *= (beta == NULL ? (1.0 - gamma[j]) : (1.0 - gamma[j]) * (1.0 - beta[j]));
-    value *= delta;
-    if (i > 0) value *= (beta == NULL ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
-    prob_pass += value;
-  }
-
-  return prob_pass;
-}
-
-void DMSTransModel::EM2(double N_obs, int round) {
-  long double N_tot;
-  long double value, numerator;
-
-  for (int ROUND = 0; ROUND < round; ++ROUND) {
-    N_tot = N_obs / calcProbPass();
-    
-    // E step
-
-    // Distribute SE reads
-    if (isSE) {
-      for (int i = 0; i <= len; ++i) 
-	memset(c_obs[i], 0, sizeof(long double) * (len + 1));
-
-      for (int i = 0; i < efflen; ++i) {
-	value = 1.0;
-	for (int j = std::min(i + max_frag_len, len); j > i + min_frag_len; --j) 
-	  value = value * (beta == NULL ? (1.0 - gamma[j]) : (1.0 - gamma[j]) * (1.0 - beta[j])) + 1.0;
-	numerator = 1.0;
-	for (int j = i + min_frag_len; j <= std::min(i + max_frag_len, len); ++j) {
-	  if (j > i + min_frag_len) numerator *= (beta == NULL ? (1.0 - gamma[j]) : (1.0 - gamma[j]) * (1.0 - beta[j]));
-	  c_obs[i][j] += end[i] * numerator / value;
-	}
-      }
-    }
-
-    // Calculate hidden reads
-    for (int i = 0; i <= len; ++i)
-      memcpy(c_tot[i], c_obs[i], sizeof(long double) * (len + 1));
-
-    for (int i = 0; i <= len; ++i) {
-      value = (i == 0 ? 1.0 : (beta == NULL ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]));
-      c_tot[i][i] += N_tot * delta * value;
-      for (int j = i + 1; j <= len; ++j) {
-	value *= (beta == NULL ? (1.0 - gamma[j]) : (1.0 - gamma[j]) * (1.0 - beta[j]));
-	if (j - i < min_frag_len || j - i > max_frag_len) c_tot[i][j] += N_tot * delta * value;
-      }
-    }
-    
-    // M step
-    long double v_start, v_end, param;
-    v_start = c_tot[0][0];
-    v_end = 0.0;
-    for (int i = 0; i <= len; ++i) v_end += c_tot[0][i];
-
-    for (int i = 1; i <= len; ++i) {
-      value = 0.0;
-      for (int j = i; j <= len; ++j) value += c_tot[i][j];
-      
-      param = value / (value + v_end - v_start);
-      if (beta == NULL) gamma[i] = param;
-      else {
-	if (param - gamma[i] < eps || 1.0 - gamma[i] < eps) beta[i] = 0.0;
-	else beta[i] = (param - gamma[i]) / (1.0 - gamma[i]);
-      }
-
-      v_end += value;
-      value = 0.0;
-      for (int j = 0; j <= i; j++) value += c_tot[j][i];
-      v_start += value;
-    }
-  }
 }
