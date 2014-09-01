@@ -152,7 +152,7 @@ public:
   void simulate(Sampler* sampler, int& pos, int& fragment_length);
 
   // For sanity check
-  double calcProbPass();
+  long double calcProbPass();
   void EM2(double N_obs, int round = 1);
 
   int getLen() { return len; }
@@ -195,7 +195,7 @@ private:
 
 
 
-  double **c_obs, **c_tot; // temp arrays
+  long double **c_obs, **c_tot; // temp arrays
 };
 
 #endif

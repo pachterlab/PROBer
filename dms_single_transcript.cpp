@@ -15,7 +15,12 @@ using namespace std;
 DMSTransModel *model;
 Sampler *sampler;
 
+double tot_c;
 char inF[1005], outF[1005];
+
+FILE *fi, *fo;
+ifstream fin;
+ofstream fout;
 
 double calcL1(int len, double *a, double *b) {
   double result = 0.0;
@@ -24,31 +29,33 @@ double calcL1(int len, double *a, double *b) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 5 || argc > 7) {
-    printf("Usage:dms_single_transcript action minus.txt plus.txt output_name {[number_of_reads] [seed] | [ground_truth_minus.txt] [ground_truth_plus.txt]\n");
-    printf("  option = \"learning_from_real_data\", \"learning_from_simulated_data\" or \"simulation\"\n");
+  if (argc < 5 || argc > 8) {
+    printf("Usage: dms_single_transcript learning_from_real_data minus_channel_count.txt plus_channel_count.txt output_name\n");
+    printf("       dms_single_transcript simulation gamma.txt beta.txt output_name number_of_reads_simulated [seed]\n");
+    printf("       dms_single_transcript learning_from_simulated_data minus_channel_simulated_data.dat plus_channel_simulated_data.dat output_name ground_truth_gamma.txt ground_truth_beta.txt reads_are_single_end(0 or 1)\n");
     exit(-1);
   }
 
+  //DMSTransModel::setGlobalParams(6, 25, 45);
   DMSTransModel::setGlobalParams(6, 150, 650);
 
   model = NULL;
   sampler = NULL;
 
   if (!strcmp(argv[1], "learning_from_real_data")) {
-    FILE *fi = fopen(argv[2], "r");
     int trans_len;
     vector<double> counts;
-    double tot_c = 0.0;
 
+    fi = fopen(argv[2], "r");
     fscanf(fi, "%d", &trans_len);
     counts.assign(trans_len, 0);
+    tot_c = 0.0;
     for (int i = 0; i < trans_len; ++i) {
       fscanf(fi, "%lf", &counts[i]);
       tot_c += counts[i];
     }
 
-    printf("MINUS_TOT_C = %.2f\n", tot_c);
+    printf("MINUS_TOTAL_COUNTS = %.2f\n", tot_c);
 
     model = new DMSTransModel(true, trans_len);
 
@@ -63,12 +70,12 @@ int main(int argc, char* argv[]) {
     printf("MINUS_PROB_PASS = %.10g\n", model->getProbPass());
 
     sprintf(outF, "%s.gamma", argv[4]);
-    ofstream fout(outF);
+    fout.open(outF);
     model->write(fout);
     fout.close();
 
     sprintf(inF, "%s.gamma", argv[4]);
-    ifstream fin(inF);
+    fin.open(inF);
     model->read(fin);
     fin.close();
 
@@ -101,8 +108,12 @@ int main(int argc, char* argv[]) {
   }
   else if (!strcmp(argv[1], "learning_from_simulated_data")) {
     int len;
-    FILE *fi;
     double *gt_minus = NULL, *gt_plus = NULL;
+    double *old_minus = NULL, *old_plus = NULL;
+    bool isSE = (atoi(argv[7]) == 1);
+
+    int best_round = 0;
+    double best_l1 = 1e100, l1_value = 1e100;
 
     // Load ground truth
     fi = fopen(argv[5], "r");
@@ -120,41 +131,47 @@ int main(int argc, char* argv[]) {
     fclose(fi);
 
     int pos, fragment_length;
-    double tot_c;
-    DMSTransModel *model = new DMSTransModel(true, len + DMSTransModel::get_primer_length());
+    model = new DMSTransModel(true, len + DMSTransModel::get_primer_length());
     model->init();
 
     fi = fopen(argv[2], "r");
     tot_c = 0.0;
     while (fscanf(fi, "%d %d", &pos, &fragment_length) == 2) {
-      model->update(pos, fragment_length, 1.0);
-      //model->update(pos, 1.0);
+      if (isSE) model->update(pos, 1.0);
+      else model->update(pos, fragment_length, 1.0);      
       ++tot_c;
     }
     fclose(fi);
 
-    model->calcAuxiliaryArrays();
-    model->EM(tot_c, 420);
+    //    model->calcAuxiliaryArrays();
+    //model->EM(tot_c, 420);
+    //printf("%.10g %.10g\n", calcL1(len, gt_minus, model->getGamma()), model->getProbPass());
 
-    //FILE *flog = fopen("log.txt", "w");
-
-    /*
-    fprintf(flog, "%d", 2000);
+     
+    best_round = 0;
+    best_l1 = 1e100;
+    
+    old_minus = new double[len + 1];
+    memcpy(old_minus, model->getGamma(), sizeof(double) * (len + 1));
     for (int round = 1; round <= 2000; ++round) {
-      model->EM(tot_c, 1);
-      //printf("ROUND = %d, L1_diff = %.10g, Loglik = %.10g\n", round, calcL1(len, gt_minus, model->getGamma()), model->calcLogLik());
-      //fprintf(flog, "\t%.10g", calcL1(len, gt_minus, model->getGamma()));
-    }
-    //fprintf(flog, "\n");
-    */
+      model->EM2(tot_c, 1);
+      l1_value = calcL1(len, gt_minus, model->getGamma());
+      if (best_l1 > l1_value) { best_l1 = l1_value; best_round = round; }
+      printf("ROUND = %d, L1_diff = %.10g, Diff = %.10g\n", round, l1_value, calcL1(len, old_minus, model->getGamma()));
+      memcpy(old_minus, model->getGamma(), sizeof(double) * (len + 1));
+     }
+  
+    printf("Best round = %d, best_l1 = %.10g\n", best_round, best_l1);
+    delete[] old_minus;
+    exit(-1);
 
     sprintf(outF, "%s.gamma", argv[4]);
-    ofstream fout(outF);
+    fout.open(outF);
     model->write(fout);
     fout.close();
 
     sprintf(inF, "%s.gamma", argv[4]);
-    ifstream fin(inF);
+    fin.open(inF);
     model->read(fin);
     fin.close();
 
@@ -162,23 +179,30 @@ int main(int argc, char* argv[]) {
     tot_c = 0.0;
     model->init();
     while (fscanf(fi, "%d %d", &pos, &fragment_length) == 2) {
-      model->update(pos, fragment_length, 1.0);
+      if (isSE) model->update(pos, 1.0);
+      else model->update(pos, fragment_length, 1.0);
       ++tot_c;
     }
     fclose(fi);
 
-    //fprintf(flog, "%d", 2000);
     model->calcAuxiliaryArrays();
-    model->EM(tot_c, 1041);
-    /*
+    //model->EM(tot_c, 1041);
+    //printf("%.10g %.10g\n", calcL1(len, gt_plus, model->getBeta()), model->getProbPass());
+    
+    best_round = 0;
+    best_l1 = 1e100;
+
+    old_plus = new double[len + 1];
+    memcpy(old_plus, model->getBeta(), sizeof(double) * (len + 1));
     for (int round = 1; round <= 2000; ++round) {
       model->EM(tot_c, 1);
-      //printf("ROUND = %d, L1_diff = %.10g, Loglik = %.10g\n", round, calcL1(len, gt_plus, model->getBeta()), model->calcLogLik());
-      //fprintf(flog, "\t%.10g", calcL1(len, gt_plus, model->getBeta()));
+      l1_value = calcL1(len, gt_plus, model->getBeta());
+      if (best_l1 > l1_value) { best_l1 = l1_value; best_round = round; }      
+      printf("ROUND = %d, L1_diff = %.10g, DIFF = %.10g\n", round, l1_value, calcL1(len, old_plus, model->getBeta()));
+      memcpy(old_plus, model->getBeta(), sizeof(double) * (len + 1));
     }
-    //fprintf(flog, "\n");
-    //fclose(flog);
-    */
+    delete[] old_plus;
+    printf("Best_round = %d, Best_l1 = %.10g\n", best_round, best_l1);
 
     sprintf(outF, "%s.beta", argv[4]);
     fout.open(outF);
@@ -186,6 +210,8 @@ int main(int argc, char* argv[]) {
     fout.close();
 
     delete model;
+    delete[] gt_minus;
+    delete[] gt_plus;
   }
   else {
     assert(!strcmp(argv[1], "simulation"));
@@ -203,12 +229,12 @@ int main(int argc, char* argv[]) {
     model = new DMSTransModel(false);
 
     // Simulate minus channel
-    ifstream fin(argv[2]);
+    fin.open(argv[2]);
     model->read(fin);
     fin.close();
 
     sprintf(outF, "%s_minus.dat", argv[4]);
-    FILE *fo = fopen(outF, "w");
+    fo = fopen(outF, "w");
     int pos, fragment_length;
 
     for (int i = 0; i < num_reads; ++i) {

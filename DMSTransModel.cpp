@@ -46,11 +46,11 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   end2 = new double[len + 1];
 
 
-  c_obs = new double*[len + 1];
-  c_tot = new double*[len + 1];
+  c_obs = new long double*[len + 1];
+  c_tot = new long double*[len + 1];
   for (int i = 0; i <= len; ++i) {
-    c_obs[i] = new double[len + 1];
-    c_tot[i] = new double[len + 1];
+    c_obs[i] = new long double[len + 1];
+    c_tot[i] = new long double[len + 1];
   }
 }
 
@@ -95,11 +95,11 @@ DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isS
 
   c_obs = c_tot = NULL;
   if (o.c_obs != NULL) {
-    c_obs = new double*[len + 1];
-    c_tot = new double*[len + 1];
+    c_obs = new long double*[len + 1];
+    c_tot = new long double*[len + 1];
     for (int i = 0; i <= len; ++i) {
-      c_obs[i] = new double[len + 1];
-      c_tot[i] = new double[len + 1];
+      c_obs[i] = new long double[len + 1];
+      c_tot[i] = new long double[len + 1];
     }
   }
 }
@@ -181,7 +181,7 @@ void DMSTransModel::init() {
   memset(end, 0, sizeof(double) * (len + 1));
 
   for (int i = 0; i <= len; ++i) 
-    memset(c_obs[i], 0, sizeof(double) * (len + 1));
+    memset(c_obs[i], 0, sizeof(long double) * (len + 1));
 }
 
 // May consider implement Kahan summation algorithm if precision is really a concern
@@ -336,8 +336,8 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
 
 // Temp methods
 
-double DMSTransModel::calcProbPass() {
-  double value;
+long double DMSTransModel::calcProbPass() {
+  long double value, prob_pass;
 
   prob_pass = 0.0;
   for (int i = 0; i < efflen; ++i) {
@@ -354,8 +354,8 @@ double DMSTransModel::calcProbPass() {
 }
 
 void DMSTransModel::EM2(double N_obs, int round) {
-  double N_tot;
-  double value, numerator;
+  long double N_tot;
+  long double value, numerator;
 
   for (int ROUND = 0; ROUND < round; ++ROUND) {
     N_tot = N_obs / calcProbPass();
@@ -365,7 +365,7 @@ void DMSTransModel::EM2(double N_obs, int round) {
     // Distribute SE reads
     if (isSE) {
       for (int i = 0; i <= len; ++i) 
-	memset(c_obs[i], 0, sizeof(double) * (len + 1));
+	memset(c_obs[i], 0, sizeof(long double) * (len + 1));
 
       for (int i = 0; i < efflen; ++i) {
 	value = 1.0;
@@ -381,7 +381,7 @@ void DMSTransModel::EM2(double N_obs, int round) {
 
     // Calculate hidden reads
     for (int i = 0; i <= len; ++i)
-      memcpy(c_tot[i], c_obs[i], sizeof(double) * (len + 1));
+      memcpy(c_tot[i], c_obs[i], sizeof(long double) * (len + 1));
 
     for (int i = 0; i <= len; ++i) {
       value = (i == 0 ? 1.0 : (beta == NULL ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]));
@@ -393,7 +393,7 @@ void DMSTransModel::EM2(double N_obs, int round) {
     }
     
     // M step
-    double v_start, v_end, param;
+    long double v_start, v_end, param;
     v_start = c_tot[0][0];
     v_end = 0.0;
     for (int i = 0; i <= len; ++i) v_end += c_tot[0][i];
