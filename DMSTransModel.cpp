@@ -1,12 +1,14 @@
+#include<cmath>
 #include<cstring>
 #include<cassert>
 #include<string>
 #include<fstream>
+#include<algorithm>
 
 #include "sampling.hpp"
 #include "DMSTransModel.hpp"
 
-DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
+DMSTransModel::DMSTransModel(bool learning, int transcript_length, Sampler* sampler) {
   gamma = beta = NULL;
   start = end = NULL;
   logsum = margin_prob = NULL;
@@ -31,7 +33,7 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   logsum = new double[len + 1];
   margin_prob = new double[efflen];
 
-  for (int i = 1; i <= len; ++i) gamma[i] = 0.01;
+  for (int i = 1; i <= len; ++i) gamma[i] = sampler->sample();
   
   start = new double[len + 1];
   end = new double[len + 1];
@@ -220,7 +222,7 @@ void DMSTransModel::EM(double N_obs, int round) {
   }
 }
 
-void DMSTransModel::read(std::ifstream& fin) {
+void DMSTransModel::read(std::ifstream& fin, Sampler* sampler) {
   int tmp_len;
 
   fin>> tmp_len;
@@ -233,7 +235,7 @@ void DMSTransModel::read(std::ifstream& fin) {
       // Set initial values
       beta = new double[len + 1];
       memset(beta, 0, sizeof(double) * (len + 1));
-      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = 0.01;
+      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = sampler->sample();
     }
     else {
       beta[0] = 0.0;
@@ -270,7 +272,7 @@ void DMSTransModel::write(std::ofstream& fout) {
   fout<< len;
 
   fout.precision(10);
-  fout.setf(0, std::ios::floatfield);
+  fout.unsetf(std::ios::floatfield);
 
   if (beta == NULL) {
     for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
@@ -279,6 +281,18 @@ void DMSTransModel::write(std::ofstream& fout) {
     for (int i = 1; i <= len; ++i) fout<< '\t'<< beta[i];
   }
 
+  fout<< std::endl;
+}
+
+void DMSTransModel::writeTheta(std::ofstream& fout) {
+  double c = 0.0;
+  for (int i = 1; i <= len; ++i) c += -log(1.0 - beta[i]);
+
+  fout.precision(10);
+  fout.unsetf(std::ios::floatfield);
+
+  fout<< c<< '\t'<< len;
+  for (int i = 1; i <= len; ++i) fout<< '\t'<< std::max(0.0, -log(1.0 - beta[i]) / c);
   fout<< std::endl;
 }
 

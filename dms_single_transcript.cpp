@@ -23,6 +23,7 @@ ifstream fin;
 ofstream fout;
 
 int primer_length, min_frag_len, max_frag_len;
+double mean_gamma, mean_beta;
 int round_minus, round_plus;
 
 double calcL1(int len, double *a, double *b) {
@@ -32,34 +33,43 @@ double calcL1(int len, double *a, double *b) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 6 || argc > 9) {
-    printf("Usage: dms_single_transcript config_file learning_from_real_data minus_channel_count.txt plus_channel_count.txt output_name\n");
+  if (argc < 6 || argc > 10) {
+    printf("Usage: dms_single_transcript config_file learning_from_real_data minus_channel_count.txt plus_channel_count.txt output_name [seed]\n");
     printf("       dms_single_transcript config_file simulation ground_truth.gamma ground_truth.beta output_name number_of_fragments_simulated [seed]\n");
-    printf("       dms_single_transcript config_file learning_from_simulated_data minus_channel_simulated_data.dat plus_channel_simulated_data.dat output_name ground_truth_gamma.txt ground_truth_beta.txt reads_are_single_end(0 or 1)\n\n");
-    printf("   config_file provides the following parameters: primer length, the minimum fragment length, maximum fragment length, rounds of EM ran for minus channel and rounds of EM ran for plus channel. Each parameter in a separate line.\n");
+    printf("       dms_single_transcript config_file learning_from_simulated_data minus_channel_simulated_data.dat plus_channel_simulated_data.dat output_name ground_truth_gamma.txt ground_truth_beta.txt reads_are_single_end(0 or 1) [seed]\n\n");
+    printf("   config_file provides the following parameters: primer length, the minimum fragment length, maximum fragment length, mean gamma used for initializing EM, mean beta used for initialize EM, rounds of EM ran for minus channel and rounds of EM ran for plus channel. Each parameter in a separate line.\n");
     printf("   After the config_file is an action key word, it can be one of \"learing_from_real_data\", \"simulation\" or \"learning from_simulated_data\"\n\n");
     printf("   If the key word is \"learning_from_real_data\", this program try to learn parameters from a real data set, which is assumed to be single-end reads only.\n");
     printf("   The next two arguments are count vectors extracted from minus channel and plus channel. Each file contains only one file. The first value in the line is the transcript length, trans_len. Then trans_len double-precision values follows. Each value represents the number of expected read count at that transcript coordinate (from 5', 0-based). The count vectors can be extracted by script \"extract_count_vector\".\n");
-    printf("   The last argument, output_name, gives the prefix for all output files. output_name.gamma and output_name.beta will be produced, which represent the estimated gamma values and beta values. Each file contains only one line. The first value is the total number of parameters estimated, len (= trans_len - primer_length). Then len values follows, which are the estimated parameters (ordered from the 5' end).\n\n");
+    printf("   The last argument, output_name, gives the prefix for all output files. output_name.gamma, output_name.beta and output_name.theta will be produced, which represent the estimated gamma values, beta values, and theta values (c rate included). Each file contains only one line. For the first two files, the first value is the total number of parameters estimated, len (= trans_len - primer_length). Then len values follows, which are the estimated parameters (ordered from the 5' end). For the last file, the first value is the estimated rate, c.\n\n");
     printf("   If the key word is \"simulation\", this program will simulate fragment counts based on learned gamma and beta values.\n");
     printf("   ground_truth.gamma and ground_truth.beta are the parameters learned from a real data set.\n");
     printf("   output_name is the output prefix. output_name_minus.dat and output_name_plus.data will be produced, which contain the simulated fragments. The format of these files is as follows: Each line contains a simulated fragment. In each line, the first value is this fragment's start position (0-based, from 5' end) and the second value is the fragment length.\n");
-    printf("   number_of_fragments_simulated sets the number of fragments we want to simulate.\n");
-    printf("   [seed] is an optional argument. It sets the seed used for simulation. A same seed will always result in a same simulation.\n\n");
+    printf("   number_of_fragments_simulated sets the number of fragments we want to simulate.\n\n");
     printf("   If the key word is \"learning_from_simulated_data\", this program will learn parameters from simulated data sets.\n");
     printf("   minus_channel_simulated_data.dat and plus_channel_simulated_data.data give the simulated data themselves.\n");
-    printf("   output_name is defined above. output_name.gamma and output_name.beta will be generated.\n");
+    printf("   output_name is defined above. output_name.gamma, output_name.beta and output_name.theta will be generated.\n");
     printf("   ground_truth_gamma.txt and ground_truth_beta.txt provides the ground truth parameters, which should be learned from real data sets.\n");
-    printf("   reads_are_single_end(0 or 1) tells if we should view the simulated fragments as single-end reads or paired-end reads. 0 means reads are paired-end and 1 means reads are single-end.\n");
+    printf("   reads_are_single_end(0 or 1) tells if we should view the simulated fragments as single-end reads or paired-end reads. 0 means reads are paired-end and 1 means reads are single-end.\n\n");
+    printf("   [seed] is an optional argument shared by all key words. It sets the seed used for sampling. Sampling is involved in 'learning_from_real_data' and 'learning_from_simulated_data' for initilaizing gamma and betas. Sampling is used in 'simulation' for simulation. A same seed will always result in a same result.\n\n");
     exit(-1);
   }
 
   fi = fopen(argv[1], "r");
-  assert(fscanf(fi, "%d %d %d %d %d", &primer_length, &min_frag_len, &max_frag_len, &round_minus, &round_plus) == 5);
+  assert(fscanf(fi, "%d %d %d %lf %lf %d %d", &primer_length, &min_frag_len, &max_frag_len, &mean_gamma, &mean_beta, &round_minus, &round_plus) == 7);
   DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len);
 
+  seedType seed = 0;  
+  if ((!strcmp(argv[2], "learning_from_real_data") && argc == 7) ||	\
+      (!strcmp(argv[2], "simulation") && argc == 8) ||                  \
+      (!strcmp(argv[2], "learning_from_simulated_data") && argc == 10)) {
+    int str_len = strlen(argv[argc - 1]);
+    for (int i = 0; i < str_len; ++i) seed = seed * 10 + (argv[argc - 1][i] - '0');
+  }
+  else seed = time(NULL);
+  sampler = new Sampler(seed);
+  
   model = NULL;
-  sampler = NULL;
 
   if (!strcmp(argv[2], "learning_from_real_data")) {
     int trans_len;
@@ -76,7 +86,8 @@ int main(int argc, char* argv[]) {
 
     printf("MINUS_TOTAL_COUNTS = %.2f\n", tot_c);
 
-    model = new DMSTransModel(true, trans_len);
+    sampler->initExponentialDist(1.0 / mean_gamma);
+    model = new DMSTransModel(true, trans_len, sampler);
 
     model->init();
     for (int i = 0; i < trans_len; ++i) 
@@ -95,7 +106,8 @@ int main(int argc, char* argv[]) {
 
     sprintf(inF, "%s.gamma", argv[5]);
     fin.open(inF);
-    model->read(fin);
+    sampler->initExponentialDist(1.0 / mean_beta);
+    model->read(fin, sampler);
     fin.close();
 
     fi = fopen(argv[4], "r");
@@ -121,6 +133,11 @@ int main(int argc, char* argv[]) {
     sprintf(outF, "%s.beta", argv[5]);
     fout.open(outF);
     model->write(fout);
+    fout.close();
+
+    sprintf(outF, "%s.theta", argv[5]);
+    fout.open(outF);
+    model->writeTheta(fout);
     fout.close();
 
     delete model;
@@ -150,7 +167,8 @@ int main(int argc, char* argv[]) {
     fclose(fi);
 
     int pos, fragment_length;
-    model = new DMSTransModel(true, len + DMSTransModel::get_primer_length());
+    sampler->initExponentialDist(1.0 / mean_gamma);
+    model = new DMSTransModel(true, len + DMSTransModel::get_primer_length(), sampler);
     model->init();
 
     fi = fopen(argv[3], "r");
@@ -191,7 +209,8 @@ int main(int argc, char* argv[]) {
 
     sprintf(inF, "%s.gamma", argv[5]);
     fin.open(inF);
-    model->read(fin);
+    sampler->initExponentialDist(mean_beta);
+    model->read(fin, sampler);
     fin.close();
 
     fi = fopen(argv[4], "r");
@@ -230,6 +249,11 @@ int main(int argc, char* argv[]) {
     model->write(fout);
     fout.close();
 
+    sprintf(outF, "%s.theta", argv[5]);
+    fout.open(outF);
+    model->writeTheta(fout);
+    fout.close();
+
     delete model;
     delete[] gt_minus;
     delete[] gt_plus;
@@ -237,15 +261,6 @@ int main(int argc, char* argv[]) {
   else {
     assert(!strcmp(argv[2], "simulation"));
     int num_reads = atoi(argv[6]);
-
-    seedType seed = 0;
-    if (argc == 8) {
-      int str_len = strlen(argv[7]);
-      for (int i = 0; i < str_len; ++i) seed = seed * 10 + (argv[7][i] - '0');
-    }
-    else seed = time(NULL);
-    
-    sampler = new Sampler(seed);
 
     model = new DMSTransModel(false);
 
@@ -281,9 +296,10 @@ int main(int argc, char* argv[]) {
 
     printf("PLUS SIMULATION FIN!\n");
 
-    delete sampler;
     delete model;
   }
+
+  delete sampler;
 
   return 0;
 }

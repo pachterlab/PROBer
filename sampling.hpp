@@ -13,25 +13,47 @@ typedef uint32_t seedType;
 typedef boost::random::mt19937 engine_type;
 typedef boost::random::uniform_01<> uniform_01_dist;
 typedef boost::random::gamma_distribution<> gamma_dist;
+typedef boost::random::exponential_distribution<> exp_dist;
 typedef boost::random::variate_generator<engine_type&, uniform_01_dist> uniform_01_generator;
 typedef boost::random::variate_generator<engine_type&, gamma_dist> gamma_generator;
+typedef boost::random::variate_generator<engine_type&, exp_dist> exp_generator;
 
 class Sampler {
 public:
   Sampler(seedType seed) {
     engine = new engine_type(seed);
     rg = new uniform_01_generator(*engine, uniform_01_dist()); 
+    type = -1; orng = NULL;
   }
 
   Sampler(engine_type *engine) {
     assert(engine != NULL);
     this->engine = engine;
     rg = new uniform_01_generator(*engine, uniform_01_dist()); 
+    type = -1; orng = NULL;
+  }
+
+  void release() {
+    if (orng != NULL) {
+      switch(type) {
+      case EXP_DIST: delete (exp_generator*)orng; break;
+      default: assert(false);
+      }
+    }
+    orng = NULL;
   }
 
   ~Sampler() {
     delete engine;
     delete rg;
+
+    release();
+  }
+
+  void initExponentialDist(double lambda) {
+    release();
+    type = EXP_DIST;
+    orng = (void*)(new exp_generator(*engine, exp_dist(lambda)));
   }
 
   double random() { return (*rg)(); }  
@@ -39,9 +61,21 @@ public:
   int sample(double*, int);
   int sample(std::vector<double>&, int);
 
+  double sample() {
+    switch(type) {
+    case EXP_DIST: return (*((exp_generator*)orng))();
+    default: assert(false);
+    }
+  }
+
 private:
   engine_type *engine;
   uniform_01_generator *rg;
+
+  int type;
+  void *orng; // other random number generator
+
+  static const int EXP_DIST = 0;
 };
 
 // arr should be cumulative!

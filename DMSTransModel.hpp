@@ -22,7 +22,7 @@ public:
     @param   learning    if we need to learn parameters
     @param   transcript_length  the length of this transcript
    */
-  DMSTransModel(bool learning, int transcript_length = -1);
+  DMSTransModel(bool learning, int transcript_length = -1, Sampler *sampler = NULL);
 
   /*
     @param   o   the DMSTransModel object to copy from
@@ -131,15 +131,22 @@ public:
 
   /*
     @param   fin   input stream
+    @param   sampler  if not NULL, used for initialize beta vector
     @format:  len [beta/gamma] ... 
    */
-  void read(std::ifstream& fin);
+  void read(std::ifstream& fin, Sampler* sampler = NULL);
 
   /*
     @param   fout output stream
     @format: the same as read
    */
   void write(std::ofstream& fout);
+
+  /*
+    @param   fout output stream
+    @format:  c(rate of being marked) len thetas
+   */
+  void writeTheta(std::ofstream& fout);
 
   /*
     @param   sampler  a sampler used for sampling
@@ -155,7 +162,7 @@ public:
 private:
   static const double eps; // Epsilon used as an allowance on floating point error
   static const double INF; // Define exp(1000) as infinite to avoid the partial sum be -inf
-  
+
   static int primer_length; // primer_length, the length of primers
   static int min_frag_len, max_frag_len; // min_frag_len and max_frag_len, the min and max fragment length (primer length excluded)
 
