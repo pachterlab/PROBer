@@ -22,7 +22,7 @@ public:
     @param   learning    if we need to learn parameters
     @param   transcript_length  the length of this transcript
    */
-  DMSTransModel(bool learning, int transcript_length = -1, Sampler *sampler = NULL);
+  DMSTransModel(bool learning, int transcript_length = -1);
 
   /*
     @param   o   the DMSTransModel object to copy from
@@ -35,7 +35,7 @@ public:
   /*
     @comment: This function sets parameters shared by all transcripts, should be called before any DMSTransModel object is created.
    */
-  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len);
+  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init);
 
   /*
     @return   primer length
@@ -123,6 +123,11 @@ public:
   void init();
 
   /*
+    @comment: this function calculates the data likelihood
+   */
+  double calcLogLik() const;
+
+  /*
     @param   N_obs   expected observed counts for this transcript
     @param   round   number of EM rounds to go through
     @comment: Run EM algorithm on a single transcript
@@ -131,10 +136,9 @@ public:
 
   /*
     @param   fin   input stream
-    @param   sampler  if not NULL, used for initialize beta vector
     @format:  len [beta/gamma] ... 
    */
-  void read(std::ifstream& fin, Sampler* sampler = NULL);
+  void read(std::ifstream& fin);
 
   /*
     @param   fout output stream
@@ -165,6 +169,8 @@ private:
 
   static int primer_length; // primer_length, the length of primers
   static int min_frag_len, max_frag_len; // min_frag_len and max_frag_len, the min and max fragment length (primer length excluded)
+
+  static double gamma_init, beta_init;
 
   bool learning; // if learn parameters
   bool isSE; // if reads are SE reads 

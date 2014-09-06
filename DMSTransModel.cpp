@@ -8,7 +8,7 @@
 #include "sampling.hpp"
 #include "DMSTransModel.hpp"
 
-DMSTransModel::DMSTransModel(bool learning, int transcript_length, Sampler* sampler) {
+DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   gamma = beta = NULL;
   start = end = NULL;
   logsum = margin_prob = NULL;
@@ -33,7 +33,7 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length, Sampler* samp
   logsum = new double[len + 1];
   margin_prob = new double[efflen];
 
-  for (int i = 1; i <= len; ++i) gamma[i] = sampler->sample();
+  for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
   
   start = new double[len + 1];
   end = new double[len + 1];
@@ -110,12 +110,17 @@ const double DMSTransModel::INF = 1000.0;
 int DMSTransModel::primer_length = 6; // default, 6bp
 int DMSTransModel::min_frag_len;
 int DMSTransModel::max_frag_len;
+double DMSTransModel::gamma_init;
+double DMSTransModel::beta_init;
 
-void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len) {
+void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init) {
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   DMSTransModel::primer_length = primer_length;
   DMSTransModel::min_frag_len = min_frag_len - primer_length;
   DMSTransModel::max_frag_len = max_frag_len - primer_length;
+
+  DMSTransModel::gamma_init = gamma_init;
+  DMSTransModel::beta_init = beta_init;
 }
 
 void DMSTransModel::calcAuxiliaryArrays() {
@@ -152,12 +157,41 @@ void DMSTransModel::init() {
   memset(end, 0, sizeof(double) * (len + 1));
 }
 
-// May consider implement Kahan summation algorithm if precision is really a concern
+double DMSTransModel::calcLogLik() const {
+  double loglik = 0.0, N_obs = 0.0, value;
+
+  if (efflen <= 0) return loglik;
+
+  if (isSE) {
+    for (int i = 0; i < efflen; ++i) 
+      if (end[i] > 0.0) {
+	N_obs += end[i];
+	value = 0.0;
+	if (i > 0) value += (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
+	value += (logsum[i + min_frag_len] - logsum[i]) + log(margin_prob[i]);
+	loglik += end[i] * value;
+      }
+  }
+  else {
+    N_obs = end[0]; value = end[0] - start[0];
+    for (int i = 1; i <= len; ++i) {
+      N_obs += end[i];
+      if (end[i] > 0.0) loglik += end[i] * (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
+      if (value > 0.0) loglik += value * (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
+      value += end[i] - start[i];
+    }
+  }
+
+  loglik += N_obs * (log(delta) - log(prob_pass));
+
+  return loglik;
+}
+
 void DMSTransModel::EM(double N_obs, int round) {
   int max_end_i;
   double psum, value;
   double N_tot = N_obs / prob_pass;
-
+ 
   for (int ROUND = 0; ROUND < round; ++ROUND) {
     // E step
     
@@ -222,7 +256,7 @@ void DMSTransModel::EM(double N_obs, int round) {
   }
 }
 
-void DMSTransModel::read(std::ifstream& fin, Sampler* sampler) {
+void DMSTransModel::read(std::ifstream& fin) {
   int tmp_len;
 
   fin>> tmp_len;
@@ -235,7 +269,7 @@ void DMSTransModel::read(std::ifstream& fin, Sampler* sampler) {
       // Set initial values
       beta = new double[len + 1];
       memset(beta, 0, sizeof(double) * (len + 1));
-      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = sampler->sample();
+      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
     }
     else {
       beta[0] = 0.0;
