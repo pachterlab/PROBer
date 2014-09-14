@@ -166,6 +166,8 @@ public:
     @param   sampler  a sampler used for sampling
     @param   pos      sampled 5' position (0-based)
     @param   fragment_length   sampled fragment length, with primer length considered
+    @comment: If the probability of one fragment length is less than the MT19937 can generate, this fragment will never be generated. 
+              If we use the naive simulation procedure, we may alleviate this problem.
    */
   void simulate(Sampler* sampler, int& pos, int& fragment_length);
 
