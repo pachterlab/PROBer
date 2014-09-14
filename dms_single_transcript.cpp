@@ -91,7 +91,6 @@ int main(int argc, char* argv[]) {
       if (counts[i] > 0.0) model->update(i, counts[i]);
     fclose(fi);
 
-    model->calcAuxiliaryArrays();
     model->EM(tot_c, round_minus);
 
     printf("MINUS_PROB_PASS = %.10g, Loglik = %.10g\n", model->getProbPass(), model->calcLogLik());
@@ -121,7 +120,6 @@ int main(int argc, char* argv[]) {
       if (counts[i] > 0.0) model->update(i, counts[i]);
     fclose(fi);
 
-    model->calcAuxiliaryArrays();
     model->EM(tot_c, round_plus);
 
     printf("PLUS_PROB_PASS = %.10g, Loglik = %.10g\n", model->getProbPass(), model->calcLogLik());
@@ -175,7 +173,6 @@ int main(int argc, char* argv[]) {
     }
     fclose(fi);
 
-    model->calcAuxiliaryArrays();
     model->EM(tot_c, round_minus);
     printf("L1_diff = %.10g, Loglik = %.10g, Probability_of_a_fragment_passing_the_size_selection_step =  %.10g\n", calcL1(len, gt_minus, model->getGamma()), model->calcLogLik(), model->getProbPass());
     /*
@@ -216,7 +213,6 @@ int main(int argc, char* argv[]) {
     }
     fclose(fi);
 
-    model->calcAuxiliaryArrays();
     model->EM(tot_c, round_plus);
     printf("L1_diff = %.10g, Loglik = %.10g, Prob_pass = %.10g\n", calcL1(len, gt_plus, model->getBeta()), model->calcLogLik(), model->getProbPass());
     /*
@@ -273,10 +269,12 @@ int main(int argc, char* argv[]) {
     fo = fopen(outF, "w");
     int pos, fragment_length;
 
+    model->startSimulation();
     for (int i = 0; i < num_reads; ++i) {
       model->simulate(sampler, pos, fragment_length);
       fprintf(fo, "%d\t%d\n", pos, fragment_length);
     }
+    model->finishSimulation();
     fclose(fo);
 
     printf("MINUS SIMULATION FIN!\n");
@@ -288,10 +286,12 @@ int main(int argc, char* argv[]) {
     
     sprintf(outF, "%s_plus.dat", argv[5]);
     fo = fopen(outF, "w");
+    model->startSimulation();
     for (int i = 0; i < num_reads; ++i) {
       model->simulate(sampler, pos, fragment_length);
       fprintf(fo, "%d\t%d\n", pos, fragment_length);
     }
+    model->finishSimulation();
     fclose(fo);
 
     printf("PLUS SIMULATION FIN!\n");

@@ -53,6 +53,11 @@ public:
   static int get_maximum_fragment_length() { return max_frag_len + primer_length; }
 
   /*
+    @return   if this transcript can produce reads that pass size selection step. If not, we can omit this transcript.
+   */
+  bool canProduceReads() const { return efflen > 0; }
+
+  /*
     @param   pos     leftmost position in 5' end, 0-based  
     @return   the probability of generating a SE read end at pos
    */
@@ -108,7 +113,7 @@ public:
 
   /*
     @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
-    @comment: It should be called before getProb or EM is called
+    @comment: It is automatically called in the constructor function (if learning) and read function
    */
   void calcAuxiliaryArrays();
 
@@ -153,13 +158,23 @@ public:
   void writeTheta(std::ofstream& fout);
 
   /*
+    @comment: allocate memory for cdf_end and calculate its values
+   */
+  void startSimulation();
+
+  /*
     @param   sampler  a sampler used for sampling
     @param   pos      sampled 5' position (0-based)
     @param   fragment_length   sampled fragment length, with primer length considered
    */
   void simulate(Sampler* sampler, int& pos, int& fragment_length);
 
-  int getLen() { return len; }
+  /*
+    @comment: free memory allocated to cdf_end
+   */
+  void finishSimulation();
+
+  int getLen() const { return len; }
   double* getGamma() { return gamma; }
   double* getBeta() { return beta; }
 
@@ -188,6 +203,8 @@ private:
   double *margin_prob; // For SE reads, margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
+
+  double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 };
 
 #endif

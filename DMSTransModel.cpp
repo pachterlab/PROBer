@@ -15,6 +15,11 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   start2 = end2 = NULL;
   isSE = false;
 
+  len = efflen = -1; 
+  delta = prob_pass = 0.0;
+
+  cdf_end = NULL;
+
   this->learning = learning;
 
   if (!learning) return;
@@ -22,7 +27,6 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   len = transcript_length - primer_length;
   efflen = len - min_frag_len + 1;
   delta = 1.0 / (len + 1.0);
-  prob_pass = 0.0;
   
   gamma = new double[len + 1];
   memset(gamma, 0, sizeof(double) * (len + 1));
@@ -44,6 +48,8 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   
   start2 = new double[len + 1];
   end2 = new double[len + 1];
+
+  calcAuxiliaryArrays();
 }
 
 DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isSE(o.isSE), len(o.len), efflen(o.efflen), delta(o.delta), prob_pass(o.prob_pass) {
@@ -51,6 +57,7 @@ DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isS
   start = end = NULL;
   logsum = margin_prob = NULL;
   start2 = end2 = NULL;
+  cdf_end = NULL;
 
   if (o.gamma != NULL) {
     gamma = new double[len + 1];
@@ -188,6 +195,8 @@ double DMSTransModel::calcLogLik() const {
 }
 
 void DMSTransModel::EM(double N_obs, int round) {
+  if (efflen <= 0) return;
+
   int max_end_i;
   double psum, value;
   double N_tot = N_obs / prob_pass;
@@ -269,9 +278,13 @@ void DMSTransModel::read(std::ifstream& fin) {
       // Set initial values
       beta = new double[len + 1];
       memset(beta, 0, sizeof(double) * (len + 1));
-      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
+      if (efflen > 0) {
+	for (int i = 1; i <= len; ++i) beta[i] = beta_init;
+	calcAuxiliaryArrays();
+      }
     }
     else {
+      assert(false);
       beta[0] = 0.0;
       for (int i = 1; i <= len; ++i) fin>> beta[i];
     }
@@ -281,7 +294,6 @@ void DMSTransModel::read(std::ifstream& fin) {
       len = tmp_len;
       efflen = len - min_frag_len + 1;
       delta = 1.0 / (len + 1);
-      prob_pass = 0.0;
       
       gamma = new double[len + 1];
       gamma[0] = 0.0;
@@ -291,6 +303,7 @@ void DMSTransModel::read(std::ifstream& fin) {
 	// auxiliary arrays
 	logsum = new double[len + 1];
 	margin_prob = new double[efflen];
+	calcAuxiliaryArrays();
       } 
     }
     else {
@@ -298,6 +311,7 @@ void DMSTransModel::read(std::ifstream& fin) {
       beta = new double[len + 1];
       beta[0] = 0.0;
       for (int i = 1; i <= len; ++i) fin>> beta[i];
+      if (efflen > 0) calcAuxiliaryArrays();
     }
   }
 }
@@ -330,18 +344,37 @@ void DMSTransModel::writeTheta(std::ofstream& fout) {
   fout<< std::endl;
 }
 
-void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
-  double value;
+void DMSTransModel::startSimulation() {
+  cdf_end = new double[efflen];
 
-  do {
-    pos = int(sampler->random() * (len + 1));
-    fragment_length = 0;
-    while (pos > 0) {
-      value = sampler->random();
-      if ((beta == NULL && value < gamma[pos]) || (beta != NULL && value < gamma[pos] + beta[pos] - gamma[pos] * beta[pos])) break;
-      --pos;
-      ++fragment_length;
-    }
-  } while (fragment_length < min_frag_len || fragment_length > max_frag_len);
+  cdf_end[0] = exp(logsum[min_frag_len] - logsum[0]) * margin_prob[0];
+  for (int i = 1; i < efflen; ++i) {
+    cdf_end[i] = (beta == NULL ? gamma[i] : (gamma[i] + beta[i] - gamma[i] * beta[i])) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
+    cdf_end[i] += cdf_end[i - 1];
+  }
+}
+
+void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
+  int upper_bound, cpos;
+  double random_value, value, sum;
+
+  // Determine the end position
+  pos = sampler->sample(cdf_end, efflen);
+
+  // Determine fragment length
+  upper_bound = std::min(max_frag_len, len - pos);
+  random_value = sampler->random() * margin_prob[pos];
+  value = sum = 1.0; 
+  cpos = pos + min_frag_len;
+  for (fragment_length = min_frag_len; (fragment_length < upper_bound) && (sum <= random_value); ++fragment_length) {
+    ++cpos;
+    value *= (beta == NULL ? (1.0 - gamma[cpos]) : (1.0 - gamma[cpos]) * (1.0 - beta[cpos])); 
+    sum += value;
+  }
+  
   fragment_length += primer_length;
+}
+
+void DMSTransModel::finishSimulation() {
+  delete[] cdf_end;
 }
