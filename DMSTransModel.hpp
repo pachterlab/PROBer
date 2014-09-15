@@ -20,9 +20,10 @@ class DMSTransModel {
 public:
   /*
     @param   learning    if we need to learn parameters
+    @param   name    transcript name
     @param   transcript_length  the length of this transcript
    */
-  DMSTransModel(bool learning, int transcript_length = -1);
+  DMSTransModel(bool learning, const std::string& name = "", int transcript_length = -1);
 
   /*
     @param   o   the DMSTransModel object to copy from
@@ -51,6 +52,16 @@ public:
     @return   maximum fragment length
    */
   static int get_maximum_fragment_length() { return max_frag_len + primer_length; }
+
+  /*
+    @return   transcript name
+   */    
+  const std::string& getName() const { return name; }
+
+  /*
+    @return   number of positions can estimate paramter: transcript length - primer length
+   */
+  int getLen() const { return len; }
 
   /*
     @return   if this transcript can produce reads that pass size selection step. If not, we can omit this transcript.
@@ -113,7 +124,7 @@ public:
 
   /*
     @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
-    @comment: It is automatically called in the constructor function (if learning) and read function
+    @comment: It should be called before EM or getProb or get ProbPass etc. 
    */
   void calcAuxiliaryArrays();
 
@@ -125,7 +136,10 @@ public:
   /*
     @comment: set start and end to 0
    */
-  void init();
+  void init() {
+    memset(start, 0, sizeof(double) * (len + 1));
+    memset(end, 0, sizeof(double) * (len + 1));
+  }
 
   /*
     @comment: this function calculates the data likelihood
@@ -133,15 +147,26 @@ public:
   double calcLogLik() const;
 
   /*
-    @param   N_obs   expected observed counts for this transcript
+    @param   start2   auxiliary array used in EM
+    @param   end2     auxiliary array used in EM
+    @comment: start2 and end2 can be shared among multiple transcripts in a same thread. 
+              This function tells this transcript where the start2 and end2 it should use.
+   */
+  void setStart2andEnd2(double* start2, double* end2) {
+    this->start2 = start2;
+    this->end2 = end2;
+  }
+
+  /*
+    @param   N_tot   expected total counts for this transcript
     @param   round   number of EM rounds to go through
     @comment: Run EM algorithm on a single transcript
    */
-  void EM(double N_obs, int round = 1);
+  void EM(double N_tot, int round = 1);
 
   /*
     @param   fin   input stream
-    @format:  len [beta/gamma] ... 
+    @format:  name len [beta/gamma] ... 
    */
   void read(std::ifstream& fin);
 
@@ -152,13 +177,14 @@ public:
   void write(std::ofstream& fout);
 
   /*
-    @param   fout output stream
-    @format:  c(rate of being marked) len thetas
+    @param   fc   output stream for c, the marking rate
+    @param   fout output stream for freqs
+    @format:  name c(rate of being marked) len freqs
    */
-  void writeTheta(std::ofstream& fout);
+  void writeFreq(std::ofstream& fc, std::ofstream& fout);
 
   /*
-    @comment: allocate memory for cdf_end and calculate its values
+    @comment: allocate memory for cdf_end, call calcAuxiliaryArrays() and calculate cdf_end values
    */
   void startSimulation();
 
@@ -176,7 +202,6 @@ public:
    */
   void finishSimulation();
 
-  int getLen() const { return len; }
   double* getGamma() { return gamma; }
   double* getBeta() { return beta; }
 
@@ -189,6 +214,7 @@ private:
 
   static double gamma_init, beta_init;
 
+  std::string name; // transcript name
   bool learning; // if learn parameters
   bool isSE; // if reads are SE reads 
   int len; // len, number of position can learn parameters, transcript_length - primer_length

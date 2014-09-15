@@ -8,13 +8,14 @@
 #include "sampling.hpp"
 #include "DMSTransModel.hpp"
 
-DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
+DMSTransModel::DMSTransModel(bool learning, const std::string& name, int transcript_length) {  
   gamma = beta = NULL;
   start = end = NULL;
   logsum = margin_prob = NULL;
   start2 = end2 = NULL;
   isSE = false;
 
+  this->name = "";
   len = efflen = -1; 
   delta = prob_pass = 0.0;
 
@@ -24,6 +25,7 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
 
   if (!learning) return;
 
+  this->name = name;
   len = transcript_length - primer_length;
   efflen = len - min_frag_len + 1;
   delta = 1.0 / (len + 1.0);
@@ -45,52 +47,6 @@ DMSTransModel::DMSTransModel(bool learning, int transcript_length) {
   // Initialize arrays
   memset(start, 0, sizeof(double) * (len + 1));
   memset(end, 0, sizeof(double) * (len + 1));
-  
-  start2 = new double[len + 1];
-  end2 = new double[len + 1];
-
-  calcAuxiliaryArrays();
-}
-
-DMSTransModel::DMSTransModel(const DMSTransModel& o) : learning(o.learning), isSE(o.isSE), len(o.len), efflen(o.efflen), delta(o.delta), prob_pass(o.prob_pass) {
-  gamma = beta = NULL;
-  start = end = NULL;
-  logsum = margin_prob = NULL;
-  start2 = end2 = NULL;
-  cdf_end = NULL;
-
-  if (o.gamma != NULL) {
-    gamma = new double[len + 1];
-    memcpy(gamma, o.gamma, sizeof(double) * (len + 1));
-  }
-  if (o.beta != NULL) {
-    beta = new double[len + 1];
-    memcpy(beta, o.beta, sizeof(double) * (len + 1));
-  }
-  if (o.start != NULL) {
-    start = new double[len + 1];
-    memcpy(start, o.start, sizeof(double) * (len + 1));
-  }
-  if (o.end != NULL) {
-    end = new double[len + 1];
-    memcpy(end, o.end, sizeof(double) * (len + 1));
-  }
-  if (o.logsum != NULL) {
-    logsum = new double[len + 1];
-    memcpy(logsum, o.logsum, sizeof(double) * (len + 1));
-  }
-  if (o.margin_prob != NULL) {
-    margin_prob = new double[efflen];
-    memcpy(margin_prob, o.margin_prob, sizeof(double) * efflen);
-  }
-  if (o.start2 != NULL) {
-    start2 = new double[len + 1];
-    memcpy(start2, o.start2, sizeof(double) * (len + 1));
-  }
-  if (o.end2 != NULL) {
-    end2 = new double[len + 1];
-    memcpy(end2, o.end2, sizeof(double) * (len + 1));
-  }
 }
 
 DMSTransModel::~DMSTransModel() {
@@ -105,10 +61,6 @@ DMSTransModel::~DMSTransModel() {
   // auxiliary arrays
   if (logsum != NULL) delete[] logsum;
   if (margin_prob != NULL) delete[] margin_prob;
-
-  // If shared across a thread of transcripts, no need to delete
-  if (start2 != NULL) delete[] start2;
-  if (end2 != NULL) delete[] end2;
 }
 
 const double DMSTransModel::eps = 1e-8;
@@ -159,11 +111,6 @@ void DMSTransModel::calcAuxiliaryArrays() {
   }
 }
 
-void DMSTransModel::init() {
-  memset(start, 0, sizeof(double) * (len + 1));
-  memset(end, 0, sizeof(double) * (len + 1));
-}
-
 double DMSTransModel::calcLogLik() const {
   double loglik = 0.0, N_obs = 0.0, value;
 
@@ -189,18 +136,22 @@ double DMSTransModel::calcLogLik() const {
     }
   }
 
-  loglik += N_obs * (log(delta) - log(prob_pass));
+  loglik += N_obs * log(delta);
 
   return loglik;
 }
 
-void DMSTransModel::EM(double N_obs, int round) {
+void DMSTransModel::EM(double N_tot, int round) {
   if (efflen <= 0) return;
 
   int max_end_i;
   double psum, value;
-  double N_tot = N_obs / prob_pass;
- 
+  //  double N_tot = N_obs / prob_pass;
+
+  assert(round == 1);
+
+  assert(start2 != NULL && end2 != NULL);
+
   for (int ROUND = 0; ROUND < round; ++ROUND) {
     // E step
     
@@ -261,27 +212,25 @@ void DMSTransModel::EM(double N_obs, int round) {
     
     // Prepare for the next round
     calcAuxiliaryArrays();
-    N_tot = N_obs / prob_pass;
+    //    N_tot = N_obs / prob_pass;
   }
 }
 
 void DMSTransModel::read(std::ifstream& fin) {
+  std::string tmp_name;
   int tmp_len;
 
-  fin>> tmp_len;
+  fin>> tmp_name>> tmp_len;
 
   if (learning) {
-    assert(tmp_len == len);
+    assert((tmp_name == name) && (tmp_len == len));
     if (beta == NULL) {
       gamma[0] = 0.0;
       for (int i = 1; i <= len; ++i) fin>> gamma[i];
       // Set initial values
       beta = new double[len + 1];
       memset(beta, 0, sizeof(double) * (len + 1));
-      if (efflen > 0) {
-	for (int i = 1; i <= len; ++i) beta[i] = beta_init;
-	calcAuxiliaryArrays();
-      }
+      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
     }
     else {
       assert(false);
@@ -291,6 +240,7 @@ void DMSTransModel::read(std::ifstream& fin) {
   }
   else {
     if (gamma == NULL) {
+      name = tmp_name;
       len = tmp_len;
       efflen = len - min_frag_len + 1;
       delta = 1.0 / (len + 1);
@@ -303,24 +253,19 @@ void DMSTransModel::read(std::ifstream& fin) {
 	// auxiliary arrays
 	logsum = new double[len + 1];
 	margin_prob = new double[efflen];
-	calcAuxiliaryArrays();
       } 
     }
     else {
-      assert(beta == NULL && tmp_len == len);
+      assert((beta == NULL) && (tmp_name == name) && (tmp_len == len));
       beta = new double[len + 1];
       beta[0] = 0.0;
       for (int i = 1; i <= len; ++i) fin>> beta[i];
-      if (efflen > 0) calcAuxiliaryArrays();
     }
   }
 }
 
 void DMSTransModel::write(std::ofstream& fout) {
-  fout<< len;
-
-  fout.precision(10);
-  fout.unsetf(std::ios::floatfield);
+  fout<< name<< '\t'<< len;
 
   if (beta == NULL) {
     for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
@@ -332,21 +277,24 @@ void DMSTransModel::write(std::ofstream& fout) {
   fout<< std::endl;
 }
 
-void DMSTransModel::writeTheta(std::ofstream& fout) {
+void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
   double c = 0.0;
   for (int i = 1; i <= len; ++i) c += -log(1.0 - beta[i]);
 
-  fout.precision(10);
-  fout.unsetf(std::ios::floatfield);
-
-  fout<< c<< '\t'<< len;
-  for (int i = 1; i <= len; ++i) fout<< '\t'<< std::max(0.0, -log(1.0 - beta[i]) / c);
+  fc << c;
+  fout<< name;
+  if (c > eps) {
+    fout<< '\t'<< len;
+    for (int i = 1; i <= len; ++i) fout<< '\t'<< std::max(0.0, -log(1.0 - beta[i]) / c);
+  }
   fout<< std::endl;
 }
 
 void DMSTransModel::startSimulation() {
   cdf_end = new double[efflen];
 
+  calcAuxiliaryArrays();
+ 
   cdf_end[0] = exp(logsum[min_frag_len] - logsum[0]) * margin_prob[0];
   for (int i = 1; i < efflen; ++i) {
     cdf_end[i] = (beta == NULL ? gamma[i] : (gamma[i] + beta[i] - gamma[i] * beta[i])) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
