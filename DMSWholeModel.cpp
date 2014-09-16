@@ -12,7 +12,7 @@
 #include "MyHeap.hpp"
 #include "DMSWholeModel.hpp"
 
-DMSWholeModel::DMSWholeModel(const char* config_file, bam_header_t* header, int num_threads) {
+DMSWholeModel::DMSWholeModel(const char* config_file, const bam_header_t* header, int num_threads) {
   // set DMSTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -24,7 +24,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, bam_header_t* header, int 
 
   DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, gamma_init, beta_init);
 
-  isGamma = true;
+  readGamma = true;
   this->num_threads = 0;
 
   M = 0; 
@@ -48,7 +48,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, bam_header_t* header, int 
     allocateTranscriptsToThreads();
   }
 
-  cdf_theta = NULL;
+  cdf = NULL;
 }
 
 DMSWholeModel::~DMSWholeModel() {
@@ -306,7 +306,7 @@ void DMSWholeModel::startSimulation() {
   cdf[0] = theta[0];
   for (int i = 1; i <= M; ++i) {
     cdf[i] = 0.0;
-    if (transcripts[i]->canProduceRead()) {
+    if (transcripts[i]->canProduceReads()) {
       transcripts[i]->startSimulation();
       cdf[i] = theta[i] * transcripts[i]->getProbPass(); 
     }
@@ -317,7 +317,7 @@ void DMSWholeModel::startSimulation() {
 
 void DMSWholeModel::finishSimulation() {
   for (int i = 1; i <= M; ++i)
-    if (transcripts[i]->canProduceRead()) transcripts[i]->finishSimulation();
+    if (transcripts[i]->canProduceReads()) transcripts[i]->finishSimulation();
   delete[] cdf;
 }
 
@@ -328,7 +328,7 @@ void DMSWholeModel::allocateTranscriptsToThreads() {
 
   my_heap.init(num_threads);
   paramsVec.assign(num_threads, NULL);
-  for (int i = 0; i < num_threads; ++i) paramsVec[i] = new ThreadType(i, this);
+  for (int i = 0; i < num_threads; ++i) paramsVec[i] = new Params(i, this);
   max_lens.assign(num_threads, 0);
 
   // allocate transcripts

@@ -8,7 +8,7 @@
 
 class SamParser {
 public:
-  SamParser(char, const char*, const char* = 0);
+  SamParser(char inpType, const char* inpF, const char* aux = NULL);
   ~SamParser();
 
   const bam_header_t* getHeader() const { 

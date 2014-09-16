@@ -56,7 +56,7 @@ public:
   
   int getTid() const { 
     assert(is_aligned > 0); 
-    return (is_aligned == 3 ? b2->core.tid : b->core.tid);
+    return (is_aligned != 3 ? b->core.tid : b2->core.tid);
   }
   
   char getDir() const { 

@@ -4,6 +4,7 @@
 #include<vector>
 
 #include "sam/bam.h"
+#include "sampling.hpp"
 #include "DMSTransModel.hpp"
 
 class DMSWholeModel {
@@ -14,7 +15,7 @@ public:
     @param   header        Bam header, we obtain transcriopt names and lengths from the header
     @param   num_threads   Number of threads allowed to use
    */
-  DMSWholeModel(const char* config_file, bam_header_t* header = NULL, int num_threads = 1);
+  DMSWholeModel(const char* config_file, const bam_header_t* header = NULL, int num_threads = 1);
 
   /*
     @function   destructor function, release contents of treads and transcripts
@@ -55,7 +56,7 @@ public:
 
   /*
    */
-  void runEM();
+  void runEM(int max_round);
 
   /*
     @param   input_name   All input files use input_name as their prefixes
@@ -99,10 +100,6 @@ private:
   double N_tot; // expected total read counts
   std::vector<double> counts; // number of reads fall into each transcript
 
-  std::vector<Params*> paramsVec; // parameters used by each thread
-
-  double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
-
   // Params, used for multi-threading
   struct Params {
     int id;
@@ -127,6 +124,9 @@ private:
     }
   };
 
+  std::vector<Params*> paramsVec; // parameters used by each thread
+
+  double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
   /*
     @comment: This function tries to allocate transcripts to threads evenly
@@ -142,7 +142,7 @@ private:
   }
 
   void run_EM_step(Params* params) {
-    parmas->loglik = 0.0;
+    params->loglik = 0.0;
     for (int i = 0; i < params->num_trans; ++i) {
       params->trans[i]->EM(N_tot * theta[i]);
       params->loglik += params->trans[i]->calcLogLik();
