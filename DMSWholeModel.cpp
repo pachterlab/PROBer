@@ -45,14 +45,13 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const bam_header_t* header
     transcripts.assign(M + 1, NULL);
     for (int i = 1; i <= M; ++i) 
       transcripts[i] = new DMSTransModel(true, header->target_name[i - 1], header->target_len[i - 1]);
-    allocateTranscriptsToThreads();
   }
 
   cdf = NULL;
 }
 
 DMSWholeModel::~DMSWholeModel() {
-  for (int i = 0; i < num_threads; ++i) delete paramsVec[i];
+  for (int i = 0; i < (int)paramsVec.size(); ++i) delete paramsVec[i];
   assert(transcripts[0] == NULL);
   for (int i = 1; i <= M; ++i) delete transcripts[i];
 }
@@ -73,14 +72,29 @@ void DMSWholeModel::runEM(int max_round) {
   double loglik, old_loglik;
   std::vector<double> unobserved;
 
-  N_obs = 0.0;
-  for (int i = 0; i <= M; ++i) N_obs += counts[i];
-  
+  // Set counts
+  for (int i = 1; i <= M; ++i) {
+    counts[i] = transcripts[i]->getNobs();
+    if (isZero(counts[i])) transcripts[i]->setDefault();
+  }
+
+  // Calculate total number of observed reads
+  N_obs = 0.0; denom = 0.0;
+  for (int i = 0; i <= M; ++i) 
+    if (isZero(counts[i])) counts[i] = 0.0;
+    else { N_obs += counts[i]; ++denom; }
+
+  // Number of transcripts with > 0 observed reads should be positive
+  assert(denom > 0.0);
+
+  // Allocate transcripts to threads
+  allocateTranscriptsToThreads();
+
   // Initialize theta
-  for (int i = 0; i <= M; ++i) theta[i] = 1.0 / (M + 1);
+  for (int i = 0; i <= M; ++i)
+    theta[i] = (isZero(counts[i]) ? 0.0 : 1.0 / denom);
 
   unobserved.assign(M + 1, 0.0);
-
 
   // calcAuxiliaryArrays
   // create threads
@@ -98,26 +112,27 @@ void DMSWholeModel::runEM(int max_round) {
   for (int i = 0; i < num_threads; ++i) loglik += paramsVec[i]->loglik;
 
   // Calculate expected total number of reads
-  denom = theta[0];
-  if (!isZero(counts[0])) loglik += counts[0] * log(theta[0]);
-  for (int i = 1; i <= M; ++i) 
-    if (transcripts[i]->canProduceReads()) { 
-      if (!isZero(counts[i])) loglik += counts[i] * log(theta[i]);
-      denom += theta[i] * transcripts[i]->getProbPass();
+  denom = 0.0;
+  for (int i = 0; i <= M; ++i) 
+    if (!isZero(counts[i])) {
+      assert(!isZero(theta[i]));
+      loglik += counts[i] * log(theta[i]);
+      if (i > 0) denom += theta[i] * transcripts[i]->getProbPass();
     }
   assert(!isZero(denom));
+
   loglik -= N_obs * log(denom);
   N_tot = N_obs / denom;
   
   
   do {
     old_loglik = loglik;
-    loglik = 0.0;
 
-    unobserved[0] = 0.0;
-    for (int i = 1; i <= M; ++i) 
-      if (transcripts[i]->canProduceReads()) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass());
-      else unobserved[i] = 0.0;
+    // Calculate expected hidden reads to each transcript
+    for (int i = 0; i <= M; ++i) {
+      unobserved[i] = 0.0;
+      if (i > 0 && !isZero(counts[i])) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass());
+    }
 
     // Estimate new gamma/beta parameters
     // create threads
@@ -130,9 +145,11 @@ void DMSWholeModel::runEM(int max_round) {
       rc = pthread_join(threads[i], NULL);
       pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "( numbered from 0) for run_EM_step_per_thread!");
     }
-    // collect loglik values
-    for (int i = 0; i < num_threads; ++i) loglik += paramsVec[i]->loglik;
 
+    // collect loglik values
+    loglik = 0.0;
+    for (int i = 0; i < num_threads; ++i) loglik += paramsVec[i]->loglik;
+ 
     // Estimate new theta
     sum = 0.0;
     for (int i = 0; i <= M; ++i) {
@@ -143,19 +160,20 @@ void DMSWholeModel::runEM(int max_round) {
     for (int i = 0; i <= M; ++i) theta[i] /= sum;
 
     // Calculate expected total number of reads
-    denom = theta[0];
-    if (!isZero(counts[0])) loglik += counts[0] * log(theta[0]);
-    for (int i = 1; i <= M; ++i) 
-      if (transcripts[i]->canProduceReads()) { 
-	if (!isZero(counts[i])) loglik += counts[i] * log(theta[i]);
-	denom += theta[i] * transcripts[i]->getProbPass();
+    denom = 0.0;
+    for (int i = 0; i <= M; ++i) 
+      if (!isZero(counts[i])) {
+	assert(!isZero(theta[i]));
+	loglik += counts[i] * log(theta[i]);
+	if (i > 0) denom += theta[i] * transcripts[i]->getProbPass();
       }
     assert(!isZero(denom));
+    
     loglik -= N_obs * log(denom);
     N_tot = N_obs / denom;
 
     ++Round;
-    printf("Round = %d, old_loglik = %.10g, loglik = %.10g\n", Round, old_loglik, loglik);
+    printf("Round = %d, old_loglik = %.10g, loglik = %.10g, denom = %.10g\n", Round, old_loglik, loglik, denom);
 
   } while(Round < max_round);
 
@@ -215,6 +233,8 @@ void DMSWholeModel::read(const char* input_name) {
     for (int i = 0; i <= M; ++i) assert(fin>> theta[i]);
     fin.close();
   }
+
+  printf("READ is finished!\n");
 }
 
 void DMSWholeModel::write(const char* output_name) {
@@ -299,6 +319,8 @@ void DMSWholeModel::write(const char* output_name) {
     fc.close();
     fout.close();
   }
+
+  printf("WRITE is finished!\n");
 }
 
 void DMSWholeModel::startSimulation() {
@@ -306,18 +328,18 @@ void DMSWholeModel::startSimulation() {
   cdf[0] = theta[0];
   for (int i = 1; i <= M; ++i) {
     cdf[i] = 0.0;
-    if (transcripts[i]->canProduceReads()) {
+    if (theta[i] > 0.0) {
+      assert(transcripts[i]->getEffLen() > 0);
       transcripts[i]->startSimulation();
       cdf[i] = theta[i] * transcripts[i]->getProbPass(); 
     }
-    else assert(theta[i] = 0.0);
     cdf[i] += cdf[i - 1];
   }
 }
 
 void DMSWholeModel::finishSimulation() {
-  for (int i = 1; i <= M; ++i)
-    if (transcripts[i]->canProduceReads()) transcripts[i]->finishSimulation();
+  for (int i = 1; i <= M; ++i) 
+    if (theta[i] > 0.0) transcripts[i]->finishSimulation();
   delete[] cdf;
 }
 
@@ -333,10 +355,11 @@ void DMSWholeModel::allocateTranscriptsToThreads() {
 
   // allocate transcripts
   for (int i = 1; i <= M; ++i) 
-    if (transcripts[i]->canProduceReads()) {
+    if (!isZero(counts[i])) {
       id = my_heap.getTop();
       ++paramsVec[id]->num_trans;
       paramsVec[id]->trans.push_back(transcripts[i]);
+      paramsVec[id]->origin_ids.push_back(i);
       if (max_lens[id] < transcripts[i]->getLen()) max_lens[id] = transcripts[i]->getLen();
       my_heap.updateTop(transcripts[i]->getLen());
     }

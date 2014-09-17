@@ -1,6 +1,7 @@
 #ifndef DMSWHOLEMODEL_H_
 #define DMSWHOLEMODEL_H_
 
+#include<cmath>
 #include<vector>
 
 #include "sam/bam.h"
@@ -29,8 +30,8 @@ public:
     @comment: This function is for single-end reads
    */
   void update(int tid, int pos, double frac) {
-    counts[tid] += frac;
     if (tid > 0) transcripts[tid]->update(pos, frac);
+    else counts[tid] += frac;
   }
 
   /*
@@ -41,8 +42,8 @@ public:
     @comment: This function is for paired-end reads
    */
   void update(int tid, int pos, int fragment_length, double frac) {
-    counts[tid] += frac;
     if (tid > 0) transcripts[tid]->update(pos, fragment_length, frac);
+    else counts[tid] += frac;
   }
 
   /*
@@ -51,7 +52,7 @@ public:
   void init() {
     counts.assign(M + 1, 0.0);
     for (int i = 1; i <= M; ++i) 
-      if (transcripts[i]->canProduceReads()) transcripts[i]->init();
+      if (transcripts[i]->getEffLen() > 0) transcripts[i]->init();
   }
 
   /*
@@ -107,6 +108,8 @@ private:
 
     int num_trans;
     std::vector<DMSTransModel*> trans;
+    std::vector<int> origin_ids;
+
     double *start2, *end2;
 
     double loglik;
@@ -114,6 +117,7 @@ private:
     Params(int id, DMSWholeModel *pointer) : id(id), pointer(pointer) {
       num_trans = 0;
       trans.clear();
+      origin_ids.clear();
       start2 = end2 = NULL;
       loglik = 0.0;
     }
@@ -144,7 +148,7 @@ private:
   void run_EM_step(Params* params) {
     params->loglik = 0.0;
     for (int i = 0; i < params->num_trans; ++i) {
-      params->trans[i]->EM(N_tot * theta[i]);
+      params->trans[i]->EM(N_tot * theta[params->origin_ids[i]]);
       params->loglik += params->trans[i]->calcLogLik();
     }
   }

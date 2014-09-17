@@ -7,6 +7,7 @@
 #include<string>
 #include<fstream>
 
+#include "utils.h"
 #include "sampling.hpp"
 
 /*
@@ -64,9 +65,24 @@ public:
   int getLen() const { return len; }
 
   /*
-    @return   if this transcript can produce reads that pass size selection step. If not, we can omit this transcript.
+    @return   number of positions can produce reads that pass the size selection step
    */
-  bool canProduceReads() const { return efflen > 0; }
+  int getEffLen() const { return efflen; }
+
+  /*
+    @return   N_obs, number of observed reads
+   */
+  double getNobs() const { return N_obs; }
+
+  /*
+    @comment: if this transcript has 0 reads, set its gamma/beta values to default
+   */
+  void setDefault() {
+    assert(isZero(N_obs));
+    N_obs = 0.0;
+    if (beta == NULL) memset(gamma, 0, sizeof(double) * (len + 1));
+    else memset(beta, 0, sizeof(double) * (len + 1));
+  }
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  
@@ -107,6 +123,7 @@ public:
   void update(int pos, double frac) {
     if (pos + min_frag_len > len || pos < 0) return;
     end[pos] += frac;
+    N_obs += frac;
     isSE = true;
   }
 
@@ -119,6 +136,7 @@ public:
   void update(int pos, int fragment_length, double frac) {
     if (pos + fragment_length - primer_length > len || pos < 0) return;
     end[pos] += frac;
+    N_obs += frac;
     start[pos + fragment_length - primer_length] += frac; 
   }
 
@@ -137,6 +155,7 @@ public:
     @comment: set start and end to 0
    */
   void init() {
+    N_obs = 0.0;
     memset(start, 0, sizeof(double) * (len + 1));
     memset(end, 0, sizeof(double) * (len + 1));
   }
@@ -206,7 +225,6 @@ public:
   double* getBeta() { return beta; }
 
 private:
-  static const double eps; // Epsilon used as an allowance on floating point error
   static const double INF; // Define exp(1000) as infinite to avoid the partial sum be -inf
 
   static int primer_length; // primer_length, the length of primers
@@ -219,6 +237,7 @@ private:
   bool isSE; // if reads are SE reads 
   int len; // len, number of position can learn parameters, transcript_length - primer_length
   int efflen; // efflen, number of positions can generate a valid fragment, len - min_frag_len + 1
+  double N_obs; // Total number of observed counts
   double delta; // probability of priming from a particular position, delta = 1.0 / (len + 1)
   double prob_pass; // probability of generating a read that passes the size selection step
   double *gamma, *beta; // gamma, the vector of probability of drop-off at i (1-based); beta, the vector of probability of demtheylation at position i (1-based); 

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
   model->init();
   while (in->next(ag)) {
     ++cnt;
-    if (ag.isAligned()) model->update(0, 0, 1.0);
+    if (!ag.isAligned()) model->update(0, 0, 1.0);
     else {
       int s = ag.size();
       double left = 1.0;
@@ -67,10 +67,13 @@ int main(int argc, char* argv[]) {
       }
     }      
     if (cnt % 1000000 == 0) printf("%d reads loaded!\n", cnt);
+    if (cnt > 1000000) break;
   }
 
-  if (argc == 8) model->read(argc[7]);
-  model->runEM(2000);
+  printf("WRONG_DIR = %d\n", wrong_dir);
+
+  if (argc == 8) model->read(argv[7]);
+  model->runEM(200);
   model->write(argv[3]);
 
   delete in;

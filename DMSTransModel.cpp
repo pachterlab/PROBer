@@ -5,6 +5,7 @@
 #include<fstream>
 #include<algorithm>
 
+#include "utils.h"
 #include "sampling.hpp"
 #include "DMSTransModel.hpp"
 
@@ -17,8 +18,9 @@ DMSTransModel::DMSTransModel(bool learning, const std::string& name, int transcr
 
   this->name = "";
   len = efflen = -1; 
+  N_obs = 0.0;
   delta = prob_pass = 0.0;
-
+  
   cdf_end = NULL;
 
   this->learning = learning;
@@ -63,7 +65,6 @@ DMSTransModel::~DMSTransModel() {
   if (margin_prob != NULL) delete[] margin_prob;
 }
 
-const double DMSTransModel::eps = 1e-8;
 const double DMSTransModel::INF = 1000.0;
 
 int DMSTransModel::primer_length = 6; // default, 6bp
@@ -88,8 +89,8 @@ void DMSTransModel::calcAuxiliaryArrays() {
   // Calculate logsum
   logsum[0] = 0.0;
   for (int i = 1; i <= len; ++i) {
-    value = (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
-    if (isinf(value)) value = -INF;
+    if (isAbsZero(1.0 - gamma[i]) || (beta != NULL && isAbsZero(1.0 - beta[i]))) value = -INF;
+    else value = (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
     logsum[i] = logsum[i - 1] + value;
   }
 
@@ -112,26 +113,34 @@ void DMSTransModel::calcAuxiliaryArrays() {
 }
 
 double DMSTransModel::calcLogLik() const {
-  double loglik = 0.0, N_obs = 0.0, value;
+  double loglik = 0.0, value;
 
-  if (efflen <= 0) return loglik;
+  if (efflen <= 0 || isZero(N_obs)) return loglik;
 
   if (isSE) {
     for (int i = 0; i < efflen; ++i) 
-      if (end[i] > 0.0) {
-	N_obs += end[i];
+      if (!isZero(end[i])) {
 	value = 0.0;
-	if (i > 0) value += (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
+	if (i > 0) {
+	  assert(!isAbsZero(gamma[i]) && (beta == NULL || !isAbsZero(gamma[i] + beta[i] - gamma[i] * beta[i])));
+	  value += (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
+	}
+	assert(!isAbsZero(margin_prob[i]));
 	value += (logsum[i + min_frag_len] - logsum[i]) + log(margin_prob[i]);
 	loglik += end[i] * value;
       }
   }
   else {
-    N_obs = end[0]; value = end[0] - start[0];
+    value = end[0] - start[0];
     for (int i = 1; i <= len; ++i) {
-      N_obs += end[i];
-      if (end[i] > 0.0) loglik += end[i] * (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
-      if (value > 0.0) loglik += value * (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
+      if (!isZero(end[i])) {
+	assert(!isAbsZero(gamma[i]) && (beta == NULL || !isAbsZero(gamma[i] + beta[i] - gamma[i] * beta[i])));
+	loglik += end[i] * (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
+      }
+      if (!isZero(value)) {
+	assert(!isAbsZero(1.0 - gamma[i]) && (beta == NULL || !isAbsZero((1.0 - gamma[i]) * (1.0 - beta[i]))));
+	loglik += value * (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
+      }
       value += end[i] - start[i];
     }
   }
@@ -142,7 +151,7 @@ double DMSTransModel::calcLogLik() const {
 }
 
 void DMSTransModel::EM(double N_tot, int round) {
-  if (efflen <= 0) return;
+  if (efflen <= 0 || isZero(N_obs)) return;
 
   int max_end_i;
   double psum, value;
@@ -157,13 +166,13 @@ void DMSTransModel::EM(double N_tot, int round) {
     
     // Step E1, infer start from end if needed
     if (isSE) {
-      start[min_frag_len] = end[0] / margin_prob[0];
+      start[min_frag_len] = (isZero(end[0]) || isAbsZero(margin_prob[0])) ? 0.0 : end[0] / margin_prob[0];
       for (int i = 1, pos = min_frag_len + 1; i < efflen; ++i, ++pos) {
-	start[pos] = end[i] / margin_prob[i];
+	start[pos] = (isZero(end[i]) || isAbsZero(margin_prob[i])) ? 0.0 : end[i] / margin_prob[i];
 	max_end_i = pos - max_frag_len - 1;
 	start[pos] += (beta == NULL ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
-	  (max_end_i < 0 ? start[pos - 1] : start[pos - 1] - end[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_frag_len]) / margin_prob[max_end_i]));
-	if (start[pos] <= 0.0) start[pos] = 0.0;
+	  (max_end_i < 0 ? start[pos - 1] : start[pos - 1] - \
+	   ((isZero(end[max_end_i]) || isAbsZero(margin_prob[max_end_i])) ? 0.0 : end[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_frag_len]) / margin_prob[max_end_i])));
       }
     }
 
@@ -202,10 +211,10 @@ void DMSTransModel::EM(double N_tot, int round) {
     for (int i = 1; i <= len; ++i) {
       start2[i] += start[i] + start2[i - 1];
       end2[i] += end[i] + end2[i - 1];      
-      value = std::max((end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]), 0.0);
+      value = (isZero(end2[i] - end2[i - 1]) || isZero(end2[i] - start2[i - 1])) ? 0.0 : (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]);
       if (beta == NULL) gamma[i] = value;
       else {
-	if (value - gamma[i] <= eps || 1.0 - gamma[i] <= eps) beta[i] = 0.0;
+	if (isZero(value - gamma[i]) || isZero(1.0 - gamma[i])) beta[i] = 0.0;
 	else beta[i] = (value - gamma[i]) / (1.0 - gamma[i]);
       }
     }
@@ -283,7 +292,7 @@ void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
 
   fc << c;
   fout<< name;
-  if (c > eps) {
+  if (!isZero(c)) {
     fout<< '\t'<< len;
     for (int i = 1; i <= len; ++i) fout<< '\t'<< std::max(0.0, -log(1.0 - beta[i]) / c);
   }
@@ -291,6 +300,7 @@ void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
 }
 
 void DMSTransModel::startSimulation() {
+  if (efflen <= 0) return;
   cdf_end = new double[efflen];
 
   calcAuxiliaryArrays();
@@ -324,5 +334,6 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
 }
 
 void DMSTransModel::finishSimulation() {
-  delete[] cdf_end;
+  if (cdf_end != NULL) delete[] cdf_end;
+  cdf_end = NULL;
 }
