@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms_learning_from_real
+PROGRAMS = dms_learning_from_real dms_simulate_reads dms_learning_from_simulated
 
 .PHONY : all clean
 
@@ -57,6 +57,18 @@ dms_learning_from_real.o : dms_learning_from_real.cpp sam/bam.h sam/sam.h boost/
 	$(CC) $(COFLAGS) $<
 
 dms_learning_from_real : DMSTransModel.o DMSWholeModel.o SEQstring.o BamAlignment.o SamParser.o dms_learning_from_real.o sam/libbam.a
+	$(CC) -O3 -o $@ $^ -lz -lpthread
+
+dms_simulate_reads.o : dms_simulate_reads.cpp boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_simulate_reads : DMSTransModel.o DMSWholeModel.o dms_simulate_reads.o
+	$(CC) -O3 -o $@ $^  -lpthread
+
+dms_learning_from_simulated.o : dms_learning_from_simulated.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_learning_from_simulated : DMSTransModel.o DMSWholeModel.o dms_learning_from_simulated.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 clean :

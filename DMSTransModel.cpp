@@ -89,7 +89,7 @@ void DMSTransModel::calcAuxiliaryArrays() {
   // Calculate logsum
   logsum[0] = 0.0;
   for (int i = 1; i <= len; ++i) {
-    if (isAbsZero(1.0 - gamma[i]) || (beta != NULL && isAbsZero(1.0 - beta[i]))) value = -INF;
+    if (gamma[i] >= 1.0 || (beta != NULL && beta[i] >= 1.0)) value = -INF;
     else value = (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
     logsum[i] = logsum[i - 1] + value;
   }
@@ -122,10 +122,10 @@ double DMSTransModel::calcLogLik() const {
       if (!isZero(end[i])) {
 	value = 0.0;
 	if (i > 0) {
-	  assert(!isAbsZero(gamma[i]) && (beta == NULL || !isAbsZero(gamma[i] + beta[i] - gamma[i] * beta[i])));
+	  assert(beta == NULL ? gamma[i] > 0.0 : gamma[i] + beta[i] - gamma[i] * beta[i] > 0.0);
 	  value += (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
 	}
-	assert(!isAbsZero(margin_prob[i]));
+	assert(margin_prob[i] > 0.0);
 	value += (logsum[i + min_frag_len] - logsum[i]) + log(margin_prob[i]);
 	loglik += end[i] * value;
       }
@@ -134,11 +134,11 @@ double DMSTransModel::calcLogLik() const {
     value = end[0] - start[0];
     for (int i = 1; i <= len; ++i) {
       if (!isZero(end[i])) {
-	assert(!isAbsZero(gamma[i]) && (beta == NULL || !isAbsZero(gamma[i] + beta[i] - gamma[i] * beta[i])));
+	assert(beta == NULL ? gamma[i] > 0.0 : gamma[i] + beta[i] - gamma[i] * beta[i] > 0.0);
 	loglik += end[i] * (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
       }
       if (!isZero(value)) {
-	assert(!isAbsZero(1.0 - gamma[i]) && (beta == NULL || !isAbsZero((1.0 - gamma[i]) * (1.0 - beta[i]))));
+	assert(gamma[i] < 1.0 && (beta == NULL || beta[i] < 1.0));
 	loglik += value * (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
       }
       value += end[i] - start[i];
@@ -166,13 +166,13 @@ void DMSTransModel::EM(double N_tot, int round) {
     
     // Step E1, infer start from end if needed
     if (isSE) {
-      start[min_frag_len] = (isZero(end[0]) || isAbsZero(margin_prob[0])) ? 0.0 : end[0] / margin_prob[0];
+      start[min_frag_len] = (end[0] > 0.0 && margin_prob[0] > 0.0) ? end[0] / margin_prob[0] : 0.0;
       for (int i = 1, pos = min_frag_len + 1; i < efflen; ++i, ++pos) {
-	start[pos] = (isZero(end[i]) || isAbsZero(margin_prob[i])) ? 0.0 : end[i] / margin_prob[i];
+	start[pos] = (end[i] > 0.0 && margin_prob[i] > 0.0) ? end[i] / margin_prob[i] : 0.0;
 	max_end_i = pos - max_frag_len - 1;
 	start[pos] += (beta == NULL ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
 	  (max_end_i < 0 ? start[pos - 1] : start[pos - 1] - \
-	   ((isZero(end[max_end_i]) || isAbsZero(margin_prob[max_end_i])) ? 0.0 : end[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_frag_len]) / margin_prob[max_end_i])));
+	   ((end[max_end_i] > 0.0 && margin_prob[max_end_i] > 0.0) ? end[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_frag_len]) / margin_prob[max_end_i]) : 0.0));
       }
     }
 
@@ -211,17 +211,13 @@ void DMSTransModel::EM(double N_tot, int round) {
     for (int i = 1; i <= len; ++i) {
       start2[i] += start[i] + start2[i - 1];
       end2[i] += end[i] + end2[i - 1];      
-      value = (isZero(end2[i] - end2[i - 1]) || isZero(end2[i] - start2[i - 1])) ? 0.0 : (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]);
-      if (beta == NULL) gamma[i] = value;
-      else {
-	if (isZero(value - gamma[i]) || isZero(1.0 - gamma[i])) beta[i] = 0.0;
-	else beta[i] = (value - gamma[i]) / (1.0 - gamma[i]);
-      }
+      value = (end2[i] > end2[i - 1]) && (end2[i] > start2[i - 1]) ? (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]) : 0.0;
+      if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value;
+      else beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0;
     }
     
     // Prepare for the next round
     calcAuxiliaryArrays();
-    //    N_tot = N_obs / prob_pass;
   }
 }
 

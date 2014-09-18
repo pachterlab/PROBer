@@ -67,12 +67,15 @@ int main(int argc, char* argv[]) {
       }
     }      
     if (cnt % 1000000 == 0) printf("%d reads loaded!\n", cnt);
-    if (cnt > 1000000) break;
   }
 
   printf("WRONG_DIR = %d\n", wrong_dir);
 
-  if (argc == 8) model->read(argv[7]);
+  if (argc == 8) {
+    assert(!strcmp(argv[6], "--gamma"));
+    model->read(argv[7]);
+  }
+
   model->runEM(200);
   model->write(argv[3]);
 

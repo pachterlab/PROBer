@@ -117,7 +117,7 @@ void DMSWholeModel::runEM(int max_round) {
     if (!isZero(counts[i])) {
       assert(!isZero(theta[i]));
       loglik += counts[i] * log(theta[i]);
-      if (i > 0) denom += theta[i] * transcripts[i]->getProbPass();
+      denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
     }
   assert(!isZero(denom));
 
@@ -165,7 +165,7 @@ void DMSWholeModel::runEM(int max_round) {
       if (!isZero(counts[i])) {
 	assert(!isZero(theta[i]));
 	loglik += counts[i] * log(theta[i]);
-	if (i > 0) denom += theta[i] * transcripts[i]->getProbPass();
+	denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
       }
     assert(!isZero(denom));
     

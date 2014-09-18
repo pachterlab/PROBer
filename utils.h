@@ -30,7 +30,6 @@ static bool verbose = true; // show detail intermediate outputs
  */
 inline bool isZero(double a) { return a < 1e-8; }
 inline bool isLongZero(double a) { return a < 1e-30; }
-inline bool isAbsZero(double a) { return a <= 0.0; }
 
 inline char getOpp(char c) {
   switch(c) {
