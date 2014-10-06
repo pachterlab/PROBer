@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms_learning_from_real dms_simulate_reads dms_learning_from_simulated
+PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref
 
 .PHONY : all clean
 
@@ -9,6 +9,48 @@ all : $(PROGRAMS)
 
 sam/libbam.a :
 	cd sam ; $(MAKE) all
+
+Transcript.cpp : utils.h my_assert.h Transcript.hpp
+
+Transcript.o : Transcript.cpp utils.h my_assert.h Transcript.hpp
+	$(CC) $(COFLAGS) $<
+
+Transcripts.hpp : Transcript.hpp
+
+Transcripts.cpp : utils.h my_assert.h Transcript.hpp Transcripts.hpp
+
+Transcripts.o : Transcripts.cpp utils.h my_assert.h Transcript.hpp Transcripts.hpp 
+	$(CC) $(COFLAGS) $<
+
+extractRef.o : extractRef.cpp utils.h my_assert.h GTFItem.h Transcript.hpp Transcripts.hpp
+	$(CC) $(COFLAGS) $<
+
+dms-seq-extract-reference-transcripts : Transcript.o Transcripts.o extractRef.o
+	$(CC) -O3 -o $@ $^
+
+synthesisRef.o : synthesisRef.cpp utils.h my_assert.h Transcript.hpp Transcripts.hpp
+	$(CC) $(COFLAGS) $<
+
+dms-seq-synthesis-reference-transcripts : Transcript.o Transcripts.o synthesisRef.o
+	$(CC) -O3 -o $@ $^
+
+RefSeq.cpp : RefSeq.hpp
+
+RefSeq.o : RefSeq.cpp RefSeq.hpp
+	$(CC) $(COFLAGS) $<
+
+Refs.hpp : RefSeqPolicy.h PolyARules.h RefSeq.hpp
+
+Refs.cpp : utils.h my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Refs.hpp
+
+Refs.o : Refs.cpp utils.h my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Refs.hpp
+	$(CC) $(COFLAGS) $<
+
+preRef.o : preRef.cpp utils.h my_assert.h PolyARules.h RefSeqPolicy.h AlignerRefSeqPolicy.h RefSeq.hpp Refs.hpp
+	$(CC) $(COFLAGS) $<
+
+dms-seq-preref : RefSeq.o Refs.o preRef.o
+	$(CC) -O3 -o $@ $^
 
 sampling.hpp : boost/random.hpp
 
