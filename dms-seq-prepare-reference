@@ -43,7 +43,7 @@ os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
 #Run programs
 
-utils.demo = True
+#utils.demo = True
        
 ref_name = os.path.expanduser(args.ref_name)
 
