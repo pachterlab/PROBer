@@ -18,7 +18,6 @@ class SequencingModel {
 public:
   SequencingModel(bool = true, int = 1000);
   ~SequencingModel();
-  SequencingModel& operator=(const SequencingModel&);
 
   double getProb(int, const RefSeq&, const CIGARstring*, const SEQstring*, const QUALstring* = NULL);
   void update(double, int, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring*, const QUALstring* = NULL);

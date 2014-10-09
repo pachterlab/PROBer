@@ -3,9 +3,12 @@
 
 #include<cmath>
 #include<vector>
+#include<pthread.h>
 
 #include "sam/bam.h"
 #include "sampling.hpp"
+#include "Transcripts.hpp"
+#include "InMemoryStructs.hpp"
 #include "DMSTransModel.hpp"
 
 class DMSWholeModel {
@@ -13,15 +16,25 @@ public:
   /*
     @function   constructor function
     @param   config_file   Configuration file for DMSTransModel static members
-    @param   header        Bam header, we obtain transcriopt names and lengths from the header
+    @param   trans         We obtain transcriopt names and lengths from trans
     @param   num_threads   Number of threads allowed to use
    */
-  DMSWholeModel(const char* config_file, const bam_header_t* header = NULL, int num_threads = 1);
+  DMSWholeModel(const char* config_file, const Transcripts* trans = NULL, int num_threads = 1);
 
   /*
     @function   destructor function, release contents of treads and transcripts
    */
   ~DMSWholeModel();
+
+  /*
+    @param   alignG   An alignment group, representing a single read's all alignments
+   */
+  void addAlignments(InMemAlignG& alignG) {
+    for (int i = 0; i < alignG.size; ++i) {
+      transcripts[alignG.aligns[i]->tid]->addAlignment(alignG.aligns[i]);
+      counts[alignG.aligns[i]->tid] += alignG.aligns[i]->frac; // used for allocating transcripts
+    }
+  }
 
   /*
     @param   tid       transcript id
@@ -47,13 +60,13 @@ public:
   }
 
   /*
-    @comment: set all counters to 0, prepared for update read counts
    */
-  void init() {
-    counts.assign(M + 1, 0.0);
-    for (int i = 1; i <= M; ++i) 
-      if (transcripts[i]->getEffLen() > 0) transcripts[i]->init();
-  }
+  void init();
+
+  /*
+    @comment: This function tries to allocate transcripts to threads evenly
+   */
+  void allocateTranscriptsToThreads();
 
   /*
    */
@@ -128,14 +141,12 @@ private:
     }
   };
 
+  std::vector<pthread_t> threads; // pthreads
+  pthread_attr_t attr; // pthread attribute
+  int rc; // status of pthread running condition
   std::vector<Params*> paramsVec; // parameters used by each thread
 
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
-
-  /*
-    @comment: This function tries to allocate transcripts to threads evenly
-   */
-  void allocateTranscriptsToThreads();
 
   void run_calcAuxiliaryArrays(Params* params) {
     params->loglik = 0.0;

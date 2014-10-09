@@ -9,10 +9,12 @@
 #include "sam/bam.h"
 #include "utils.h"
 #include "my_assert.h"
+#include "Transcript.hpp"
+#include "Transcripts.hpp"
 #include "MyHeap.hpp"
 #include "DMSWholeModel.hpp"
 
-DMSWholeModel::DMSWholeModel(const char* config_file, const bam_header_t* header, int num_threads) {
+DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, int num_threads) {
   // set DMSTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -34,17 +36,22 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const bam_header_t* header
   N_tot = 0.0;
   counts.clear();
 
+  threads.clear();
   paramsVec.clear();
-
-  if (header != NULL) {
+  
+  if (trans != NULL) {
     assert(num_threads >= 1);
     this->num_threads = num_threads;
 
-    M = header->n_targets;
+    M = trans->getM();
     theta.assign(M + 1, 0.0);
     transcripts.assign(M + 1, NULL);
-    for (int i = 1; i <= M; ++i) 
-      transcripts[i] = new DMSTransModel(true, header->target_name[i - 1], header->target_len[i - 1]);
+    for (int i = 1; i <= M; ++i) {
+      const Transcript& tran = trans->getTranscriptAt(i);
+      transcripts[i] = new DMSTransModel(true, tran.getTranscriptID(), tran.getLength());
+    }
+    
+    counts.assign(M + 1, 0.0);
   }
 
   cdf = NULL;
@@ -56,15 +63,17 @@ DMSWholeModel::~DMSWholeModel() {
   for (int i = 1; i <= M; ++i) delete transcripts[i];
 }
 
-void DMSWholeModel::runEM(int max_round) {
-  std::vector<pthread_t> threads;
-  pthread_attr_t attr;
-  int rc;
-
+void DMSWholeModel::init() {
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
   threads.assign(num_threads, pthread_t());
+
+
+}
+
+void DMSWholeModel::runEM(int max_round) {
+
+
 
   // Run EM
   int Round = 0;

@@ -6,9 +6,11 @@
 #include<algorithm>
 #include<string>
 #include<fstream>
+#include<vector>
 
 #include "utils.h"
 #include "sampling.hpp"
+#include "InMemoryStructs.hpp"
 
 /*
   The coordinate system used outside is 0-based, starting from 5' end.
@@ -25,12 +27,6 @@ public:
     @param   transcript_length  the length of this transcript
    */
   DMSTransModel(bool learning, const std::string& name = "", int transcript_length = -1);
-
-  /*
-    @param   o   the DMSTransModel object to copy from
-    @comment: copy constructor
-   */
-  DMSTransModel(const DMSTransModel& o);
 
   ~DMSTransModel();
 
@@ -116,29 +112,14 @@ public:
   }
 
   /*
-    @param   pos       leftmost position in 5' end, 0-based
-    @param   frac      the fractional weight of this read
-    @comment: This function is for single-end reads
+    @param   alignment   an in memory alignment belong to this transcript
    */
-  void update(int pos, double frac) {
-    if (pos + min_frag_len > len || pos < 0) return;
-    end[pos] += frac;
-    N_obs += frac;
-    isSE = true;
+  void addAlignment(InMemAlign* alignment) {
+    alignments.push_back(alignment);
   }
 
-  /*
-    @param   pos   same as the above function
-    @param   fragment_length    the estimated fragment length according to the two mates
-    @param   frac      same as the above function
-    @comment: This function is for paired-end reads
-   */
-  void update(int pos, int fragment_length, double frac) {
-    if (pos + fragment_length - primer_length > len || pos < 0) return;
-    end[pos] += frac;
-    N_obs += frac;
-    start[pos + fragment_length - primer_length] += frac; 
-  }
+  // Update counts information at each position
+  void update();
 
   /*
     @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
@@ -252,6 +233,31 @@ private:
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
 
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
+
+  std::vector<InMemAlign*> alignments; // In memory alignments used for update
 };
+
+inline void DMSTransModel::update() {
+  int size = alignments.size();
+  if (size == 0) return;
+  
+  isSE = alignments[0]->fragment_length < 0;
+  
+  if (isSE) {
+    for (int i = 0; i < size; ++i) {
+      if (alignments[i]->pos + min_frag_len > len || alignments[i]->pos < 0) continue;
+      end[alignments[i]->pos] += alignments[i]->frac;
+      N_obs += alignments[i]->frac;
+    }
+  }
+  else {
+    for (int i = 0; i < size; ++i) {
+      if (alignments[i]->pos + alignments[i]->fragment_length - primer_length > len || alignments[i]->pos < 0) continue;
+      end[alignments[i]->pos] += alignments[i]->frac;
+      N_obs += alignments[i]->frac;
+      start[alignments[i]->pos + alignments[i]->fragment_length - primer_length] += alignments[i]->frac; 
+    }    
+  }
+}
 
 #endif

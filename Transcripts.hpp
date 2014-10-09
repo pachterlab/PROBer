@@ -26,7 +26,7 @@ public:
     if (i2e != NULL) delete[] i2e;
   }
 
-	int getM() { return M; }
+	int getM() const { return M; }
 
 	// used in shrinking the transcripts
 	void setM(int M) { this->M = M; transcripts.resize(M + 1); } 
@@ -36,10 +36,10 @@ public:
 	  if (from > to) transcripts[to] = transcripts[from];
 	}
 	
-	int getType() { return type; }
+	int getType() const { return type; }
 	void setType(int type) { this->type = type; }
 
-	bool isAlleleSpecific() { return type == 2; }
+	bool isAlleleSpecific() const { return type == 2; }
 
 	const Transcript& getTranscriptAt(int pos) {
 		assert(pos > 0 && pos <= M);
@@ -78,7 +78,7 @@ public:
 		return transcripts[getInternalSid(eid)];
 	}
 
-	void buildMappings(const char*, int = 0, char** = NULL);
+	void buildMappings(const char* imdName, int n_targets = 0, char** target_name = NULL);
 
 private:
 	int M, type; // type 0 from genome, 1 standalone transcriptome, 2 allele-specific 

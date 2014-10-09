@@ -13,13 +13,12 @@
 class QualDist {
 public:
   QualDist();
-  QualDist& operator=(const QualDist&);
   
   void update(const QUALstring& qual) {
     int len = qual.getLen();
 
     ++p_init[qual.qualAt(0)];
-    for (int i = 1; i < len; i++) {
+    for (int i = 1; i < len; ++i) {
       ++p_tran[qual.qualAt(i - 1)][qual.qualAt(i)];
     }
   }
@@ -29,7 +28,7 @@ public:
     double prob = 1.0;
     
     prob *= p_init[qual.qualAt(0)];
-    for (int i = 1; i < len; i++) {
+    for (int i = 1; i < len; ++i) {
       prob *= p_tran[qual.qualAt(i - 1)][qual.qualAt(i)];
     }
     
@@ -44,13 +43,13 @@ public:
   void simulate(Sampler* sampler, int len, std::string& qual) {
     int qval, old_qval;
 
-    qual.clear();
+    qual.assign(len, 0);
     qval = sampler->sample(qc_init, SIZE);
-    qual.push_back(char(qval + 33));
-    for (int i = 1; i < len; i++) {
+    qual[0] = char(qval + 33);
+    for (int i = 1; i < len; ++i) {
       old_qval = qval;
       qval = sampler->sample(qc_trans[old_qval], SIZE);
-      qual.push_back(char(qval + 33));
+      qual[i] = char(qval + 33);
     }
   }
   

@@ -12,15 +12,6 @@ QualDist::QualDist() {
   memset(p_tran, 0, sizeof(p_tran));
 }
 
-QualDist& QualDist::operator=(const QualDist& rv) {
-  if (this == &rv) return *this;
-  
-  memcpy(p_init, rv.p_init, sizeof(rv.p_init));
-  memcpy(p_tran, rv.p_tran, sizeof(rv.p_tran));
-  
-  return *this;
-}
-
 double QualDist::finish() {
   double logp;
   double sum, value;
@@ -28,19 +19,19 @@ double QualDist::finish() {
   logp = 0.0;
 
   sum = 0.0;
-  for (int i = 0; i < SIZE; i++) sum += p_init[i];
+  for (int i = 0; i < SIZE; ++i) sum += p_init[i];
   assert(!isZero(sum));
-  for (int i = 0; i < SIZE; i++) {
+  for (int i = 0; i < SIZE; ++i) {
     value = p_init[i] / sum;
     if (p_init[i] > 0.0) logp += p_init[i] * log(value);
     p_init[i] = value;
   }
   
-  for (int i = 0; i < SIZE; i++) {
+  for (int i = 0; i < SIZE; ++i) {
     sum = 0.0;
-    for (int j = 0; j < SIZE; j++) sum += p_tran[i][j];
+    for (int j = 0; j < SIZE; ++j) sum += p_tran[i][j];
     if (isZero(sum)) memset(p_tran[i], 0, sizeof(double) * SIZE);
-    else for (int j = 0; j < SIZE; j++) {
+    else for (int j = 0; j < SIZE; ++j) {
 	value = p_tran[i][j] / sum;
 	if (p_tran[i][j] > 0.0) logp += p_tran[i][j] * log(value);
 	p_tran[i][j] = value;
@@ -60,9 +51,9 @@ void QualDist::read(std::ifstream& fin) {
   int tmp_size;
   assert((fin>> tmp_size) && (tmp_size == SIZE));
 
-  for (int i = 0; i < SIZE; i++) assert(fin>> p_init[i]);
-  for (int i = 0; i < SIZE; i++) 
-    for (int j = 0; j < SIZE; j++) assert(fin>> p_tran[i][j]);
+  for (int i = 0; i < SIZE; ++i) assert(fin>> p_init[i]);
+  for (int i = 0; i < SIZE; ++i) 
+    for (int j = 0; j < SIZE; ++j) assert(fin>> p_tran[i][j]);
 
   getline(fin, line);
 }
@@ -73,10 +64,10 @@ void QualDist::write(std::ofstream& fout) {
   
   fout.precision(10);
   fout.setf(0, std::ios::floatfield);
-  for (int i = 0; i < SIZE - 1; i++) fout<< p_init[i];
+  for (int i = 0; i < SIZE - 1; ++i) fout<< p_init[i];
   fout<< p_init[SIZE - 1]<< std::endl;
-  for (int i = 0; i < SIZE; i++) {
-    for (int j = 0; j < SIZE -1 ; j++) fout<< p_tran[i][j];
+  for (int i = 0; i < SIZE; ++i) {
+    for (int j = 0; j < SIZE -1 ; ++j) fout<< p_tran[i][j];
     fout<< p_tran[i][SIZE - 1]<< std::endl;
   }
   fout<< std::endl;
@@ -87,11 +78,11 @@ void QualDist::startSimulation() {
   qc_trans = new double[SIZE][SIZE];
   
   memcpy(qc_init, p_init, sizeof(p_init));
-  for (int i = 1; i < SIZE; i++) qc_init[i] += qc_init[i - 1];
+  for (int i = 1; i < SIZE; ++i) qc_init[i] += qc_init[i - 1];
 
   memcpy(qc_trans, p_tran, sizeof(p_tran));
-  for (int i = 0; i < SIZE; i++)
-    for (int j = 1; j < SIZE; j++) 
+  for (int i = 0; i < SIZE; ++i)
+    for (int j = 1; j < SIZE; ++j) 
       qc_trans[i][j] += qc_trans[i][j - 1];
 }
 

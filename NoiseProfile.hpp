@@ -12,17 +12,16 @@ class NoiseProfile {
 public:
   NoiseProfile(bool hasCount = false);
   ~NoiseProfile();
-  NoiseProfile& operator=(const NoiseProfile&);
   
   void updateC(const SEQstring& seq) {
     int len = seq.getLen();
-    for (int i = 0; i < len; i++) {
+    for (int i = 0; i < len; ++i) {
       ++c[seq.baseCodeAt(i)];
     }
   }
 
-  void writeC(std::ofstream&);
-  void readC(std::ifstream&);
+  void writeC(std::ofstream& fout);
+  void readC(std::ifstream& fin);
 
   void calcInitParams();
 
@@ -30,7 +29,7 @@ public:
     double prob = 1.0;
     int len = seq.getLen();
     
-    for (int i = 0; i < len; i++) {
+    for (int i = 0; i < len; ++i) {
       prob *= p[seq.baseCodeAt(i)];
     }
     
@@ -39,7 +38,7 @@ public:
   
   void update(const SEQstring& seq, double frac) {
     int len = seq.getLen();
-    for (int i = 0; i < len; i++) {
+    for (int i = 0; i < len; ++i) {
       p[seq.baseCodeAt(i)] += frac;
     }
   }
@@ -54,9 +53,9 @@ public:
   void write(std::ofstream&);
 
   void simulate(Sampler* sampler, int len, std::string& readseq) {
-    readseq.clear();
-    for (int i = 0; i < len; i++) {
-      readseq.push_back(getCharacter(sampler->sample(pc, NCODES)));
+    readseq.assign(len, 0);
+    for (int i = 0; i < len; ++i) {
+      readseq[i] = getCharacter(sampler->sample(pc, NCODES));
     }
   }
   

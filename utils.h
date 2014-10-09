@@ -31,6 +31,22 @@ static bool verbose = true; // show detail intermediate outputs
 inline bool isZero(double a) { return a < 1e-8; }
 inline bool isLongZero(double a) { return a < 1e-30; }
 
+inline char getCharacter(int id) {
+  switch(id) {
+  case 0 : return 'A';
+  case 1 : return 'C';
+  case 2 : return 'G';
+  case 3 : return 'T';
+  case 4 : return 'N';
+  default :
+	  fprintf(stderr, "Found unknown id %d!\n", id);
+	  exit(-1);
+  }
+}
+
+
+
+
 inline char getOpp(char c) {
   switch(c) {
   case 'a' : return 't';
@@ -49,18 +65,6 @@ inline char getOpp(char c) {
   }
 }
 
-inline char getCharacter(int id) {
-  switch(id) {
-  case 0 : return 'A';
-  case 1 : return 'C';
-  case 2 : return 'G';
-  case 3 : return 'T';
-  case 4 : return 'N';
-  default :
-	  fprintf(stderr, "Found unknown id %d!\n", id);
-	  exit(-1);
-  }
-}
 
 inline std::string cleanStr(const std::string& str) {
   int len = str.length();

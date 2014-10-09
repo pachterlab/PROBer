@@ -15,6 +15,7 @@ DMSTransModel::DMSTransModel(bool learning, const std::string& name, int transcr
   logsum = margin_prob = NULL;
   start2 = end2 = NULL;
   isSE = false;
+  alignments.clear();
 
   this->name = "";
   len = efflen = -1; 

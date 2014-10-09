@@ -24,17 +24,6 @@ SequencingModel::~SequencingModel() {
   else delete profile;
 }
 
-SequencingModel& SequencingModel::operator=(const SequencingModel& rv) {
-  if (this == &rv) return *this;
-
-  *markov = *rv.markov;
-  assert(hasQual == rv.hasQual);
-  if (hasQual) *qprofile = *rv.qprofile;
-  else *profile = *rv.profile;
-
-  return *this;
-}
-
 void SequencingModel::init() {
   markov->init();
   if (hasQual) qprofile->init();

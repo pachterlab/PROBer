@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref
+PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments
 
 .PHONY : all clean
 
@@ -52,24 +52,6 @@ preRef.o : preRef.cpp utils.h my_assert.h PolyARules.h RefSeqPolicy.h AlignerRef
 dms-seq-preref : RefSeq.o Refs.o preRef.o
 	$(CC) -O3 -o $@ $^
 
-sampling.hpp : boost/random.hpp
-
-DMSTransModel.hpp : utils.h sampling.hpp
-
-DMSTransModel.cpp : utils.h sampling.hpp DMSTransModel.hpp
-
-DMSTransModel.o : DMSTransModel.cpp boost/random.hpp utils.h sampling.hpp DMSTransModel.hpp
-	$(CC) $(COFLAGS) $<
-
-MyHeap.hpp : utils.h
-
-DMSWholeModel.hpp : sam/bam.h sampling.hpp DMSTransModel.hpp
-
-DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h MyHeap.hpp DMSWholeModel.hpp
-
-DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
-	$(CC) $(COFLAGS) $<
-
 CIGARstring.hpp : sam/bam.h
 
 SEQstring.hpp : sam/bam.h
@@ -94,6 +76,68 @@ SamParser.cpp : sam/sam.h my_assert.h SamParser.hpp
 
 SamParser.o : SamParser.cpp sam/bam.h sam/sam.h my_assert.h CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp
 	$(CC) $(COFLAGS) $<
+
+BamWriter.hpp : sam/bam.h sam/sam.h BamAlignment.hpp AlignmentGroup.hpp
+
+BamWriter.cpp : sam/bam.h sam/sam.h my_assert.h BamWriter.hpp
+
+BamWriter.o : BamWriter.cpp sam/bam.h sam/sam.h my_assert.h CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp BamWriter.hpp
+	$(CC) $(COFLAGS) $<
+
+MyHeap.hpp : utils.h
+
+parseAlignments.o : parseAlignments.cpp sam/bam.h sam/sam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp BamWriter.hpp MyHeap.hpp
+	$(CC) $(COFLAGS) $<
+
+dms-seq-parse-alignments : Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o parseAlignments.o sam/libbam.a
+	$(CC) -O3 -ffast-math -o $@ $^ -lz -lpthread
+
+sampling.hpp : boost/random.hpp
+
+MateLenDist.hpp : sampling.hpp
+
+MateLenDist.cpp : MateLenDist.hpp
+
+MateLenDist.o : MateLenDist.cpp boost/random.hpp sampling.hpp MateLenDist.hpp
+	$(CC) $(COFLAGS) $<
+
+NoiseProfile.hpp : sampling.hpp SEQstring.hpp
+
+NoiseProfile.cpp : utils.h NoiseProfile.hpp
+
+NoiseProfile.o : NoiseProfile.cpp sam/bam.h boost/random.hpp sampling.hpp utils.h SEQstring.hpp NoiseProfile.hpp
+	$(CC) $(COFLAGS) $<
+
+QualDist.hpp : sampling.hpp QUALstring.hpp
+
+QualDist.cpp : utils.h QualDist.hpp
+
+QualDist.o : QualDist.cpp boost/random.hpp sampling.hpp utils.h QUALstring.hpp QualDist.hpp
+	$(CC) $(COFLAGS) $<
+
+
+DMSReadModel.hpp :
+
+DMSReadModel.cpp : MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp DMSReadModel.hpp
+
+
+
+
+
+DMSTransModel.hpp : utils.h sampling.hpp InMemoryStructs.hpp
+
+DMSTransModel.cpp : utils.h sampling.hpp DMSTransModel.hpp
+
+DMSTransModel.o : DMSTransModel.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp DMSTransModel.hpp
+	$(CC) $(COFLAGS) $<
+
+DMSWholeModel.hpp : sam/bam.h sampling.hpp DMSTransModel.hpp
+
+DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h MyHeap.hpp DMSWholeModel.hpp
+
+DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
+	$(CC) $(COFLAGS) $<
+
 
 dms_learning_from_real.o : dms_learning_from_real.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
 	$(CC) $(COFLAGS) $<

@@ -39,18 +39,18 @@ void Transcripts::writeTo(const char* outF) {
 void Transcripts::buildMappings(const char* imdName, int n_targets, char** target_name) {
 	char file[STRLEN];
 
-	if (imdName != NULL) {
+	if (imdName != NULL && target_name == NULL) {
 	  sprintf(file, "%s.mappings", imdName);
 	  FILE *fi = fopen(file, "r");
-	  if (fi != NULL) {
-	    e2i = new int[M];
-	    i2e = new int[M + 1];
-	    // the first entry, 0 is omitted here
-	    for (int i = 0; i < M; i++) assert(fscanf(fi, "%d", &e2i[i]) == 1);
-	    for (int i = 1; i <= M; i++) assert(fscanf(fi, "%d", &i2e[i]) == 1);
-	    fclose(fi);
-	    return;
-	  }
+	  assert(fi != NULL);
+
+	  e2i = new int[M];
+	  i2e = new int[M + 1];
+	  // the first entry, 0 is omitted here
+	  for (int i = 0; i < M; i++) assert(fscanf(fi, "%d", &e2i[i]) == 1);
+	  for (int i = 1; i <= M; i++) assert(fscanf(fi, "%d", &i2e[i]) == 1);
+	  fclose(fi);
+	  return;
 	}
 
 	std::map<std::string, int> dict;
