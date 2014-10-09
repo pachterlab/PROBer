@@ -131,11 +131,11 @@ DMSTransModel.cpp : utils.h sampling.hpp DMSTransModel.hpp
 DMSTransModel.o : DMSTransModel.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp DMSTransModel.hpp
 	$(CC) $(COFLAGS) $<
 
-DMSWholeModel.hpp : sam/bam.h sampling.hpp DMSTransModel.hpp
+DMSWholeModel.hpp : sam/bam.h sampling.hpp Transcripts.hpp InMemoryStructs.hpp DMSTransModel.hpp
 
-DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h MyHeap.hpp DMSWholeModel.hpp
+DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp MyHeap.hpp DMSWholeModel.hpp
 
-DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
+DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp InMemoryStructs.hpp DMSTransModel.hpp DMSWholeModel.hpp
 	$(CC) $(COFLAGS) $<
 
 

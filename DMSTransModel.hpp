@@ -142,11 +142,6 @@ public:
   }
 
   /*
-    @comment: this function calculates the data likelihood
-   */
-  double calcLogLik() const;
-
-  /*
     @param   start2   auxiliary array used in EM
     @param   end2     auxiliary array used in EM
     @comment: start2 and end2 can be shared among multiple transcripts in a same thread. 

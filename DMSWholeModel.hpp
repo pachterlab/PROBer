@@ -37,40 +37,15 @@ public:
   }
 
   /*
-    @param   tid       transcript id
-    @param   pos       leftmost position in 5' end, 0-based
-    @param   frac      the fractional weight of this read
-    @comment: This function is for single-end reads
+    @comment: Allocate transcripts to threads, calculate auxiliary arrays for each transcript and initialize theta
    */
-  void update(int tid, int pos, double frac) {
-    if (tid > 0) transcripts[tid]->update(pos, frac);
-    else counts[tid] += frac;
-  }
+  void init_for_EM();
 
   /*
-    @param   tid   transcript id
-    @param   pos   same as the above function
-    @param   fragment_length    the estimated fragment length according to the two mates
-    @param   frac      same as the above function
-    @comment: This function is for paired-end reads
+    @param   count0   expected count for backgroud noise
+    @param   round    number of EM iterations
    */
-  void update(int tid, int pos, int fragment_length, double frac) {
-    if (tid > 0) transcripts[tid]->update(pos, fragment_length, frac);
-    else counts[tid] += frac;
-  }
-
-  /*
-   */
-  void init();
-
-  /*
-    @comment: This function tries to allocate transcripts to threads evenly
-   */
-  void allocateTranscriptsToThreads();
-
-  /*
-   */
-  void runEM(int max_round);
+  void runEM(double count0, int round);
 
   /*
     @param   input_name   All input files use input_name as their prefixes
@@ -112,7 +87,9 @@ private:
   std::vector<DMSTransModel*> transcripts; // DMS models for individual transcripts
 
   double N_tot; // expected total read counts
-  std::vector<double> counts; // number of reads fall into each transcript
+  std::vector<double> counts, unobserved; // number of observed/unobserved reads fall into each transcript
+
+  double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
   // Params, used for multi-threading
   struct Params {
@@ -125,14 +102,11 @@ private:
 
     double *start2, *end2;
 
-    double loglik;
-
     Params(int id, DMSWholeModel *pointer) : id(id), pointer(pointer) {
       num_trans = 0;
       trans.clear();
       origin_ids.clear();
       start2 = end2 = NULL;
-      loglik = 0.0;
     }
     
     ~Params() {
@@ -146,27 +120,35 @@ private:
   int rc; // status of pthread running condition
   std::vector<Params*> paramsVec; // parameters used by each thread
 
-  double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
+  /*
+    @comment: This function tries to allocate transcripts to threads evenly
+   */
+  void allocateTranscriptsToThreads();
 
   void run_calcAuxiliaryArrays(Params* params) {
-    params->loglik = 0.0;
-    for (int i = 0; i < params->num_trans; ++i) { 
+    for (int i = 0; i < params->num_trans; ++i)  
       params->trans[i]->calcAuxiliaryArrays();
-      params->loglik += params->trans[i]->calcLogLik();
-    }
+  }
+
+  void run_makeUpdates(Params* params) {
+    for (int i = 0; i < params->num_trans; ++i) 
+      params->trans[i]->update();
   }
 
   void run_EM_step(Params* params) {
-    params->loglik = 0.0;
-    for (int i = 0; i < params->num_trans; ++i) {
+    for (int i = 0; i < params->num_trans; ++i) 
       params->trans[i]->EM(N_tot * theta[params->origin_ids[i]]);
-      params->loglik += params->trans[i]->calcLogLik();
-    }
   }
 
   static void* run_calcAuxiliaryArrays_per_thread(void* args) {
     Params *params = (Params*)args;
     params->pointer->run_calcAuxiliaryArrays(params);
+    return NULL;
+  }
+
+  static void* run_makeUpdates_per_thread(void* args) {
+    Params *params = (Params*)args;
+    params->pointer->run_makeUpdates(params);
     return NULL;
   }
 

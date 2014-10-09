@@ -113,44 +113,6 @@ void DMSTransModel::calcAuxiliaryArrays() {
   }
 }
 
-double DMSTransModel::calcLogLik() const {
-  double loglik = 0.0, value;
-
-  if (efflen <= 0 || isZero(N_obs)) return loglik;
-
-  if (isSE) {
-    for (int i = 0; i < efflen; ++i) 
-      if (!isZero(end[i])) {
-	value = 0.0;
-	if (i > 0) {
-	  assert(beta == NULL ? gamma[i] > 0.0 : gamma[i] + beta[i] - gamma[i] * beta[i] > 0.0);
-	  value += (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
-	}
-	assert(margin_prob[i] > 0.0);
-	value += (logsum[i + min_frag_len] - logsum[i]) + log(margin_prob[i]);
-	loglik += end[i] * value;
-      }
-  }
-  else {
-    value = end[0] - start[0];
-    for (int i = 1; i <= len; ++i) {
-      if (!isZero(end[i])) {
-	assert(beta == NULL ? gamma[i] > 0.0 : gamma[i] + beta[i] - gamma[i] * beta[i] > 0.0);
-	loglik += end[i] * (beta == NULL ? log(gamma[i]) : log(gamma[i] + beta[i] - gamma[i] * beta[i]));
-      }
-      if (!isZero(value)) {
-	assert(gamma[i] < 1.0 && (beta == NULL || beta[i] < 1.0));
-	loglik += value * (beta == NULL ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
-      }
-      value += end[i] - start[i];
-    }
-  }
-
-  loglik += N_obs * log(delta);
-
-  return loglik;
-}
-
 void DMSTransModel::EM(double N_tot, int round) {
   if (efflen <= 0 || isZero(N_obs)) return;
 

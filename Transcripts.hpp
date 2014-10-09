@@ -41,7 +41,7 @@ public:
 
 	bool isAlleleSpecific() const { return type == 2; }
 
-	const Transcript& getTranscriptAt(int pos) {
+	const Transcript& getTranscriptAt(int pos) const {
 		assert(pos > 0 && pos <= M);
 		return transcripts[pos];
 	}

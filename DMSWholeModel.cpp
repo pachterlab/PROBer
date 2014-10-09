@@ -35,6 +35,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, 
 
   N_tot = 0.0;
   counts.clear();
+  unobserved.clear();
 
   threads.clear();
   paramsVec.clear();
@@ -52,59 +53,29 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, 
     }
     
     counts.assign(M + 1, 0.0);
+    unobserved.assign(M + 1, 0.0);
   }
 
   cdf = NULL;
 }
 
 DMSWholeModel::~DMSWholeModel() {
-  for (int i = 0; i < (int)paramsVec.size(); ++i) delete paramsVec[i];
   assert(transcripts[0] == NULL);
   for (int i = 1; i <= M; ++i) delete transcripts[i];
+
+  if (paramsVec.size() > 0) {
+    pthread_attr_destroy(&attr);
+    for (int i = 0; i < (int)paramsVec.size(); ++i) delete paramsVec[i];
+  }
 }
 
-void DMSWholeModel::init() {
+void DMSWholeModel::init_for_EM() {
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   threads.assign(num_threads, pthread_t());
 
-
-}
-
-void DMSWholeModel::runEM(int max_round) {
-
-
-
-  // Run EM
-  int Round = 0;
-  double N_obs, denom, sum;
-  double loglik, old_loglik;
-  std::vector<double> unobserved;
-
-  // Set counts
-  for (int i = 1; i <= M; ++i) {
-    counts[i] = transcripts[i]->getNobs();
-    if (isZero(counts[i])) transcripts[i]->setDefault();
-  }
-
-  // Calculate total number of observed reads
-  N_obs = 0.0; denom = 0.0;
-  for (int i = 0; i <= M; ++i) 
-    if (isZero(counts[i])) counts[i] = 0.0;
-    else { N_obs += counts[i]; ++denom; }
-
-  // Number of transcripts with > 0 observed reads should be positive
-  assert(denom > 0.0);
-
-  // Allocate transcripts to threads
   allocateTranscriptsToThreads();
-
-  // Initialize theta
-  for (int i = 0; i <= M; ++i)
-    theta[i] = (isZero(counts[i]) ? 0.0 : 1.0 / denom);
-
-  unobserved.assign(M + 1, 0.0);
-
+  
   // calcAuxiliaryArrays
   // create threads
   for (int i = 0; i < num_threads; ++i) {
@@ -115,28 +86,51 @@ void DMSWholeModel::runEM(int max_round) {
   for (int i = 0; i < num_threads; ++i) {
     rc = pthread_join(threads[i], NULL);
     pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread!");
-  }
-  // collect loglik
-  loglik = 0.0;
-  for (int i = 0; i < num_threads; ++i) loglik += paramsVec[i]->loglik;
+  }  
 
-  // Calculate expected total number of reads
-  denom = 0.0;
+  // Initialize theta
+  double denom = 1.0; // transcript "0" will always count
+  for (int i = 1; i <= M; ++i) 
+    if (!isZero(counts[i])) ++denom;
+  for (int i = 0; i <= M; ++i)
+    theta[i] = (i > 0 && !isZero(counts[i]) ? 1.0 / denom : 0.0);
+}
+
+void DMSWholeModel::runEM(double count0, int round) {
+  // Run EM
+  int Round = 0;
+  double N_obs, denom, sum;
+
+  // Update counts
+  // create threads
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVec[i]));
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread!");
+  }
+  // join threads
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_join(threads[i], NULL);
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread!");
+  }    
+
+  // Set counts
+  counts[0] = count0;
+  for (int i = 1; i <= M; ++i)
+    counts[i] = transcripts[i]->getNobs();
+
+  // Calculate total number of observed reads
+  N_obs = 0.0; denom = 0.0;
   for (int i = 0; i <= M; ++i) 
-    if (!isZero(counts[i])) {
+    if (isZero(counts[i])) counts[i] = 0.0;
+    else {
       assert(!isZero(theta[i]));
-      loglik += counts[i] * log(theta[i]);
+      N_obs += counts[i];
       denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
     }
   assert(!isZero(denom));
-
-  loglik -= N_obs * log(denom);
   N_tot = N_obs / denom;
-  
-  
-  do {
-    old_loglik = loglik;
 
+  do {
     // Calculate expected hidden reads to each transcript
     for (int i = 0; i <= M; ++i) {
       unobserved[i] = 0.0;
@@ -155,10 +149,6 @@ void DMSWholeModel::runEM(int max_round) {
       pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "( numbered from 0) for run_EM_step_per_thread!");
     }
 
-    // collect loglik values
-    loglik = 0.0;
-    for (int i = 0; i < num_threads; ++i) loglik += paramsVec[i]->loglik;
- 
     // Estimate new theta
     sum = 0.0;
     for (int i = 0; i <= M; ++i) {
@@ -173,20 +163,15 @@ void DMSWholeModel::runEM(int max_round) {
     for (int i = 0; i <= M; ++i) 
       if (!isZero(counts[i])) {
 	assert(!isZero(theta[i]));
-	loglik += counts[i] * log(theta[i]);
 	denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
       }
     assert(!isZero(denom));
-    
-    loglik -= N_obs * log(denom);
     N_tot = N_obs / denom;
 
     ++Round;
-    printf("Round = %d, old_loglik = %.10g, loglik = %.10g, denom = %.10g\n", Round, old_loglik, loglik, denom);
+    printf("DMSWholeModel EM: Round = %d, denom = %.10g\n", Round, denom);
 
-  } while(Round < max_round);
-
-  pthread_attr_destroy(&attr);
+  } while(Round < round);
 }
 
 void DMSWholeModel::read(const char* input_name) {
