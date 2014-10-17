@@ -7,6 +7,9 @@
 struct InMemAlign {
   int tid, pos, fragment_length;
   double frac;
+
+  InMemAlign(int tid, int pos, int fragment_length, double frac) : tid(tid), pos(pos), fragment_length(fragment_length), frac(frac) {
+  }
 };
 
 // In memory alignment group
@@ -14,6 +17,12 @@ struct InMemAlignG {
   int size; 
   InMemAlign **aligns; // alignments
   double noise_prob;
+
+  InMemAlignG() {
+    size = 0; 
+    aligns = NULL;
+    noise_prob = 0.0;
+  }
 
   ~InMemAlignG() {
     if (size > 0) {
