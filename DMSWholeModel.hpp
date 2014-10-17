@@ -32,7 +32,7 @@ public:
   void addAlignments(InMemAlignG& alignG) {
     for (int i = 0; i < alignG.size; ++i) {
       transcripts[alignG.aligns[i]->tid]->addAlignment(alignG.aligns[i]);
-      counts[alignG.aligns[i]->tid] += alignG.aligns[i]->frac; // used for allocating transcripts
+      counts[alignG.aligns[i]->tid] += alignG.aligns[i]->frac; // used for allocating transcripts, frac is 1/total_alignments
     }
   }
 
@@ -40,6 +40,27 @@ public:
     @comment: Allocate transcripts to threads, calculate auxiliary arrays for each transcript and initialize theta
    */
   void init_for_EM();
+
+  /*
+    @param   tid   transcript id
+    @param   pos   leftmost position from 5' end, 0-based
+    @return   probability of generating such a read given the read passes the size selection step
+   */
+  double getProb(int tid, int pos) const {
+    assert(tid > 0 && tid <= M);
+    return transcripts[tid]->getProb(pos) / prob_pass;
+  }
+
+  /*
+    @param   tid   transcript id
+    @param   pos   leftmost position from 5' end, 0-based
+    @param   fragment_length  fragment length
+    @return   probability of generating such a read given the read passes the size selections step
+   */
+  double getProb(int tid, int pos, int fragment_length) const {
+    assert(tid > 0 && tid <= M);
+    return transcripts[tid]->getProb(pos, fragment_length) / prob_pass;
+  }
 
   /*
     @param   count0   expected count for backgroud noise
@@ -87,6 +108,7 @@ private:
   std::vector<DMSTransModel*> transcripts; // DMS models for individual transcripts
 
   double N_tot; // expected total read counts
+  double prob_pass; // probability of generating a read that pass the size selection step
   std::vector<double> counts, unobserved; // number of observed/unobserved reads fall into each transcript
 
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation

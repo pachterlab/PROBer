@@ -6,7 +6,7 @@
 // In memory alignment
 struct InMemAlign {
   int tid, pos, fragment_length;
-  double frac;
+  double frac; // the conditional probability of generating the read based on read_model
 
   InMemAlign(int tid, int pos, int fragment_length, double frac) : tid(tid), pos(pos), fragment_length(fragment_length), frac(frac) {
   }

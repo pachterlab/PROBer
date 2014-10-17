@@ -84,13 +84,11 @@ public:
     @param   pos     leftmost position in 5' end, 0-based  
     @return   the probability of generating a SE read end at pos
    */
-  double getProb(int pos) {
+  double getProb(int pos) const {
     int start_pos = pos + min_frag_len;
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * margin_prob[pos] * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
-
-    res /= prob_pass;
 
     return res;
   }
@@ -100,13 +98,11 @@ public:
     @param   fragment_length     fragment length of the PE read
     @return   the probability of generating a PE read pair end at pos and has fragment length fragment_length
    */
-  double getProb(int pos, int fragment_length) {
+  double getProb(int pos, int fragment_length) const {
     int start_pos = pos + fragment_length - primer_length;
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
-    
-    res /= prob_pass;
 
     return res;
   }

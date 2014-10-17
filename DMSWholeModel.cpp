@@ -34,6 +34,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, 
   transcripts.clear();
 
   N_tot = 0.0;
+  prob_pass = 0.0;
   counts.clear();
   unobserved.clear();
 
@@ -94,6 +95,11 @@ void DMSWholeModel::init_for_EM() {
     if (!isZero(counts[i])) ++denom;
   for (int i = 0; i <= M; ++i)
     theta[i] = (i > 0 && !isZero(counts[i]) ? 1.0 / denom : 0.0);
+
+  // Calculate prob_pass
+  prob_pass = theta[0];
+  for (int i = 1; i <= M; ++i) prob_pass += theta[i] * transcripts[i]->getProbPass();
+  assert(!isZero(prob_pass)); 
 }
 
 void DMSWholeModel::runEM(double count0, int round) {
@@ -119,16 +125,14 @@ void DMSWholeModel::runEM(double count0, int round) {
     counts[i] = transcripts[i]->getNobs();
 
   // Calculate total number of observed reads
-  N_obs = 0.0; denom = 0.0;
+  N_obs = 0.0;
   for (int i = 0; i <= M; ++i) 
     if (isZero(counts[i])) counts[i] = 0.0;
     else {
       assert(!isZero(theta[i]));
       N_obs += counts[i];
-      denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
     }
-  assert(!isZero(denom));
-  N_tot = N_obs / denom;
+  N_tot = N_obs / prob_pass;
 
   do {
     // Calculate expected hidden reads to each transcript
