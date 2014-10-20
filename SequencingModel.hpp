@@ -19,8 +19,8 @@ public:
   SequencingModel(bool = true, int = 1000);
   ~SequencingModel();
 
-  double getProb(int, const RefSeq&, const CIGARstring*, const SEQstring*, const QUALstring* = NULL);
-  void update(double, int, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring*, const QUALstring* = NULL);
+  double getProb(int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
+  void update(double frac, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
 
   void init();
   void collect(const SequencingModel*);
@@ -47,7 +47,10 @@ private:
   }
 };
 
-// We assume the direction is set up 
+/*
+  @param   pos   position in its own strand, 0-based
+  @comment: We assume the direction is set up
+ */
 inline double SequencingModel::getProb(int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual) {
   double prob = 1.0;
   int len = cigar->getLen();

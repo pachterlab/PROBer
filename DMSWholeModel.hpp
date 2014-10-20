@@ -2,6 +2,7 @@
 #define DMSWHOLEMODEL_H_
 
 #include<cmath>
+#include<cassert>
 #include<vector>
 #include<pthread.h>
 
@@ -60,6 +61,19 @@ public:
   double getProb(int tid, int pos, int fragment_length) const {
     assert(tid > 0 && tid <= M);
     return transcripts[tid]->getProb(pos, fragment_length) / prob_pass;
+  }
+
+  /*
+    @comment:  Calculate the probability that any read passes the size selection step
+   */
+  void calcProbPass() {
+    prob_pass = theta[0];
+    for (int i = 1; i <= M; ++i) 
+      if (!isZero(counts[i])) {
+	assert(!isZero(theta[i]));
+	prob_pass += theta[i] * transcripts[i]->getProbPass();
+      }
+    assert(!isZero(prob_pass));
   }
 
   /*

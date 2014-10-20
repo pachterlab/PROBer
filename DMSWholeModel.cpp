@@ -94,12 +94,9 @@ void DMSWholeModel::init_for_EM() {
   for (int i = 1; i <= M; ++i) 
     if (!isZero(counts[i])) ++denom;
   for (int i = 0; i <= M; ++i)
-    theta[i] = (i > 0 && !isZero(counts[i]) ? 1.0 / denom : 0.0);
+    theta[i] = ((i == 0 || !isZero(counts[i])) ? 1.0 / denom : 0.0);
 
-  // Calculate prob_pass
-  prob_pass = theta[0];
-  for (int i = 1; i <= M; ++i) prob_pass += theta[i] * transcripts[i]->getProbPass();
-  assert(!isZero(prob_pass)); 
+  calcProbPass();
 }
 
 void DMSWholeModel::runEM(double count0, int round) {
@@ -138,7 +135,8 @@ void DMSWholeModel::runEM(double count0, int round) {
     // Calculate expected hidden reads to each transcript
     for (int i = 0; i <= M; ++i) {
       unobserved[i] = 0.0;
-      if (i > 0 && !isZero(counts[i])) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass());
+      // If no counts, force the unobserved counts to be 0!
+      if (i > 0 && !isZero(counts[i])) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass()); 
     }
 
     // Estimate new gamma/beta parameters
@@ -162,15 +160,8 @@ void DMSWholeModel::runEM(double count0, int round) {
     assert(!isZero(sum));
     for (int i = 0; i <= M; ++i) theta[i] /= sum;
 
-    // Calculate expected total number of reads
-    denom = 0.0;
-    for (int i = 0; i <= M; ++i) 
-      if (!isZero(counts[i])) {
-	assert(!isZero(theta[i]));
-	denom += (i > 0 ? theta[i] * transcripts[i]->getProbPass() : theta[i]);
-      }
-    assert(!isZero(denom));
-    N_tot = N_obs / denom;
+    calcProbPass();
+    N_tot = N_obs / prob_pass;
 
     ++Round;
     printf("DMSWholeModel EM: Round = %d, denom = %.10g\n", Round, denom);
