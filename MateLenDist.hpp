@@ -14,9 +14,9 @@ public:
   int getMinL() const { return lb; }
   int getMaxL() const { return ub; }
 
-  double getProb(int len) const {
-    assert(len >= lb && len <= ub);
-    return pmf[len - lb];
+  double getProb(int len, int upper_bound = MAXV) const {
+    assert(len >= lb && len <= ub && len <= upper_bound);
+    return (len < upper_bound ? pmf[len - lb] : pmf[len - lb] + (cdf[span - 1] - cdf[len - lb]));
   }
     
   void update(int len, bool is_noise = false) {

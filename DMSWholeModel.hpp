@@ -45,35 +45,21 @@ public:
   /*
     @param   tid   transcript id
     @param   pos   leftmost position from 5' end, 0-based
-    @return   probability of generating such a read given the read passes the size selection step
+    @param   fragment_length  fragment length, 0 means SE read 
+    @return   probability of generating such a read (not condition on that read passes the size selection step
    */
-  double getProb(int tid, int pos) const {
-    assert(tid > 0 && tid <= M);
-    return transcripts[tid]->getProb(pos) / prob_pass;
+  double getProb(int tid, int pos = 0, int fragment_length = 0) const {
+    assert(tid >= 0 && tid <= M);
+    double prob = theta[tid];
+    if (tid > 0) prob *= (fragment_length > 0 ? transcripts[tid]->getProb(pos, fragment_length) : transcripts[tid]->getProb(pos)); 
+    return prob;
   }
 
   /*
-    @param   tid   transcript id
-    @param   pos   leftmost position from 5' end, 0-based
-    @param   fragment_length  fragment length
-    @return   probability of generating such a read given the read passes the size selections step
+    @return   the probability of a read passing the size selection step
    */
-  double getProb(int tid, int pos, int fragment_length) const {
-    assert(tid > 0 && tid <= M);
-    return transcripts[tid]->getProb(pos, fragment_length) / prob_pass;
-  }
-
-  /*
-    @comment:  Calculate the probability that any read passes the size selection step
-   */
-  void calcProbPass() {
-    prob_pass = theta[0];
-    for (int i = 1; i <= M; ++i) 
-      if (!isZero(counts[i])) {
-	assert(!isZero(theta[i]));
-	prob_pass += theta[i] * transcripts[i]->getProbPass();
-      }
-    assert(!isZero(prob_pass));
+  double getProbPass() const {
+    return prob_pass;
   }
 
   /*
@@ -155,6 +141,19 @@ private:
   pthread_attr_t attr; // pthread attribute
   int rc; // status of pthread running condition
   std::vector<Params*> paramsVec; // parameters used by each thread
+
+  /*
+    @comment:  Calculate the probability that any read passes the size selection step
+   */
+  void calcProbPass() {
+    prob_pass = theta[0];
+    for (int i = 1; i <= M; ++i) 
+      if (!isZero(counts[i])) {
+	assert(!isZero(theta[i]));
+	prob_pass += theta[i] * transcripts[i]->getProbPass();
+      }
+    assert(!isZero(prob_pass));
+  }
 
   /*
     @comment: This function tries to allocate transcripts to threads evenly

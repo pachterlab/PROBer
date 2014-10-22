@@ -18,6 +18,7 @@ DMSReadModel::DMSReadModel(int model_type, Refs* refs) : model_type(model_type),
   seqmodel = NULL;
 
   max_len = 0;
+  loglik = 0.0;
   sampler = NULL;
 }
 
@@ -26,7 +27,8 @@ DMSReadModel::DMSReadModel(DMSReadModel* master_model) {
   mld1 = mld2 = NULL;
   qd = NULL;
   max_len = master_model->max_len;
-  
+  loglik = 0.0;
+
   npro = new NoiseProfile();
   seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
 
@@ -43,6 +45,7 @@ DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(s
   npro = NULL;
 
   max_len = 0;
+  loglik = 0.0;
 }
 
 DMSReadModel::~DMSReadModel() {
@@ -60,6 +63,15 @@ void DMSReadModel::finish_preprocess() {
   max_len = mld1->getMaxL();
   if (model_type >= 2 && max_len < mld2->getMaxL()) max_len = mld2->getMaxL();
   seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
+  
+  loglik = 0.0;
+  if (model_type & 1) loglik += qd->finish();
+  mld1->finish();
+  loglik += mld1->getLogP();
+  if (model_type >= 2) {
+    mld2->finish();
+    loglik += mld2->getLogP();
+  }
 }
 
 void DMSReadModel::init() {

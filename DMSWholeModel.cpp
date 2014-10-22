@@ -80,7 +80,7 @@ void DMSWholeModel::init_for_EM() {
   // calcAuxiliaryArrays
   // create threads
   for (int i = 0; i < num_threads; ++i) {
-    rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)(paramsVec[i]));
+    rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVec[i]);
     pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread!");
   }
   // join threads
