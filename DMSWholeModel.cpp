@@ -102,7 +102,7 @@ void DMSWholeModel::init_for_EM() {
 void DMSWholeModel::runEM(double count0, int round) {
   // Run EM
   int Round = 0;
-  double N_obs, denom, sum;
+  double N_obs, sum;
 
   // Update counts
   // create threads
@@ -164,7 +164,7 @@ void DMSWholeModel::runEM(double count0, int round) {
     N_tot = N_obs / prob_pass;
 
     ++Round;
-    printf("DMSWholeModel EM: Round = %d, denom = %.10g\n", Round, denom);
+    printf("DMSWholeModel EM: Round = %d, prob_pass = %.10g\n", Round, prob_pass);
 
   } while(Round < round);
 }

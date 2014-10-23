@@ -16,7 +16,7 @@
 
 DMSReadModel::DMSReadModel(int model_type, Refs* refs) : model_type(model_type), refs(refs) {
   mld1 = new MateLenDist();
-  if (type >= 2) mld2 = new MateLenDist();
+  if (model_type >= 2) mld2 = new MateLenDist();
   if (model_type == 1 || model_type == 3) qd = new QualDist();
   npro = new NoiseProfile(true);
 
@@ -176,5 +176,5 @@ void DMSReadModel::startSimulation() {
 void DMSReadModel::finishSimulation() {
   if (model_type & 1) qd->finishSimulation();
   seqmodel->finishSimulation();
-  npro->finishiSimulation();
+  npro->finishSimulation();
 }

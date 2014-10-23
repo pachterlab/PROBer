@@ -63,6 +63,14 @@ public:
   }
 
   /*
+    @param   tid   transcript id, 0 means noise transcript
+   */
+  double getTheta(int tid) {
+    assert(tid >= 0 && tid <= M);
+    return theta[tid];
+  }
+
+  /*
     @param   count0   expected count for backgroud noise
     @param   round    number of EM iterations
    */

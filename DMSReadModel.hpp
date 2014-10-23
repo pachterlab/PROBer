@@ -61,19 +61,11 @@ public:
   void finish_preprocess();
 
   /*
-    @param   tid   transcript id, 0 means noise transcript
-   */
-  double getTheta(int tid) {
-    assert(tid >= 0 && tid <= M);
-    return theta[tid];
-  }
-
-  /*
     @param   ag_in_mem   an in-memory alignment group, recorded information necessary for EM iteration
     @param   ag   an alignment group, which contains the read sequence etc.
     @func   set probabilities to an alignments of a read
    */
-  double setProbs(InMemAlignG& ag_in_mem, AlignmentGroup& ag);
+  void setProbs(InMemAlignG& ag_in_mem, AlignmentGroup& ag);
 
   /*
     @param   ag_in_mem
@@ -96,7 +88,7 @@ public:
   void read(const char* modelF);
   void write(const char* modelF);
 
-  void simulate(READ_INT_TYPE rid, int tid, int pos, std::ofstream* out1, int fragment_length = 0, std::ofstream* out2 = NULL);
+  void simulate(READ_INT_TYPE rid, int tid, int pos, int fragment_length, std::ofstream* out1, std::ofstream* out2 = NULL);
 
   void startSimulation();
   void finishSimulation();
@@ -158,9 +150,9 @@ inline void DMSReadModel::setProbs(InMemAlignG& ag_in_mem, AlignmentGroup& ag) {
   for (int i = 0; i < ag_in_mem.size; ++i) {
     RefSeq &refseq = refs->getRef(ag_in_mem.aligns[i]->tid);
     refseq.setDir('+');
-    assert(ag.getAlignment(i)->getCIGAR(ci));
+    assert(ag.getAlignment(i)->getCIGAR(cigar));
     ag_in_mem.aligns[i]->frac = (ag_in_mem.aligns[i]->fragment_length > 0 ? mld1->getProb(seqlen, ag_in_mem.aligns[i]->fragment_length) : mld1->getProb(seqlen)) * \
-      seqmodel->getProb(ag_in_mem.aligns[i]->pos, refseq, &ci, &seq, ((model_type & 1) ? &qual : NULL));
+      seqmodel->getProb(ag_in_mem.aligns[i]->pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
   }
   
   if (model_type >= 2) {
@@ -172,10 +164,10 @@ inline void DMSReadModel::setProbs(InMemAlignG& ag_in_mem, AlignmentGroup& ag) {
     for (int i = 0; i < ag_in_mem.size; ++i) {
       RefSeq &refseq = refs->getRef(ag_in_mem.aligns[i]->tid);
       refseq.setDir('-');
-      assert(ag.getAlignment(i)->getCIGAR(ci, 2));
+      assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(ag_in_mem.aligns[i]->fragment_length > 0);
       ag_in_mem.aligns[i]->frac *= mld2->getProb(seqlen, ag_in_mem.aligns[i]->fragment_length) * \
-	seqmodel->getProb(refseq.getTotLen() - ag_in_mem.aligns[i]->pos - ag_in_mem.aligns[i]->fragment_length, refseq, &ci, &seq, ((model_type & 1) ? &qual : NULL));
+	seqmodel->getProb(refseq.getTotLen() - ag_in_mem.aligns[i]->pos - ag_in_mem.aligns[i]->fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 }
@@ -189,8 +181,8 @@ inline void DMSReadModel::update(InMemAlignG& ag_in_mem, AlignmentGroup& ag, std
   for (int i = 0; i < ag_in_mem.size; ++i) {
     RefSeq &refseq = refs->getRef(ag_in_mem.aligns[i]->tid);
     refseq.setDir('+');
-    assert(ag.getAlignment(i)->getCIGAR(ci));
-    seqmodel->update(fracs[i], ag_in_mem.aligns[i]->pos, refseq, &ci, &seq, ((model_type & 1) ? &qual : NULL));
+    assert(ag.getAlignment(i)->getCIGAR(cigar));
+    seqmodel->update(fracs[i], ag_in_mem.aligns[i]->pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
   }
 
   if (model_type >= 2) {
@@ -203,9 +195,10 @@ inline void DMSReadModel::update(InMemAlignG& ag_in_mem, AlignmentGroup& ag, std
     for (int i = 0; i < ag_in_mem.size; ++i) {
       RefSeq &refseq = refs->getRef(ag_in_mem.aligns[i]->tid);
       refseq.setDir('-');
-      assert(ag.getAlignment(i)->getCIGAR(ci, 2));
+      assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(ag_in_mem.aligns[i]->fragment_length > 0);
-      seqmodel->update(fracs[i], refseq.getTotLen() - ag_in_mem.aligns[i]->pos - ag_in_mem.aligns[i]->fragment_length, refseq, &ci, &seq, ((model_type & 1) ? &qual : NULL));
+      seqmodel->update(fracs[i], refseq.getTotLen() - ag_in_mem.aligns[i]->pos - ag_in_mem.aligns[i]->fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+    }
   }
 } 
 
@@ -221,7 +214,7 @@ inline void DMSReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int frag
     mateL1 = mld1->simulate(sampler);
     if (model_type & 1) qd->simulate(sampler, mateL1, qual1);
     npro->simulate(sampler, mateL1, readseq1);
-  
+    
     if (model_type >= 2) {
       mateL2 = mld2->simulate(sampler);
       if (model_type & 1) qd->simulate(sampler, mateL2, qual2);

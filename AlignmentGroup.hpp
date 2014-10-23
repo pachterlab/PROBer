@@ -54,7 +54,7 @@ public:
     return alignments[0]->getName(mate);
   }
   
-  int getSeqLength(int mate) const { 
+  int getSeqLength(int mate = 1) const { 
     assert(s > 0);
     return alignments[0]->getSeqLength(mate);
   }

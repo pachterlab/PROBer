@@ -10,8 +10,8 @@
 #include "utils.h"
 #include "my_assert.h"
 
-#include "Transcripts.hpp"
 #include "Refs.hpp"
+#include "Transcripts.hpp"
 
 #include "BamAlignment.hpp"
 #include "AlignmentGroup.hpp"
@@ -63,6 +63,9 @@ int num_threads;
 
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN];
 
+Refs refs;
+Transcripts transcripts;
+
 DMSWholeModel *whole_model;
 DMSReadModel *read_model;
 
@@ -78,7 +81,6 @@ void init() {
   char refF[STRLEN], tiF[STRLEN];
   char configF[STRLEN];
   char bamF[STRLEN], partitionF[STRLEN];
-  char cntF[STRLEN];
 
   // Load references
   sprintf(refF, "%s.seq", refName);
@@ -94,7 +96,7 @@ void init() {
   whole_model = new DMSWholeModel(configF, &transcripts, num_threads);
 
   // Create DMSReadModel
-  read_model = new DMSReadModel(model_type, refs);
+  read_model = new DMSReadModel(model_type, &refs);
 
   // Preprocess reads and alignments
   SamParser *parser = NULL;
@@ -212,6 +214,8 @@ void* E_STEP(void* arg) {
   }
 
   if (parser != NULL) delete parser;
+
+  return NULL;
 }
 
 inline bool needUpdateReadModel(int ROUND) {
@@ -269,7 +273,6 @@ void EM() {
 void* calc_expected_alignments(void* arg) {
   InMemParams *params = (InMemParams*)arg;
   DMSWholeModel *whole_model = params->whole_model;
-  DMSReadModel *read_model = params->read_model;
   vector<InMemAlignG>& ags = params->ags;
   vector<double>& fracs = params->fracs;
 
@@ -290,6 +293,8 @@ void* calc_expected_alignments(void* arg) {
     for (int j = 0; j < size; ++j) ags[i].aligns[j]->frac = fracs[j] / sum;
     ags[i].noise_prob = fracs[size] / sum;
   }
+
+  return NULL;
 }
 
 void writeResults() {
@@ -297,12 +302,12 @@ void writeResults() {
     // Calculate expected alignment weights
     for (int i = 0; i < num_threads; ++i) {
       rc = pthread_create(&threads[i], &attr, calc_expected_alignments, (void*)paramsVec[i]);
-      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) at calc_expected_alignments!");
     }
     
     for (int i = 0; i < num_threads; ++i) {
       rc = pthread_join(threads[i], NULL);
-      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at calc_expected_alignments!");
     }
 
     char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
