@@ -13,8 +13,10 @@
 #include "Transcripts.hpp"
 #include "Refs.hpp"
 
+#include "BamAlignment.hpp"
 #include "AlignmentGroup.hpp"
 #include "SamParser.hpp"
+#include "BamWriter.hpp"
 
 #include "DMSWholeModel.hpp"
 #include "DMSReadModel.hpp"
@@ -303,7 +305,7 @@ void writeResults() {
       pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
     }
 
-    char inp0F[STRLEN], inpF[STRLEN], outF[STRLEN];
+    char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
     sprintf(inp0F, "%s_N0.bam", imdName);
     sprintf(outF, "%s.transcripts.bam", sampleName);
     
@@ -326,8 +328,17 @@ void writeResults() {
     }
     // write out unalignable reads
     while (parser0->next(ag)) writer->write(ag, 2);
-
     delete parser0;
+
+    // write out filtered reads
+    sprintf(inp2F, "%s_N2.bam", imdName);
+    SamParser* parser2 = new SamParser('b', inp2F, NULL);
+    while (parser2->next(ag)) {
+      ag.markAsFiltered(); // Mark each alignment as filtered by append a "ZF:A:!" field
+      writer->write(ag, 2);
+    }
+    delete parser2;
+
     delete writer;
   }
 

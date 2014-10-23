@@ -150,6 +150,21 @@ public:
       while ((p_tag = bam_aux_get(b2, tag)) != NULL) bam_aux_del(b2, p_tag);
   }
 
+  /*
+    @func   this function append a ZF:A:! field to indicate this alignment is filtered out if it is not marked before
+   */
+  void markAsFiltered() {
+    char c = '!';
+    uint8_t *p_tag = NULL;
+
+    p_tag = bam_aux_get(b, "ZF");
+    if (p_tag == NULL) bam_aux_append(b, "ZF", 'A', bam_aux_type2size('A'), (uint8_t*)&c);
+    if (is_paired) {
+      p_tag = bam_aux_get(b2, "ZF");
+      if (p_tag == NULL) bam_aux_append(b2, "ZF", 'A', bam_aux_type2size('A'), (uint8_t*)&c);
+    }
+  }
+
   bool findTag(const char tag[2], uint8_t*& p, char& type, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
     p = bam_aux_get((mate == 1 ? b : b2), tag);

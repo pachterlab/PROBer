@@ -36,6 +36,10 @@ public:
     }    
   }
 
+  void markAsFiltered() {
+    for (int i = 0; i < s; ++i) alignments[i]->markAsFiltered();
+  }
+
   bool read(samfile_t*);
   bool write(samfile_t*, int=0);
 

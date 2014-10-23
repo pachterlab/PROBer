@@ -2,6 +2,11 @@
 #include<fstream>
 #include<algorithm>
 
+#include "utils.h"
+#include "sampling.hpp"
+
+#include "Refs.hpp"
+
 #include "MateLenDist.hpp"
 #include "SequencingModel.hpp"
 #include "NoiseProfile.hpp"

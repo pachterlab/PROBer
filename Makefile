@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments
+PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments dms-seq-run-em
 
 .PHONY : all clean
 
@@ -115,14 +115,40 @@ QualDist.cpp : utils.h QualDist.hpp
 QualDist.o : QualDist.cpp boost/random.hpp sampling.hpp utils.h QUALstring.hpp QualDist.hpp
 	$(CC) $(COFLAGS) $<
 
+Markov.hpp : utils.h sampling.hpp
 
-DMSReadModel.hpp :
+Markov.cpp : utils.h Markov.hpp
 
-DMSReadModel.cpp : MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp DMSReadModel.hpp
+Markov.o : Markov.cpp boost/random.hpp sampling.hpp utils.h Markov.hpp
+	$(CC) $(COFLAGS) $<
 
+QProfile.hpp : utils.h sampling.hpp
 
+QProfile.cpp : utils.h QProfile.hpp
 
+QProfile.o : QProfile.cpp boost/random.hpp sampling.hpp utils.h QProfile.hpp
+	$(CC) $(COFLAGS) $<
 
+Profile.hpp : utils.h sampling.hpp
+
+Profile.cpp : utils.h Profile.hpp
+
+Profile.o : Profile.cpp boost/random.hpp sampling.hpp utils.h Profile.hpp
+	$(CC) $(COFLAGS) $<
+
+SequencingModel.hpp : RefSeq.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp Markov.hpp Profile.hpp QProfile.hpp
+
+SequencingModel.cpp : Markov.hpp Profile.hpp Qprofile.hpp SequencingModel.hpp
+
+SequencingModel.o : SequencingModel.cpp sam/bam.h boost/random.hpp sampling.hpp utils.h RefSeq.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp
+	$(CC) $(COFLAGS) $<
+
+DMSReadModel.hpp : utils.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp 
+
+DMSReadModel.cpp : utils.h sampling.hpp Refs.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp DMSReadModel.hpp 
+
+DMSReadModel.o : DMSReadModel.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp DMSReadModel.hpp
+	$(CC) $(COFLAGS) $<
 
 DMSTransModel.hpp : utils.h sampling.hpp InMemoryStructs.hpp
 
@@ -138,27 +164,12 @@ DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp
 DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp InMemoryStructs.hpp DMSTransModel.hpp DMSWholeModel.hpp
 	$(CC) $(COFLAGS) $<
 
-
-dms_learning_from_real.o : dms_learning_from_real.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
+EM.o : EM.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp DMSTransModel.hpp DMSWholeModel.hpp DMSReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-dms_learning_from_real : DMSTransModel.o DMSWholeModel.o SEQstring.o BamAlignment.o SamParser.o dms_learning_from_real.o sam/libbam.a
-	$(CC) -O3 -o $@ $^ -lz -lpthread
-
-dms_simulate_reads.o : dms_simulate_reads.cpp boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
-	$(CC) $(COFLAGS) $<
-
-dms_simulate_reads : DMSTransModel.o DMSWholeModel.o dms_simulate_reads.o
-	$(CC) -O3 -o $@ $^  -lpthread
-
-dms_learning_from_simulated.o : dms_learning_from_simulated.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp MyHeap.hpp DMSTransModel.hpp DMSWholeModel.hpp
-	$(CC) $(COFLAGS) $<
-
-dms_learning_from_simulated : DMSTransModel.o DMSWholeModel.o dms_learning_from_simulated.o sam/libbam.a
+dms-seq-run-em : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o EM.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 clean :
 	rm -rf $(PROGRAMS) *.o *~
 	cd sam ; $(MAKE) clean
-
-

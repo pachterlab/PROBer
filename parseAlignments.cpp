@@ -42,6 +42,7 @@ READ_INT_TYPE nUnique, nMulti, nIsoMulti;
 HIT_INT_TYPE nHits;
 
 bool bowtie_filter;
+int max_hit_allowed; // maximum number of alignments allowed
 
 inline bool isGeneMultiRead(AlignmentGroup &ag) {
   int size = ag.size();
@@ -94,7 +95,7 @@ void writeStat(const char* statName) {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) { 
-    printf("dms-seq-parse-alignments refName imdName statName number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [--bowtie-filter] [-q]\n");
+    printf("dms-seq-parse-alignments refName imdName statName number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [--bowtie-filter] [-m max_hit_allowed][-q]\n");
     exit(-1);
   }
 
@@ -105,11 +106,13 @@ int main(int argc, char* argv[]) {
   num_threads = atoi(argv[4]);
   assert(num_threads > 0);
 
-  bowtie_filter = false;
   verbose = true;
+  bowtie_filter = false;
+  max_hit_allowed = 2147483647; // 2^31 - 1
   for (int i = 7; i < argc; i++) {
     if (!strcmp(argv[i], "-q")) verbose = false;
     if (!strcmp(argv[i], "--bowtie-filter")) bowtie_filter = true;
+    if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
   }
 
   parser = new SamParser(argv[5][0], argv[6], NULL);
@@ -118,12 +121,13 @@ int main(int argc, char* argv[]) {
 
   writers.assign(num_threads, NULL);
   writer0 = writer2 = NULL;
+
+  sprintf(bamOutF, "%s_N0.bam", argv[2]);
+  writer0 = new BamWriter(bamOutF, header, "DMS-Seq intermediate"); // only imdName_N0.bam contains a good header
   for (int i = 0; i < num_threads; i++) {
     sprintf(bamOutF, "%s_%d.bam", argv[2], i);
-    writers[i] = new BamWriter(bamOutF, (i == 0 ? header : NULL), "DMS-Seq intermediate");
+    writers[i] = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
   }
-  sprintf(bamOutF, "%s_N0.bam", argv[2]);
-  writer0 = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
   sprintf(bamOutF, "%s_N2.bam", argv[2]);
   writer2 = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
 
@@ -139,30 +143,42 @@ int main(int argc, char* argv[]) {
     bool isAligned = ag.isAligned();
 
     if (isAligned) {
-      ++N[1];
+      // Read is alignable
+      if (ag.size() <= max_hit_allowed) {
+	++N[1];
       
-      int id = my_heap.getTop();
-      writers[id]->write(ag, 1); // remove seq and qual for secondary alignments
-      my_heap.updateTop(ag.size());
+	int id = my_heap.getTop();
+	writers[id]->write(ag, 1); // remove seq and qual for secondary alignments
+	my_heap.updateTop(ag.size());
       
-      // Multi-read stats
-      if (isGeneMultiRead(ag)) ++nMulti;
-      else ++nUnique;
-      if (isIsoMultiRead(ag)) ++nIsoMulti;
+	// Multi-read stats
+	if (isGeneMultiRead(ag)) ++nMulti;
+	else ++nUnique;
+	if (isIsoMultiRead(ag)) ++nIsoMulti;
       
-      nHits += (HIT_INT_TYPE)ag.size();
-      if (ag.size() >= (int)counts.size()) counts.resize(ag.size() + 1, 0);
-      ++counts[ag.size()];
-    }
-    else if (bowtie_filter && is_filtered_bowtie(ag)) {
-      ++N[2];
-      writer2->write(ag, 1);
+	nHits += (HIT_INT_TYPE)ag.size();
+	if (ag.size() >= (int)counts.size()) counts.resize(ag.size() + 1, 0);
+	++counts[ag.size()];
+      }
+      else {
+	// Filtered because has too many alignments
+	++N[2];
+	writer2->write(ag, 1);
+      }
     }
     else {
-      ++N[0];
-      writer0->write(ag, 1);
+      // Read is unalignable
+      if (bowtie_filter && is_filtered_bowtie(ag)) {
+	// Filtered due to bowtie XM tag
+	++N[2];
+	writer2->write(ag, 1);
+      }
+      else {
+	++N[0];
+	writer0->write(ag, 1);
+      }
     }
-      
+
     ++cnt;
     if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
   }
