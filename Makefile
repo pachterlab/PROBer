@@ -143,6 +143,13 @@ SequencingModel.cpp : Markov.hpp Profile.hpp Qprofile.hpp SequencingModel.hpp
 SequencingModel.o : SequencingModel.cpp sam/bam.h boost/random.hpp sampling.hpp utils.h RefSeq.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp
 	$(CC) $(COFLAGS) $<
 
+InMemoryStructs.hpp : utils.h
+
+InMemoryStructs.cpp : InMemoryStructs.hpp
+
+InMemoryStructs.o : InMemoryStructs.cpp utils.h InMemoryStructs.hpp
+	$(CC) $(COFLAGS) $<
+
 DMSReadModel.hpp : utils.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp 
 
 DMSReadModel.cpp : utils.h sampling.hpp Refs.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp DMSReadModel.hpp 
@@ -167,7 +174,7 @@ DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert
 EM.o : EM.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp DMSTransModel.hpp DMSWholeModel.hpp DMSReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-run-em : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o EM.o sam/libbam.a
+dms-seq-run-em : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o InMemoryStructs.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o EM.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 clean :

@@ -30,10 +30,10 @@ public:
   /*
     @param   alignG   An alignment group, representing a single read's all alignments
    */
-  void addAlignments(InMemAlignG& alignG) {
-    for (int i = 0; i < alignG.size; ++i) {
-      transcripts[alignG.aligns[i]->tid]->addAlignment(alignG.aligns[i]);
-      counts[alignG.aligns[i]->tid] += alignG.aligns[i]->frac; // used for allocating transcripts, frac is 1/total_alignments
+  void addAlignments(InMemAlignG* alignG) {
+    for (int i = 0; i < alignG->size; ++i) {
+      transcripts[alignG->aligns[i].tid]->addAlignment(&(alignG->aligns[i]));
+      counts[alignG->aligns[i].tid] += alignG->aligns[i].frac; // used for allocating transcripts, frac is 1/total_alignments
     }
   }
 

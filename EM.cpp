@@ -34,24 +34,24 @@ struct InMemParams {
   DMSReadModel *read_model;
 
   DMSReadModel *estimator; // slave model that is used to estimate model parameters
-  vector<InMemAlignG> ags; // alignment groups
+  InMemChunk *chunk; // A chunk of memory to record all in-memory information for reads and alignments associated with this thread
 
   vector<double> fracs; // fractions for each alignment in a read
   double count0; // sum of noise read fractions
   double loglik; // log likelihood
 
-  InMemParams(int no, DMSWholeModel* whole_model, DMSReadModel* read_model, READ_INT_TYPE nreads) {
+  InMemParams(int no, DMSWholeModel* whole_model, DMSReadModel* read_model, READ_INT_TYPE nreads, HIT_INT_TYPE nlines) {
     this->no = no;
     this->whole_model = whole_model;
     this->read_model = read_model;
     estimator = NULL;
-    ags.assign(nreads, InMemAlignG());
+    chunk = new InMemChunk(nreads, nlines);
     fracs.clear();
     count0 = loglik = 0.0;
   }
 
   ~InMemParams() {
-    ags.clear();
+    delete chunk;
     if (estimator != NULL) delete estimator;
   }
 };
@@ -124,26 +124,36 @@ void init() {
   HIT_INT_TYPE nlines;
   int max_size; // maximum alignment sizes in a read for a thread
 
+  InMemAlignG *a_read = NULL;
+  InMemAlign *aligns = NULL;
+
   N_eff = N0;
   paramsVec.assign(num_threads, NULL);
   for (int i = 0; i < num_threads; ++i) {
     fin>> id>> nreads>> nlines;
     N_eff += nreads;
-    paramsVec[i] = new InMemParams(i, whole_model, read_model, nreads);
+    paramsVec[i] = new InMemParams(i, whole_model, read_model, nreads, nlines);
 
     sprintf(bamF, "%s_%d.bam", imdName, i);
     parser = new SamParser('b', bamF, NULL);
     rid = 0;
     max_size = 0;
     while (parser->next(ag)) {
-      paramsVec[i]->ags[rid].size = ag.size();
+      a_read = paramsVec[i]->chunk->next();
+      assert(a_read != NULL);
+      a_read->size = ag.size();
+      aligns = a_read->aligns;
+
       if (max_size < ag.size()) max_size = ag.size();
-      paramsVec[i]->ags[rid].aligns = new InMemAlign*[ag.size()];
+
       for (int j = 0; j < ag.size(); ++j) {
 	BamAlignment *ba = ag.getAlignment(j);
-	paramsVec[i]->ags[rid].aligns[j] = new InMemAlign(transcripts.getInternalSid(ba->getTid()), ba->getLeftMostPos(), (ba->isPaired() ? ba->getInsertSize() : 0), 1.0 / ag.size());
+	aligns[j].tid = transcripts.getInternalSid(ba->getTid());
+	aligns[j].pos = ba->getLeftMostPos();
+	aligns[j].fragment_length = ba->isPaired() ? ba->getInsertSize() : 0;
+	aligns[j].frac = 1.0 / ag.size();
       }
-      whole_model->addAlignments(paramsVec[i]->ags[rid]);
+      whole_model->addAlignments(a_read);
       read_model->update_preprocess(ag, true);
       ++rid;
     }
@@ -170,7 +180,7 @@ void* E_STEP(void* arg) {
   DMSWholeModel *whole_model = params->whole_model;
   DMSReadModel *read_model = params->read_model;
   DMSReadModel *estimator = params->estimator;
-  vector<InMemAlignG>& ags = params->ags;
+  InMemChunk *chunk = params->chunk;
   vector<double>& fracs = params->fracs;
 
   SamParser *parser = NULL;
@@ -179,6 +189,8 @@ void* E_STEP(void* arg) {
   params->count0 = 0.0;
   params->loglik = 0.0;
 
+  chunk->reset();
+
   if (needCalcConPrb || updateReadModel) {
     char bamF[STRLEN];
     sprintf(bamF, "%s_%d.bam", imdName, params->no);
@@ -186,31 +198,35 @@ void* E_STEP(void* arg) {
   }
   if (updateReadModel) estimator->init();
 
-  READ_INT_TYPE nreads = ags.size();
+  READ_INT_TYPE nreads = chunk->nreads;
   int size;
   double sum;
+  InMemAlignG *a_read = NULL;
 
   for (READ_INT_TYPE i = 0; i < nreads; ++i) {
     if (needCalcConPrb || updateReadModel) {
       assert(parser->next(ag));
     }
-    
-    if (needCalcConPrb) read_model->setProbs(ags[i], ag);
 
-    size = ags[i].size;
+    a_read = chunk->next();
+    assert(a_read != NULL);
+
+    if (needCalcConPrb) read_model->setProbs(a_read, ag);
+
+    size = a_read->size;
     sum = 0.0;
     for (int j = 0; j < size; ++j) {
-      fracs[j] = whole_model->getProb(ags[i].aligns[j]->tid, ags[i].aligns[j]->pos, ags[i].aligns[j]->fragment_length) * ags[i].aligns[j]->frac;
+      fracs[j] = whole_model->getProb(a_read->aligns[j].tid, a_read->aligns[j].pos, a_read->aligns[j].fragment_length) * a_read->aligns[j].frac;
       sum += fracs[j];
     }
-    fracs[size] = whole_model->getProb(0) * ags[i].noise_prob;
+    fracs[size] = whole_model->getProb(0) * a_read->noise_prob;
     sum += fracs[size];
     assert(sum > 0.0);
     params->loglik += log(sum);
     for (int j = 0; j <= size; ++j) fracs[j] /= sum;
     params->count0 += fracs[size];
 
-    if (updateReadModel) estimator->update(ags[i], ag, fracs);    
+    if (updateReadModel) estimator->update(a_read, ag, fracs);    
   }
 
   if (parser != NULL) delete parser;
@@ -273,25 +289,31 @@ void EM() {
 void* calc_expected_alignments(void* arg) {
   InMemParams *params = (InMemParams*)arg;
   DMSWholeModel *whole_model = params->whole_model;
-  vector<InMemAlignG>& ags = params->ags;
+  InMemChunk *chunk = params->chunk;
   vector<double>& fracs = params->fracs;
 
-  READ_INT_TYPE nreads = ags.size();
+  chunk->reset();
+
+  READ_INT_TYPE nreads = chunk->nreads;
   int size;
   double sum;
+  InMemAlignG *a_read = NULL;
 
   for (READ_INT_TYPE i = 0; i < nreads; ++i) {
-    size = ags[i].size;
+    a_read = chunk->next();
+    assert(a_read != NULL);
+
+    size = a_read->size;
     sum = 0.0;
     for (int j = 0; j < size; ++j) {
-      fracs[j] = whole_model->getProb(ags[i].aligns[j]->tid, ags[i].aligns[j]->pos, ags[i].aligns[j]->fragment_length) * ags[i].aligns[j]->frac;
+      fracs[j] = whole_model->getProb(a_read->aligns[j].tid, a_read->aligns[j].pos, a_read->aligns[j].fragment_length) * a_read->aligns[j].frac;
       sum += fracs[j];
     }
-    fracs[size] = whole_model->getProb(0) * ags[i].noise_prob;
+    fracs[size] = whole_model->getProb(0) * a_read->noise_prob;
     sum += fracs[size];
     assert(sum > 0.0);
-    for (int j = 0; j < size; ++j) ags[i].aligns[j]->frac = fracs[j] / sum;
-    ags[i].noise_prob = fracs[size] / sum;
+    for (int j = 0; j < size; ++j) a_read->aligns[j].frac = fracs[j] / sum;
+    a_read->noise_prob = fracs[size] / sum;
   }
 
   return NULL;
@@ -320,13 +342,19 @@ void writeResults() {
     for (int i = 0; i < num_threads; ++i) {
       sprintf(inpF, "%s_%d.bam", imdName, i);
       SamParser* parser = new SamParser('b', inpF, NULL);
-      vector<InMemAlignG>& ags = paramsVec[i]->ags;
-      READ_INT_TYPE nreads = ags.size();
+      InMemChunk *chunk = paramsVec[i]->chunk;
+      READ_INT_TYPE nreads = chunk->nreads;
+      InMemAlignG *a_read = NULL;
+
+      chunk->reset();
       for (READ_INT_TYPE j = 0; j < nreads; ++j) {
 	assert(parser->next(ag));
-	int size = ags[j].size;
+	a_read = chunk->next();
+	assert(a_read != NULL);
+
+	int size = a_read->size;
 	for (int k = 0; k < size; ++k) 
-	  ag.getAlignment(k)->setFrac(ags[j].aligns[k]->frac);
+	  ag.getAlignment(k)->setFrac(a_read->aligns[k].frac);
 	writer->write(ag, 2);
       }
       delete parser;
@@ -367,6 +395,7 @@ void release() {
 int main(int argc, char* argv[]) {
   if (argc < 7) {
     printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName num_of_threads [--output-bam] [-q]\n");
+    exit(-1);
   }
 
   strcpy(refName, argv[1]);
