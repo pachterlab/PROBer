@@ -223,14 +223,15 @@ inline void DMSReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int frag
   }
   else {
     RefSeq &ref = refs->getRef(tid);
+    ref.setDir('+');
     mateL1 = mld1->simulate(sampler, fragment_length);
     if (model_type & 1) qd->simulate(sampler, mateL1, qual1);
     seqmodel->simulate(sampler, mateL1, pos, ref, qual1, cigar1, readseq1);
 
     if (model_type >= 2) {
+      ref.setDir('-');
       mateL2 = mld2->simulate(sampler, fragment_length); 
       if (model_type & 1) qd->simulate(sampler, mateL2, qual2);
-      ref.setDir('-');
       m2pos = ref.getTotLen() - pos - fragment_length;
       seqmodel->simulate(sampler, mateL2, m2pos, ref, qual2, cigar2, readseq2);
     }

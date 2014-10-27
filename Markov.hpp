@@ -53,7 +53,7 @@ public:
   }
 
   char simulateIBase(Sampler *sampler) {
-    return getCharacter(sampler->sample(probI_sim, NCODES));
+    return code2base[sampler->sample(probI_sim, NCODES)];
   }
 
   void startSimulation();

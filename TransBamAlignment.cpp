@@ -229,7 +229,7 @@ void TransBamAlignment::modifyTags(char strand, bam1_t* b) {
 	  case 0:
 	    base = len - 1;
 	    if (mis[fr] == '^') { tmp[len - i] = mis[fr]; ++fr; ++base; }
-	    for (int j = fr; j < i; j++) tmp[base - j] = ((mis[j] == 'A' || mis[j] == 'C' || mis[j] == 'G' || mis[j] == 'T') ? getOpp(mis[j]) : mis[j]);
+	    for (int j = fr; j < i; j++) tmp[base - j] = ((mis[j] == 'A' || mis[j] == 'C' || mis[j] == 'G' || mis[j] == 'T') ? base2rbase[mis[j]] : mis[j]);
 	    break;
 	  case 1: 
 	    base = len - i - fr;
@@ -244,7 +244,7 @@ void TransBamAlignment::modifyTags(char strand, bam1_t* b) {
       case 0:
 	base = len - 1;
 	if (mis[fr] == '^') { tmp[0] = mis[fr]; ++fr; ++base; }
-	for (int j = fr; j < len; j++) tmp[base - j] = ((mis[j] == 'A' || mis[j] == 'C' || mis[j] == 'G' || mis[j] == 'T') ? getOpp(mis[j]) : mis[j]);
+	for (int j = fr; j < len; j++) tmp[base - j] = ((mis[j] == 'A' || mis[j] == 'C' || mis[j] == 'G' || mis[j] == 'T') ? base2rbase[mis[j]] : mis[j]);
 	break;
       case 1: 
 	for (int j = fr; j < len; j++) tmp[j - fr] = mis[j]; 

@@ -111,7 +111,7 @@ public:
 private:
   int num_threads; // number of threads we can use
   bool readGamma; // When call read, if we should read gamma
-  int M; // Number of transcripts plus noise transcript as tid = 0
+  int M; // Number of transcripts
   std::vector<double> theta; // M + 1 elements
   std::vector<DMSTransModel*> transcripts; // DMS models for individual transcripts
 

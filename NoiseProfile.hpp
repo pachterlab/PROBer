@@ -5,6 +5,7 @@
 #include<string>
 #include<fstream>
 
+#include "utils.h"
 #include "sampling.hpp"
 #include "SEQstring.hpp"
 
@@ -55,7 +56,7 @@ public:
   void simulate(Sampler* sampler, int len, std::string& readseq) {
     readseq.assign(len, 0);
     for (int i = 0; i < len; ++i) {
-      readseq[i] = getCharacter(sampler->sample(pc, NCODES));
+      readseq[i] = code2base[sampler->sample(pc, NCODES)];
     }
   }
   

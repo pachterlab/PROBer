@@ -103,29 +103,3 @@ std::vector<uint32_t> RefSeq::init_mask_code() {
   for (int i = 0; i < NBITS; i++) vec[i] = 1 << i;
   return vec;
 }
-
-const std::vector<int> RefSeq::base2code = init_base2code();
-
-std::vector<int> RefSeq::init_base2code() {
-  std::vector<int> vec(128, -1);
-  vec['a'] = vec['A'] = 0;
-  vec['c'] = vec['C'] = 1;
-  vec['g'] = vec['G'] = 2;
-  vec['t'] = vec['T'] = 3;
-  vec['n'] = vec['N'] = 4;
-  
-  return vec;
-}
-
-const std::vector<int> RefSeq::rbase2code = RefSeq::init_rbase2code();
-
-std::vector<int> RefSeq::init_rbase2code() {
-  std::vector<int> vec(128, -1);
-  vec['a'] = vec['A'] = 3;
-  vec['c'] = vec['C'] = 2;
-  vec['g'] = vec['G'] = 1;
-  vec['t'] = vec['T'] = 0;
-  vec['n'] = vec['N'] = 4;
-  
-  return vec;
-}

@@ -7,6 +7,8 @@
 #include<vector>
 #include<stdint.h>
 
+#include "utils.h"
+
 //Each Object can only be used once
 class RefSeq {
 public:
@@ -33,7 +35,7 @@ public:
 
   char baseAt(int pos) const {
     assert(pos >= 0 && pos < totLen);
-    return (dir == '+' ? seq[pos] : seq[totLen - pos - 1]);
+    return (dir == '+' ? seq[pos] : base2rbase[seq[totLen - pos - 1]]);
   }
 
   int baseCodeAt(int pos) const {
@@ -66,12 +68,6 @@ private:
   static const std::vector<uint32_t> mask_codes;
 
   static std::vector<uint32_t> init_mask_code();
-
-  static const std::vector<int> base2code;
-  static const std::vector<int> rbase2code;
-
-  static std::vector<int> init_base2code();
-  static std::vector<int> init_rbase2code();
 };
 
 #endif

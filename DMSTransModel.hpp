@@ -129,15 +129,6 @@ public:
   double getProbPass() const { return prob_pass; }
 
   /*
-    @comment: set start and end to 0
-   */
-  void init() {
-    N_obs = 0.0;
-    memset(start, 0, sizeof(double) * (len + 1));
-    memset(end, 0, sizeof(double) * (len + 1));
-  }
-
-  /*
     @param   start2   auxiliary array used in EM
     @param   end2     auxiliary array used in EM
     @comment: start2 and end2 can be shared among multiple transcripts in a same thread. 
@@ -229,11 +220,16 @@ private:
 };
 
 inline void DMSTransModel::update() {
-  int size = alignments.size();
+  HIT_INT_TYPE size = alignments.size();
   if (size == 0) return;
+
+  // initialize
+  N_obs = 0.0;
+  memset(start, 0, sizeof(double) * (len + 1));
+  memset(end, 0, sizeof(double) * (len + 1));
   
-  isSE = alignments[0]->fragment_length < 0;
-  
+  isSE = (alignments[0]->fragment_length == 0); // Only valid if all reads are paired or SE reads and no improper alignment allowed
+
   if (isSE) {
     for (int i = 0; i < size; ++i) {
       if (alignments[i]->pos + min_frag_len > len || alignments[i]->pos < 0) continue;

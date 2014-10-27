@@ -34,14 +34,16 @@ synthesisRef.o : synthesisRef.cpp utils.h my_assert.h Transcript.hpp Transcripts
 dms-seq-synthesis-reference-transcripts : Transcript.o Transcripts.o synthesisRef.o
 	$(CC) -O3 -o $@ $^
 
+RefSeq.hpp : utils.h 
+
 RefSeq.cpp : RefSeq.hpp
 
-RefSeq.o : RefSeq.cpp RefSeq.hpp
+RefSeq.o : RefSeq.cpp utils.h RefSeq.hpp
 	$(CC) $(COFLAGS) $<
 
 Refs.hpp : RefSeqPolicy.h PolyARules.h RefSeq.hpp
 
-Refs.cpp : utils.h my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Refs.hpp
+Refs.cpp : my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Refs.hpp
 
 Refs.o : Refs.cpp utils.h my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Refs.hpp
 	$(CC) $(COFLAGS) $<
@@ -101,7 +103,7 @@ MateLenDist.cpp : MateLenDist.hpp
 MateLenDist.o : MateLenDist.cpp boost/random.hpp sampling.hpp MateLenDist.hpp
 	$(CC) $(COFLAGS) $<
 
-NoiseProfile.hpp : sampling.hpp SEQstring.hpp
+NoiseProfile.hpp : utils.h sampling.hpp SEQstring.hpp
 
 NoiseProfile.cpp : utils.h NoiseProfile.hpp
 

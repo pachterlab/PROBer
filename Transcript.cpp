@@ -23,7 +23,7 @@ void Transcript::extractSeq(const std::string& gseq, std::string& seq) const {
 	case '-':
 		for (int i = s - 1; i >= 0; i--) {
 			for (int j = structure[i].end; j >= structure[i].start; j--) {
-				seq += getOpp(gseq[j - 1]);
+				seq += base2rbase[gseq[j - 1]];
 			}
 		}
 		break;

@@ -175,7 +175,7 @@ void DMSTransModel::EM(double N_tot, int round) {
       start2[i] += start[i] + start2[i - 1];
       end2[i] += end[i] + end2[i - 1];      
       value = (end2[i] > end2[i - 1]) && (end2[i] > start2[i - 1]) ? (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]) : 0.0;
-      if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value;
+      if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value; // avoid insufficient data lead to failing rate of 1, may seek better estimator in the future
       else beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0;
     }
     

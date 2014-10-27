@@ -11,9 +11,9 @@ class Refs {
  public:
   Refs();
 
-  void makeRefs(char*, RefSeqPolicy&, PolyARules&);
-  void loadRefs(char*, int = 0);
-  void saveRefs(char*);
+  void makeRefs(char* inpF, RefSeqPolicy& policy, PolyARules& rules);
+  void loadRefs(char* inpF, int option = 0);
+  void saveRefs(char* outF);
 
   int getM() { return M; } // get number of isoforms
 

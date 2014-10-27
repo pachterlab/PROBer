@@ -29,7 +29,7 @@ public:
   void write(std::ofstream&);
  
   char simulate(Sampler* sampler, int qual, int ref_base) {
-    return getCharacter(sampler->sample(pc[qual][ref_base], NCODES));
+    return code2base[sampler->sample(pc[qual][ref_base], NCODES)];
   }
   
   void startSimulation();

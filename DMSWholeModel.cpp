@@ -187,6 +187,7 @@ void DMSWholeModel::read(const char* input_name) {
       theta.assign(M + 1, 0.0);
       transcripts.assign(M + 1, NULL);
       for (int i = 1; i <= M; ++i) transcripts[i] = new DMSTransModel(false);
+      tmp_M = 0; // To mark that this model is not used for learning
     }
     else assert(M == tmp_M);
 
@@ -194,13 +195,16 @@ void DMSWholeModel::read(const char* input_name) {
 
     fin.close();
 
-    sprintf(input_theta, "%s_minus.theta", input_name);
-    fin.open(input_theta);
-    assert(fin.is_open());
-   
-    assert((fin>> tmp_M) && (tmp_M == M));
-    for (int i = 0; i <= M; ++i) assert(fin>> theta[i]);
-    fin.close();
+    if (tmp_M == 0) {
+      // Loading expression of minus chanel for the sake of simulation 
+      sprintf(input_theta, "%s_minus.theta", input_name);
+      fin.open(input_theta);
+      assert(fin.is_open());
+      
+      assert((fin>> tmp_M) && (tmp_M == M));
+      for (int i = 0; i <= M; ++i) assert(fin>> theta[i]);
+      fin.close();
+    }
 
     readGamma = false;
   }

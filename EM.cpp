@@ -75,6 +75,7 @@ vector<pthread_t> threads;
 pthread_attr_t attr;
 int rc;
 
+bool read_gamma;
 bool output_bam;
 
 void init() {
@@ -94,6 +95,7 @@ void init() {
   // Create DMSWholeModel
   sprintf(configF, "%s.config", imdName);
   whole_model = new DMSWholeModel(configF, &transcripts, num_threads);
+  if (read_gamma) whole_model->read(sampleName); // Read gamma because this run is used to estimate betas
 
   // Create DMSReadModel
   read_model = new DMSReadModel(model_type, &refs);
@@ -166,6 +168,7 @@ void init() {
     paramsVec[i]->estimator = new DMSReadModel(read_model);
 
   whole_model->init_for_EM();
+  read_model->finish_preprocess();
 
   threads.assign(num_threads, pthread_t());
   /* set thread attribute to be joinable */
@@ -394,7 +397,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName num_of_threads [--output-bam] [-q]\n");
+    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName num_of_threads [--read-gamma] [--output-bam] [-q]\n");
     exit(-1);
   }
 
@@ -406,8 +409,10 @@ int main(int argc, char* argv[]) {
   num_threads = atoi(argv[6]);
 
   verbose = true;
+  read_gamma = false;
   output_bam = false;
   for (int i = 7; i < argc; ++i) {
+    if (!strcmp(argv[i], "--read-gamma")) read_gamma = true;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }

@@ -4,7 +4,6 @@
 #include<fstream>
 #include<vector>
 
-#include "utils.h"
 #include "my_assert.h"
 #include "RefSeqPolicy.h"
 #include "PolyARules.h"
