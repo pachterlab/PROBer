@@ -62,12 +62,10 @@ void QualDist::write(std::ofstream& fout) {
   fout<< "#QualDist, format: SIZE; P_init; P_tran, SIZE lines"<< std::endl;
   fout<< SIZE<< std::endl;
   
-  fout.precision(10);
-  fout.setf(0, std::ios::floatfield);
-  for (int i = 0; i < SIZE - 1; ++i) fout<< p_init[i];
+  for (int i = 0; i < SIZE - 1; ++i) fout<< p_init[i]<< '\t';
   fout<< p_init[SIZE - 1]<< std::endl;
   for (int i = 0; i < SIZE; ++i) {
-    for (int j = 0; j < SIZE -1 ; ++j) fout<< p_tran[i][j];
+    for (int j = 0; j < SIZE -1 ; ++j) fout<< p_tran[i][j]<< '\t';
     fout<< p_tran[i][SIZE - 1]<< std::endl;
   }
   fout<< std::endl;

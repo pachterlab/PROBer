@@ -35,7 +35,7 @@ bam_header_t* BamWriter::header_duplicate_without_text(const bam_header_t *ori_h
   h->n_targets = ori_h->n_targets;
   h->target_len = new uint32_t[h->n_targets];
   h->target_name = new char*[h->n_targets];
-  for (int i = 0; i < h->n_targets; i++) {
+  for (int i = 0; i < h->n_targets; ++i) {
     h->target_len[i] = ori_h->target_len[i];
     h->target_name[i] = new char[strlen(ori_h->target_name[i]) + 1];
     strcpy(h->target_name[i], ori_h->target_name[i]);

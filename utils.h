@@ -38,17 +38,6 @@ inline std::string cleanStr(const std::string& str) {
   return (fr <= to ? str.substr(fr, to - fr + 1) : "");
 }
 
-/*
-static const std::vector<char> base2rbase;
-static std::vector<char> init_base2rbase();
-
-static const std::vector<int> base2code;
-static std::vector<int> init_base2code();
-
-static const std::vector<int> rbase2code;
-static std::vector<int> init_rbase2code();
-*/
-
 static const char code2base[] = "ACGTN";
 
 static std::vector<char> init_base2rbase() {

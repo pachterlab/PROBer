@@ -37,8 +37,8 @@ bool BamAlignment::read(samfile_t *in, BamAlignment *o) {
   else if (b->core.flag & 0x0004) is_aligned = ((b2->core.flag & 0x0004) ? 0 : 3);
   else is_aligned = ((b2->core.flag & 0x0004) ? 2 : 1);
   
-  if (b->core.l_qseq <= 0) b->core.l_qseq = o->getSeqLength(1);
-  if (is_paired && b2->core.l_qseq <= 0) b2->core.l_qseq = o->getSeqLength(2);
+  //  if (b->core.l_qseq <= 0) b->core.l_qseq = o->getSeqLength(1);
+  //  if (is_paired && b2->core.l_qseq <= 0) b2->core.l_qseq = o->getSeqLength(2);
 
   // May consider to comment the following two lines out for efficiency
   assert((is_aligned == 0 || is_aligned == 3) || b->core.l_qseq == bam_cigar2qlen(&b->core, bam1_cigar(b)));

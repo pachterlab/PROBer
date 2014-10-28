@@ -33,8 +33,18 @@ public:
     if (b2 != NULL) bam_destroy1(b2);
   }
   
-  bool read(samfile_t*, BamAlignment* = NULL);
-  bool write(samfile_t*, int = 0, BamAlignment* = NULL);
+  /*
+    @param   in   input SAM/BAM file handler
+    @param   o    An BamAlignment object that contains sequence/qual score information
+   */
+  bool read(samfile_t* in, BamAlignment* o= NULL);
+
+  /*
+    @param   out     output BAM file handler
+    @param   choice  0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score
+    @param   o       An BamAlignment oject that contains sequence/qual score information
+   */
+  bool write(samfile_t* out, int choice = 0, BamAlignment* o = NULL);
   
   // overall stats
   
@@ -42,13 +52,7 @@ public:
   
   // -1: nothing is loaded, 0: not aligned, 1: fully aligned, 2: first mate is aligned (including SE reads), 3: second mate is aligned. 
   int isAligned() const { return is_aligned; }
-  
-  // mate = 0, the name of the read; 1, mate 1; 2, mate 2
-  const char* getName(int mate = 0) const { 
-    assert((mate == 0) || (mate == 1) || (mate == 2 && is_paired));
-    return (char*)bam1_qname(mate < 2 ? b : b2); 
-  }
-  
+    
   int getInsertSize() const {
     assert(is_aligned == 1);
     return abs(b->core.isize); 
@@ -69,6 +73,7 @@ public:
     @param     fragment_length     The average fragment length, 0 means no fragment length is provided
     @return    If fragment_length == 0, return the leftmost position of two mates. Otherwise, return the leftmost position calculated with fragment length.
                If the calculated position < 0, set it to 0
+    @comment   bam_calend gives the right-most position + 1 
    */
   int getLeftMostPos(int fragment_length = 0) const {
     assert(is_aligned > 0);
@@ -97,17 +102,28 @@ public:
   }
   
   // for mates
-  
-  // position from the strand where the mate comes from
-  int getDirPos(int mate, const bam_header_t *header) const { 
+
+  /*
+    @param   mate   which mate (1 or 2)
+    @param   target_len   the length of reference sequence
+    @comment: This function returns the smallest position of the mate from its strand
+   */
+  int getDirPos(int mate, int target_len) const {
     assert(is_aligned > 0);
     switch(mate) {
-    case 1: return (b->core.flag & 0x0010) == 0 ? b->core.pos : header->target_len[b->core.tid] - b->core.pos - 1;
-    case 2: 
+    case 1: return (b->core.flag & 0x0010) == 0 ? b->core.pos : target_len - (int)bam_calend(&(b->core), bam1_cigar(b));
+    case 2:
       assert(is_paired);
-      return (b2->core.flag & 0x0010) == 0 ? b2->core.pos : header->target_len[b2->core.tid] - b2->core.pos - 1; 
+      return (b2->core.flag & 0x0010) == 0 ? b2->core.pos : target_len - (int)bam_calend(&(b2->core), bam1_cigar(b2));
     default: assert(false);
     }
+  }
+
+  // mate = 0, the name of the read; 1, mate 1; 2, mate 2
+  // Require l_qname > 1, which means the name is not ""
+  const char* getName(int mate = 0) const { 
+    assert((mate >= 0 && mate <=1 && b->core.l_qname > 1) || (mate == 2 && is_paired && b2->core.l_qname > 1));
+    return (char*)bam1_qname(mate < 2 ? b : b2); 
   }
   
   // length of the query sequence

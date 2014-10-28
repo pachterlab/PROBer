@@ -17,18 +17,18 @@ Profile::Profile(int maxL) {
   double probN = 1e-5, portionC = 0.99; //portionC, among ACGT, the portion of probability mass the correct base takes
   double probC, probO;
   
-  for (int i = 0; i < proLen; i++) {
-    for (int j = 0; j < NCODES - 1; j++) {
+  for (int i = 0; i < proLen; ++i) {
+    for (int j = 0; j < NCODES - 1; ++j) {
       p[i][j][N] = probN;
       probC = portionC * (1.0 - probN);
       probO = (1.0 - portionC) / (NCODES - 2) * (1.0 - probN);
       
-      for (int k = 0; k < NCODES - 1; k++) {
+      for (int k = 0; k < NCODES - 1; ++k) {
 	p[i][j][k] = (j == k ? probC : probO);
       }
     }
     p[i][N][N] = probN;
-    for (int k = 0; k < NCODES - 1; k++)
+    for (int k = 0; k < NCODES - 1; ++k)
       p[i][N][k] = (1.0 - probN) / (NCODES - 1);
   }
 
@@ -39,39 +39,26 @@ Profile::~Profile() {
   delete[] p;
 }
 
-Profile& Profile::operator=(const Profile& rv) {
-  if (this == &rv) return *this;
-  if (proLen != rv.proLen) {
-    delete[] p;
-    proLen = rv.proLen;
-    size = rv.size;
-    p = new double[rv.proLen][NCODES][NCODES];
-  }
-  memcpy(p, rv.p, sizeof(double) * rv.size);
-  
-  return *this;
-}
-
 void Profile::init() {
   memset(p, 0, sizeof(double) * size);
 }
 
 void Profile::collect(const Profile* o) {
-  for (int i = 0; i < proLen; i++)
-    for (int j = 0; j < NCODES; j++)
-      for (int k = 0; k < NCODES; k++)
+  for (int i = 0; i < proLen; ++i)
+    for (int j = 0; j < NCODES; ++j)
+      for (int k = 0; k < NCODES; ++k)
 	p[i][j][k] += o->p[i][j][k];
 }
 
 void Profile::finish() {
   double sum;
   
-  for (int i = 0; i < proLen; i++) {
-    for (int j = 0; j < NCODES; j++) {
+  for (int i = 0; i < proLen; ++i) {
+    for (int j = 0; j < NCODES; ++j) {
       sum = 0.0;
-      for (int k = 0; k < NCODES; k++) sum += p[i][j][k];
+      for (int k = 0; k < NCODES; ++k) sum += p[i][j][k];
       if (isZero(sum)) memset(p[i][j], 0, sizeof(double) * NCODES);
-      else for (int k = 0; k < NCODES; k++) p[i][j][k] /= sum;
+      else for (int k = 0; k < NCODES; ++k) p[i][j][k] /= sum;
     }
   }
 }
@@ -95,9 +82,9 @@ void Profile::read(std::ifstream& fin) {
     memset(p, 0, sizeof(double) * size);
   }
   
-  for (int i = 0; i < proLen; i++)
-    for (int j = 0; j < NCODES; j++)
-      for (int k = 0; k < NCODES; k++)
+  for (int i = 0; i < proLen; ++i)
+    for (int j = 0; j < NCODES; ++j)
+      for (int k = 0; k < NCODES; ++k)
 	assert(fin>> p[i][j][k]);
 
   getline(fin, line);
@@ -107,13 +94,10 @@ void Profile::write(std::ofstream& fout) {
   fout<< "#Profile, format: proLen NCODES; P[POS][REF_BASE][OBSERVED_BASE], proLen blocks separated by a blank line, each block contains NCODES lines"<< std::endl;
   fout<< proLen<< '\t'<< NCODES<< std::endl;
 
-  fout.precision(10);
-  fout.setf(0, std::ios::floatfield);
-
-  for (int i = 0; i < proLen; i++) {
-    for (int j = 0; j < NCODES; j++) {
-      for (int k = 0; k < NCODES - 1; k++)
-	fout<< p[i][j][k];
+  for (int i = 0; i < proLen; ++i) {
+    for (int j = 0; j < NCODES; ++j) {
+      for (int k = 0; k < NCODES - 1; ++k)
+	fout<< p[i][j][k]<< '\t';
       fout<< p[i][j][NCODES - 1]<< std::endl;
     }
     fout<< std::endl;
@@ -123,9 +107,9 @@ void Profile::write(std::ofstream& fout) {
 void Profile::startSimulation() {
   pc = new double[proLen][NCODES][NCODES];
 
-  for (int i = 0; i < proLen; i++) {
-    for (int j = 0; j < NCODES; j++)
-      for (int k = 0; k < NCODES; k++) {
+  for (int i = 0; i < proLen; ++i) {
+    for (int j = 0; j < NCODES; ++j)
+      for (int k = 0; k < NCODES; ++k) {
 	pc[i][j][k] = p[i][j][k];
 	if (k > 0) pc[i][j][k] += pc[i][j][k - 1];
       }
@@ -135,7 +119,7 @@ void Profile::startSimulation() {
     double p_d, p_o, p_n;
 
     cp_sum = cp_d = cp_n = 0.0;
-    for (int j = 0; j < NCODES - 1; j++) {
+    for (int j = 0; j < NCODES - 1; ++j) {
       cp_sum += pc[i][j][NCODES - 1];
       cp_d += p[i][j][j];
       cp_n += p[i][j][NCODES - 1];
@@ -153,10 +137,10 @@ void Profile::startSimulation() {
     }
 
     // Check if (Pos, j) has no probability for j != N
-    for (int j = 0; j < NCODES - 1; j++) {
+    for (int j = 0; j < NCODES - 1; ++j) {
       if (!isZero(pc[i][j][NCODES - 1])) continue;
       
-      for (int k = 0; k < NCODES; k++) {
+      for (int k = 0; k < NCODES; ++k) {
 	if (k == j) pc[i][j][k] = p_d;
 	else if (k == NCODES - 1) pc[i][j][k] = p_n;
 	else pc[i][j][k] = p_o;
@@ -167,7 +151,7 @@ void Profile::startSimulation() {
     // Check if (Pos, N) has no probability
     if (isZero(pc[i][NCODES - 1][NCODES - 1])) {
       p_o = (1.0 - p_n) / (NCODES - 1);
-      for (int k = 0; k < NCODES; k++) {
+      for (int k = 0; k < NCODES; ++k) {
 	pc[i][NCODES - 1][k] = (k < NCODES - 1 ? p_o : p_n);
 	if (k > 0) pc[i][NCODES - 1][k] += pc[i][NCODES - 1][k - 1];
       }

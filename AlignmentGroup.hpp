@@ -29,13 +29,6 @@ public:
     for (int i = 0; i < max_size; i++) delete alignments[i];
   }
 
-  void allocate() {
-    if (s >= max_size) { 
-      alignments.push_back(new BamAlignment());
-      ++max_size;
-    }    
-  }
-
   void markAsFiltered() {
     for (int i = 0; i < s; ++i) alignments[i]->markAsFiltered();
   }
@@ -75,9 +68,16 @@ public:
   }
 
 private:
-  char leftover;
-  int s, max_size;
-  std::vector<BamAlignment*> alignments;
+  char leftover; // if has next read. -1, initial value, stands for not called; 0, no next read; 1, has next read, which is the last alignment
+  int s, max_size; // s, total number of alignments; max_size, max capacity
+  std::vector<BamAlignment*> alignments; // pointers to BamAlignment objects
+
+  void allocate() {
+    if (s >= max_size) { 
+      alignments.push_back(new BamAlignment());
+      ++max_size;
+    }    
+  }
 };
 
 inline bool AlignmentGroup::read(samfile_t *in) {

@@ -8,9 +8,8 @@
 
 class Profile {
 public:
-  Profile(int = 1000);
+  Profile(int maxL = 1000);
   ~Profile();
-  Profile& operator=(const Profile&);
 
   double getProb(int pos, int ref_base, int read_base) {
     return p[pos][ref_base][read_base];

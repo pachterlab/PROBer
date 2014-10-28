@@ -87,7 +87,7 @@ void NoiseProfile::write(std::ofstream& fout) {
   fout<< "#NoiseProfile, format: NCODES; P_noise for each base"<< std::endl;
   fout<< NCODES<< std::endl;
 
-  for (int i = 0; i < NCODES - 1; ++i) fout<< p[i];
+  for (int i = 0; i < NCODES - 1; ++i) fout<< p[i]<< '\t';
   fout<< p[NCODES - 1]<< std::endl<< std::endl;
 }
 

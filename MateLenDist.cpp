@@ -27,7 +27,7 @@ void MateLenDist::finish() {
   pmf.resize(span);
   for (int i = 0; i < span; ++i) pmf[i] /= sum;
 
-  cdf.resize(span);
+  cdf.assign(span, 0.0);
   for (int i = 0; i < span; ++i) cdf[i] = pmf[i] + (i > 0 ? cdf[i - 1] : 0.0);
 
   // Calculate logp
@@ -51,11 +51,13 @@ void MateLenDist::read(std::ifstream& fin) {
     cdf[i] = pmf[i];
     if (i > 0) cdf[i] += cdf[i - 1];
   }
+
+  getline(fin, line);
 }
 
 void MateLenDist::write(std::ofstream& fout) {
   fout<< "#MateLenDist, format: lb ub span; [lb, ub], span = ub - lb + 1, probability mass function values"<< std::endl;
-  fout<< lb<< ub<< span<< std::endl;  
+  fout<< lb<< '\t'<< ub<< '\t'<< span<< std::endl;  
   for (int i = 0; i < span - 1; ++i) fout<< pmf[i]<< '\t';
   fout<< pmf[span - 1]<< std::endl<< std::endl;
 }
