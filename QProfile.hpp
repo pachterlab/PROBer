@@ -10,7 +10,6 @@
 class QProfile {
 public:
   QProfile();
-  QProfile& operator=(const QProfile&);
  
   // qual starts from 0, 33 is already deducted
   double getProb(int qual, int ref_base, int read_base) {
@@ -22,11 +21,11 @@ public:
   }
 
   void init();
-  void collect(const QProfile*);
+  void collect(const QProfile* o);
   void finish();
     
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
  
   char simulate(Sampler* sampler, int qual, int ref_base) {
     return code2base[sampler->sample(pc[qual][ref_base], NCODES)];

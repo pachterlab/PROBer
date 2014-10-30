@@ -37,8 +37,8 @@ public:
 
   double finish();
   
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
   
   void simulate(Sampler* sampler, int len, std::string& qual) {
     int qval, old_qval;

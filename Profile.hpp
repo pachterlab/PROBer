@@ -20,11 +20,11 @@ public:
   }
 
   void init();
-  void collect(const Profile*);
+  void collect(const Profile* o);
   void finish();
 
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
 
   char simulate(Sampler* sampler, int pos, int ref_base) {
     return code2base[sampler->sample(pc[pos][ref_base], NCODES)];

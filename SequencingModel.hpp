@@ -14,6 +14,16 @@
 #include "Profile.hpp"
 #include "QProfile.hpp"
 
+/**
+ * We have two explanation of indel models. One is to assume indels are due to difference in the reference sequence and real sequence. The other assumes that sequencing errors cause indels.
+ *
+ * Using the first assumption, indels are generated from reference and point errors are generated from sequencing process. However, this assumption makes it hard to determine insert size.
+ * In addition, different reads generated from a same position may represent different reference sequences, which is also confusing.
+ * 
+ * With the second assumption, we need to argue why profile and qprofile can still use their position and quality scores for estimation with the present of indels. However, it is consistent 
+ * with insert size. Thus we choose the second interpretation.
+ */
+
 class SequencingModel {
 public:
   SequencingModel(bool hasQual = true, int maxL = 1000);
@@ -23,13 +33,13 @@ public:
   void update(double frac, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
 
   void init();
-  void collect(const SequencingModel*);
+  void collect(const SequencingModel* o);
   void finish();
 
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
 
-  void simulate(Sampler*, int, int, const RefSeq&, const std::string&, std::string&, std::string&);
+  void simulate(Sampler *sampler, int len, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq);
 
   void startSimulation();
   void finishSimulation();
@@ -136,7 +146,6 @@ inline void SequencingModel::update(double frac, int pos, const RefSeq& refseq, 
 
 // len is the length of the read. 
 // qual is a string of (SANGER score + 33)
-// Here we assume that the insert_length is approximiated as fragment length based on the assumpiton that insertion/deletion are not common
 // If the end of sequence is reached, only insertions are generated
 // For refseq, we assume its direction is already set up
 inline void SequencingModel::simulate(Sampler *sampler, int len, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq) {

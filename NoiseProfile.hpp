@@ -45,13 +45,13 @@ public:
   }
 
   void init();
-  void collect(const NoiseProfile*);
+  void collect(const NoiseProfile* o);
   void finish();
   
   double calcLogP();
 
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
 
   void simulate(Sampler* sampler, int len, std::string& readseq) {
     readseq.assign(len, 0);

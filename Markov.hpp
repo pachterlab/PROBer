@@ -1,11 +1,6 @@
 #ifndef MARKOV_H_
 #define MARKOV_H_
 
-/**
- * This class models a Markov chain for insertions/deletions. Because insertions and deletions are rare for Illumina reads, the insertions/deletions are assumed to be due to an incomplete 
- * knowledge of the reference. 
- */
-
 #include<vector>
 #include<fstream>
 
@@ -15,7 +10,6 @@
 class Markov {
 public:
   Markov();
-  Markov& operator=(const Markov&);
 
   double getProb(char a) { return P_start[chr2state[a]]; }
   double getProb(char a, char b) { return P_trans[chr2state[a]][chr2state[b]]; }
@@ -28,11 +22,11 @@ public:
   void updateIBase(int code, double frac) { probI[code] += frac; }
 
   void init();
-  void collect(const Markov*);
+  void collect(const Markov* o);
   void finish();
 
-  void read(std::ifstream&);
-  void write(std::ofstream&);
+  void read(std::ifstream& fin);
+  void write(std::ofstream& fout);
 
   char simulate(Sampler *sampler) {
     switch(sampler->sample(P_start_sim, NSTATES)) {
