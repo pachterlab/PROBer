@@ -10,7 +10,6 @@ RefSeq::RefSeq() {
   fullLen = totLen = 0;
   name = ""; seq = "";
   fmasks.clear();
-  dir = 0;
 }
 
 //Constructor , seq : the forward strand of the reference
@@ -34,9 +33,6 @@ RefSeq::RefSeq(const std::string& name, const std::string& seq, int polyALen) {
     int OLEN = 25; // last 24 bases are masked as no read should align to
     for (int i = std::max(fullLen - OLEN + 1, 0); i < fullLen; i++) setMask(i);
   }
-
-  // Default direction is '+'
-  dir = '+';
 }
 
 RefSeq::RefSeq(const RefSeq& o) {
@@ -45,7 +41,6 @@ RefSeq::RefSeq(const RefSeq& o) {
   name = o.name;
   seq = o.seq;
   fmasks = o.fmasks;
-  dir = o.dir;
 }
 
 RefSeq& RefSeq::operator= (const RefSeq &rhs) {
@@ -55,7 +50,6 @@ RefSeq& RefSeq::operator= (const RefSeq &rhs) {
     name = rhs.name;
     seq = rhs.seq;
     fmasks = rhs.fmasks;
-    dir = rhs.dir;
   }
   
   return *this;
@@ -79,8 +73,6 @@ bool RefSeq::read(std::ifstream& fin, int option) {
   
   assert(option == 0 || option == 1);
   if (option == 1) { seq = ""; }
-
-  dir = '+'; // Default is '+'
 
   return true;
 }

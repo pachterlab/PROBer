@@ -29,8 +29,8 @@ public:
   SequencingModel(bool hasQual = true, int maxL = 1000);
   ~SequencingModel();
 
-  double getProb(int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
-  void update(double frac, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
+  double getProb(char dir, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
+  void update(double frac, char dir, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);
 
   void init();
   void collect(const SequencingModel* o);
@@ -39,7 +39,7 @@ public:
   void read(std::ifstream& fin);
   void write(std::ofstream& fout);
 
-  void simulate(Sampler *sampler, int len, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq);
+  void simulate(Sampler *sampler, int len, char dir, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq);
 
   void startSimulation();
   void finishSimulation();
@@ -58,16 +58,23 @@ private:
 };
 
 /*
-  @param   pos   position in its own strand, 0-based
-  @comment: We assume the direction is set up
+  @param   dir      '+' or '-'  
+  @param   pos      position in its own strand, 0-based
+  @param   refseq   reference sequence in '+' strand
+  @param   cigar    cigar string
+  @param   seq      read sequence
+  @param   qual     quality score string
+  @return  probability of generating such a read
  */
-inline double SequencingModel::getProb(int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual) {
+inline double SequencingModel::getProb(char dir, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual) {
   double prob = 1.0;
   int len = cigar->getLen();
   int readpos = 0;
 
   char opchr, last_opchr = 0;
   int oplen;
+
+  int ref_base, read_base;
 
   for (int i = 0; i < len; ++i) {
     opchr = cigar->opchrAt(i);
@@ -79,8 +86,8 @@ inline double SequencingModel::getProb(int pos, const RefSeq& refseq, const CIGA
 
     if (opchr == 'M' || opchr == '=' || opchr == 'X') {
       for (int j = 0; j < oplen; ++j) {
-	int ref_base = refseq.baseCodeAt(pos);
-	int read_base = seq->baseCodeAt(readpos);
+	ref_base = refseq.baseCodeAt(dir, pos);
+	read_base = seq->baseCodeAt(readpos);
 	prob *= (hasQual ? qprofile->getProb(qual->qualAt(readpos), ref_base, read_base) : profile->getProb(readpos, ref_base, read_base));
 	++pos; ++readpos;
       }
@@ -102,13 +109,23 @@ inline double SequencingModel::getProb(int pos, const RefSeq& refseq, const CIGA
   return prob;
 }
 
-// We assume the direction is set up 
-inline void SequencingModel::update(double frac, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual) {
+/*
+  @param   frac     fractional weight
+  @param   dir      '+' or '-'  
+  @param   pos      position in its own strand, 0-based
+  @param   refseq   reference sequence in '+' strand
+  @param   cigar    cigar string
+  @param   seq      read sequence
+  @param   qual     quality score string
+ */
+inline void SequencingModel::update(double frac, char dir, int pos, const RefSeq& refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual) {
   int len = cigar->getLen();
   int readpos = 0;
 
   char opchr, last_opchr = 0;
   int oplen;
+
+  int ref_base, read_base;
 
   for (int i = 0; i < len; ++i) {
     opchr = cigar->opchrAt(i);
@@ -122,8 +139,8 @@ inline void SequencingModel::update(double frac, int pos, const RefSeq& refseq, 
 
     if (opchr == 'M' || opchr == '=' || opchr == 'X') {
       for (int j = 0; j < oplen; ++j) {
-	int ref_base = refseq.baseCodeAt(pos);
-	int read_base = seq->baseCodeAt(readpos);
+	ref_base = refseq.baseCodeAt(dir, pos);
+	read_base = seq->baseCodeAt(readpos);
 	if (hasQual) qprofile->update(qual->qualAt(readpos), ref_base, read_base, frac);
 	else profile->update(readpos, ref_base, read_base, frac);
 	++pos; ++readpos;
@@ -144,11 +161,18 @@ inline void SequencingModel::update(double frac, int pos, const RefSeq& refseq, 
   }
 }
 
-// len is the length of the read. 
-// qual is a string of (SANGER score + 33)
-// If the end of sequence is reached, only insertions are generated
-// For refseq, we assume its direction is already set up
-inline void SequencingModel::simulate(Sampler *sampler, int len, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq) {
+/*
+  @param   sampler   Sampler used for simulation
+  @param   len       length of the read
+  @param   dir       strand of the read, either '+' or '-'
+  @param   pos
+  @param   refseq
+  @param   qual      a string of (SANGER score + 33)
+  @param   cigar
+  @param   seq
+  @comment: If the end of sequence is reached, only insertions are generated
+ */
+inline void SequencingModel::simulate(Sampler *sampler, int len, char dir, int pos, const RefSeq& refseq, const std::string& qual, std::string& cigar, std::string& seq) {
   int readpos = 0;
   char opchr, last_opchr;
   int oplen;
@@ -164,7 +188,7 @@ inline void SequencingModel::simulate(Sampler *sampler, int len, int pos, const 
     else opchr = markov->simulate(sampler, last_opchr);
     
     if (opchr == 'M') {
-      seq.push_back(hasQual ? qprofile->simulate(sampler, qual[readpos] - 33, refseq.baseCodeAt(pos)) : profile->simulate(sampler, readpos, refseq.baseCodeAt(pos)));
+      seq.push_back(hasQual ? qprofile->simulate(sampler, qual[readpos] - 33, refseq.baseCodeAt(dir, pos)) : profile->simulate(sampler, readpos, refseq.baseCodeAt(dir, pos)));
       ++readpos; ++pos;
     }
     else if (opchr == 'I') {

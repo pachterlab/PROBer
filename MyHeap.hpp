@@ -3,6 +3,7 @@
 
 #include<cassert>
 #include<vector>
+#include<algorithm>
 #include<fstream>
 #include<iostream>
 
@@ -20,6 +21,10 @@ struct HeapType {
 
   bool operator< (const HeapType& o) const {
     return nlines < o.nlines || (nlines == o.nlines && id < o.id);
+  }
+
+  static bool compare(const HeapType& a, const HeapType& b) {
+    return a.id < b.id;
   }
 };
 
@@ -59,7 +64,10 @@ inline void MyHeap::updateTop(HIT_INT_TYPE nlines) {
   }
 }
 
+// After calling this function, the heap structure cannot be used
 inline void MyHeap::print(const char* outF) {
+  std::sort(elements.begin(), elements.end(), HeapType::compare);
+
   if (outF != NULL) {
     std::ofstream fout(outF);
     assert(fout.is_open());

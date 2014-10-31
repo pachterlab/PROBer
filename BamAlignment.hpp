@@ -120,9 +120,7 @@ public:
   }
 
   // mate = 0, the name of the read; 1, mate 1; 2, mate 2
-  // Require l_qname > 1, which means the name is not ""
   const char* getName(int mate = 0) const { 
-    assert((mate >= 0 && mate <=1 && b->core.l_qname > 1) || (mate == 2 && is_paired && b2->core.l_qname > 1));
     return (char*)bam1_qname(mate < 2 ? b : b2); 
   }
   

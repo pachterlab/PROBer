@@ -13,6 +13,7 @@
 #include "QUALstring.hpp"
 #include "BamAlignment.hpp"
 
+// One alignment group associates with one file. 
 class AlignmentGroup {
 public:
   AlignmentGroup() { 
@@ -21,12 +22,18 @@ public:
     alignments.clear(); 
   }
 
-  AlignmentGroup(const AlignmentGroup& o) : leftover(o.leftover), s(o.s), max_size(o.max_size), alignments(o.alignments) {
-    assert(o.max_size == 0); // temporarily put this assert here
+  ~AlignmentGroup() {
+    for (int i = 0; i < max_size; ++i) delete alignments[i];
   }
 
-  ~AlignmentGroup() {
-    for (int i = 0; i < max_size; i++) delete alignments[i];
+  /*
+    @func   clear the alignment group so that we can use it for next SAM/BAM file
+   */
+  void clear() {
+    for (int i = 0; i < max_size; ++i) delete alignments[i];
+    alignments.clear();
+    leftover = -1;
+    s = max_size = 0;
   }
 
   void markAsFiltered() {
@@ -116,7 +123,7 @@ inline bool AlignmentGroup::read(samfile_t *in) {
 inline bool AlignmentGroup::write(samfile_t *out, int choice) {
   assert(s > 0);
   alignments[0]->write(out);
-  for (int i = 1; i < s; i++) alignments[i]->write(out, choice, alignments[0]);
+  for (int i = 1; i < s; ++i) alignments[i]->write(out, choice, alignments[0]);
   return true;
 }
 

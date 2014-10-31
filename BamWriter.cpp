@@ -12,9 +12,22 @@
 
 #include "BamWriter.hpp"
 
-// If header == NULL, just create an empty header and paste the program_id line
+// If header == NULL, just create an empty header with one target (to avoid free non null pointer due to calloc) and paste the program_id line
 BamWriter::BamWriter(const char* outF, const bam_header_t* header, const char* program_id) {
-  bam_header_t *out_header = (header != NULL ? header_duplicate_without_text(header) : bam_header_init());
+  bam_header_t *out_header = NULL;
+
+  if (header != NULL) {
+    out_header = header_duplicate_without_text(header);
+  }
+  else {
+    out_header = bam_header_init();
+    out_header->n_targets = 1;
+    out_header->target_len = new uint32_t[1];
+    out_header->target_name = new char*[1];
+    out_header->target_len[0] = 0;
+    out_header->target_name[0] = new char[1];
+    out_header->target_name[0][0] = 0;
+  }
   
   std::ostringstream strout;
   strout<< "@HD\tVN:1.4\tSO:unknown\n@PG\tID:"<< program_id<< std::endl;

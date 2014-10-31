@@ -87,6 +87,8 @@ void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max
 void DMSTransModel::calcAuxiliaryArrays() {
   double value;
 
+  assert(efflen > 0);
+
   // Calculate logsum
   logsum[0] = 0.0;
   for (int i = 1; i <= len; ++i) {

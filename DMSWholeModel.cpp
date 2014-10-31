@@ -76,7 +76,7 @@ void DMSWholeModel::init_for_EM() {
   threads.assign(num_threads, pthread_t());
 
   allocateTranscriptsToThreads();
-  
+
   // calcAuxiliaryArrays
   // create threads
   for (int i = 0; i < num_threads; ++i) {
@@ -356,7 +356,7 @@ void DMSWholeModel::allocateTranscriptsToThreads() {
       if (max_lens[id] < transcripts[i]->getLen()) max_lens[id] = transcripts[i]->getLen();
       my_heap.updateTop(transcripts[i]->getLen());
     }
-  
+
   // trim empty threads  
   while (num_threads > 0 && paramsVec[num_threads - 1]->num_trans == 0) {
     --num_threads;

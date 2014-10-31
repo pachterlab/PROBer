@@ -18,15 +18,13 @@ struct InMemAlignG {
   int size; 
   double noise_prob;
 
-  static InMemAlign* aligns; // alignments
-
   InMemAlignG() : size(0), noise_prob(0.0) {}
 };
 
 // Store in memory information for all alignments of a thread
 struct InMemChunk {
   READ_INT_TYPE pos, nreads;
-  InMemAlign *aligns;
+  InMemAlign *aligns, *pointer;
   InMemAlignG *reads;
 
   InMemChunk(READ_INT_TYPE nreads, HIT_INT_TYPE nlines) {
@@ -43,17 +41,23 @@ struct InMemChunk {
    */
   void reset() {
     pos = 0;
-    InMemAlignG::aligns = aligns;
+    pointer = aligns;
   }
 
   /*
-    @func  return the read current pointer points to
+    @param   aread     In memory read group information
+    @param   alignArr  In memory alignment pointer
+    @return  true if has more reads, false otherwise
    */
-  InMemAlignG* next() {
-    if (pos >= nreads) return NULL;
-    if (pos > 0) InMemAlignG::aligns += reads[pos].size;
+  bool next(InMemAlignG*& aread, InMemAlign*& alignArr) {
+    if (pos >= nreads) return false;
+    if (pos > 0) pointer += reads[pos].size;
     ++pos;
-    return reads + pos;
+
+    aread = reads + pos;
+    alignArr = pointer;
+
+    return true;
   }
 
   ~InMemChunk() {

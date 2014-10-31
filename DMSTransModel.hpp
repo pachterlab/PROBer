@@ -99,8 +99,11 @@ public:
     @return   the probability of generating a PE read pair end at pos and has fragment length fragment_length
    */
   double getProb(int pos, int fragment_length) const {
-    int start_pos = pos + fragment_length - primer_length;
+    fragment_length -= primer_length;
+    if (fragment_length < min_frag_len || fragment_length > max_frag_len) return 0.0;
+    int start_pos = pos + fragment_length;
     if (start_pos > len || pos < 0) return 0.0;
+    
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
 
@@ -109,9 +112,16 @@ public:
 
   /*
     @param   alignment   an in memory alignment belong to this transcript
+    @return   true if the alignment is added, false otherwise
+    @comment:  if the alignment's fragment length is not in [min_frag_len, max_frag_len] range, reject it
    */
-  void addAlignment(InMemAlign* alignment) {
+  bool addAlignment(InMemAlign* alignment) {
+    if (alignment->pos + min_frag_len > len) return false;
+    // For PE reads
+    if ((alignment->fragment_length > 0) && (alignment->fragment_length < min_frag_len + primer_length || alignment->fragment_length > max_frag_len + primer_length)) return false;
+    
     alignments.push_back(alignment);
+    return true;
   }
 
   // Update counts information at each position

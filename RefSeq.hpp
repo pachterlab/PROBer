@@ -28,17 +28,12 @@ public:
 
   std::string getSeq() const { return seq; }
 
-  void setDir(char dir) { 
-    assert(dir == '+' || dir == '-');
-    this->dir = dir; 
-  }
-
-  char baseAt(int pos) const {
+  char baseAt(char dir, int pos) const {
     assert(pos >= 0 && pos < totLen);
     return (dir == '+' ? seq[pos] : base2rbase[seq[totLen - pos - 1]]);
   }
 
-  int baseCodeAt(int pos) const {
+  int baseCodeAt(char dir, int pos) const {
     assert(pos >= 0 && pos < totLen);
     return (dir == '+' ? base2code[seq[pos]] : rbase2code[seq[totLen - pos - 1]]);
   }
@@ -59,8 +54,6 @@ private:
   std::string name; // the tag
   std::string seq; // the raw sequence, in forward strand
   std::vector<uint32_t> fmasks; // record masks for forward strand, each position occupies 1 bit
-
-  char dir;
 
   static const int NBITS = 32; // use unsigned int, 32 bits per variable
   static const int NSHIFT = 5;
