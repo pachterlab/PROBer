@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+import glob
+
+import utils
+from utils import MyFormatter, MyParser, runProg
+
+#Parse options and arguments
+
+parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name channel {{--bam input.bam | --sam input.sam | --reads mate1_read_file(s) [mate2_read_file(s)]}}".format(os.path.basename(sys.argv[0])))
+
+parser.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", metavar = "reference_name")
+parser.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", metavar = "sample_name")
+parser.add_argument("channel", help = "Which channel the data come from. Choose from 'plus' and 'minus'.", choices = ['plus', 'minus'], metavar = "channel")
+
+group = parser.add_mutually_exclusive_group(required = True)
+
+#description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent."
+#title = "Input",
+
+group.add_argument("--bam", help = "Input is a BAM file containing alignment results, '-' stands for standard input.", metavar = "input.bam")
+group.add_argument("--sam", help = "Input is a SAM file containing alignment results, '-' stands for standard input.", metavar = "input.sam")
+group.add_argument("--reads", help = "L:mate1_read_file(s), a comma-separated list of files containing single-end reads or first mates of paired-end reads\n"
+                                     "mate2_read_file(s), present only if '--paired-end' is enabled, a comma-separated list of files containing second mates of paired-end reads\n"
+                                     "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
+                   nargs = '+', action = utils.nargs_range(1, 2), metavar = "mate1_read_file(s) [mate2_read_file(s)]")
+
+parser.add_argument("--no-quality-scores", help = "Input reads do not contain quality scores.", action = "store_true", dest = "no_qual")
+parser.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
+parser.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
+parser.add_argument("--output-bam", help = "Output transcript BAM file.", action = "store_true")
+
+parser.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
+
+args = parser.parse_args()
+
+#Set executable directory
+
+mydir = os.path.realpath(os.path.dirname(sys.argv[0]))
+os.environ["PATH"] = mydir + os.pathsep + os.getenv("PATH", ".")
+os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
+
+#Run programs
+
+#utils.demo = True
+       
+refName = os.path.expanduser(args.ref_name)
+
+sampleName = os.path.expanduser(args.sample_name)
+dir_ = os.path.dirname(sampleName)
+if dir_ != "":
+    dir_ += os.sep
+base_ = os.path.basename(sampleName)
+temp_dir = dir_ + base_ + ".temp" 
+imdName = temp_dir + os.sep + base_
+stat_dir = dir_ + base_ + ".stat"
+statName = stat_dir + os.sep + base_
+
+if not os.path.exists(temp_dir):
+    os.makedirs(temp_dir)
+
+if not os.path.exists(stat_dir):
+    os.makedirs(stat_dir)
+
+model_type = None
+if args.paired_end:
+    if args.no_qual:
+        model_type = 2
+    else:
+        model_type = 3
+else:
+    if args.no_qual:
+        model_type = 0
+    else:
+        model_type = 1
+
+        
+command = ""
+
+if args.bam != None:
+    command = "dms-seq-parse-alignments {0} {1} {2} {3} {4} b {5} -m 200".format(refName, imdName, statName, args.channel, args.num_threads, args.bam)
+    if args.quiet:
+        command += " -q"
+    runProg(command)
+
+fh = open("{}_{}.config".format(imdName, args.channel), 'w')
+fh.write("6\n150\n650\n0.01\n0.01\n")
+fh.close()
+    
+command = "dms-seq-run-em {0} {1} {2} {3} {4} {5} {6}".format(refName, model_type, sampleName, imdName, statName, args.channel, args.num_threads)
+if args.output_bam:
+    command += " --output-bam"
+if args.quiet:
+    command += " -q"
+runProg(command)
+
