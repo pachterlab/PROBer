@@ -140,7 +140,7 @@ Profile.o : Profile.cpp boost/random.hpp sampling.hpp utils.h Profile.hpp
 
 SequencingModel.hpp : RefSeq.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp Markov.hpp Profile.hpp QProfile.hpp
 
-SequencingModel.cpp : Markov.hpp Profile.hpp Qprofile.hpp SequencingModel.hpp
+SequencingModel.cpp : Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp
 
 SequencingModel.o : SequencingModel.cpp sam/bam.h boost/random.hpp sampling.hpp utils.h RefSeq.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp
 	$(CC) $(COFLAGS) $<
