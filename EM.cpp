@@ -312,6 +312,8 @@ void writeResults() {
     SamParser* parser0 = new SamParser('b', inp0F, NULL);
     BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "DMS-Seq");
     AlignmentGroup ag;
+    READ_INT_TYPE cnt = 0;
+
     for (int i = 0; i < num_threads; ++i) {
       sprintf(inpF, "%s_%d.bam", imdName, i);
       SamParser* parser = new SamParser('b', inpF, NULL);
@@ -331,7 +333,8 @@ void writeResults() {
 	  ag.getAlignment(k)->setFrac(aligns[k].frac);
 	writer->write(ag, 2);
 
-	if (verbose && ((j + 1) % 1000000 == 0)) printf("Processed %llu reads!\n", j + 1);
+	++cnt;
+	if (verbose && (cnt % 1000000 == 0)) printf("Processed %llu reads!\n", cnt);
       }
       delete parser;
     }
@@ -352,6 +355,8 @@ void writeResults() {
     delete parser2;
 
     delete writer;
+
+    if (verbose) printf("OUTPUT BAM is written!\n");
   }
 
   // output read model parameters
