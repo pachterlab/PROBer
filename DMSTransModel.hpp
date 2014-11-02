@@ -74,7 +74,7 @@ public:
     @comment: if this transcript has 0 reads, set its gamma/beta values to default
    */
   void setDefault() {
-    assert(isZero(N_obs));
+    if (!isZero(N_obs)) return;
     N_obs = 0.0;
     if (beta == NULL) memset(gamma, 0, sizeof(double) * (len + 1));
     else memset(beta, 0, sizeof(double) * (len + 1));
@@ -116,11 +116,17 @@ public:
     @comment:  if the alignment's fragment length is not in [min_frag_len, max_frag_len] range, reject it
    */
   bool addAlignment(InMemAlign* alignment) {
-    if (alignment->pos + min_frag_len > len) return false;
-    // For PE reads
-    if ((alignment->fragment_length > 0) && (alignment->fragment_length < min_frag_len + primer_length || alignment->fragment_length > max_frag_len + primer_length)) return false;
-    
+    int frag_len = alignment->fragment_length;
+    if (frag_len == 0) { // SE reads
+      if (alignment->pos + min_frag_len > len) return false;
+    }
+    else { // PE reads
+      frag_len -= primer_length;
+      if (frag_len < min_frag_len || frag_len > max_frag_len || alignment->pos + frag_len > len)  return false;
+    }
+
     alignments.push_back(alignment);
+
     return true;
   }
 

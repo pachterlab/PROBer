@@ -17,6 +17,13 @@ extern "C" {
         while ( iter = sam_header_key_val(iter, "RG","ID","SM" &key,&val) ) printf("%s\t%s\n", key,val);
     */
     void *sam_header2key_val(void *iter, const char type[2], const char key_tag[2], const char value_tag[2], const char **key, const char **value);
+
+  /*
+    iter = header->dict;
+    while (iter = sam_header2key(iter, "PG", "ID", &key)) { printf("%s\n", key); iter = iter->next; }
+   */
+  void *sam_header2key(void *iter, const char type[2], const char key_tag[2], const char **_key);
+
 	char **sam_header2list(const void *_dict, char type[2], char key_tag[2], int *_n);
 
     /*

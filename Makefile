@@ -74,7 +74,7 @@ AlignmentGroup.hpp : sam/sam.h SEQstring.hpp QUALstring.hpp BamAlignment.hpp
 
 SamParser.hpp : sam/sam.h BamAlignment.hpp AlignmentGroup.hpp
 
-SamParser.cpp : sam/sam.h my_assert.h SamParser.hpp
+SamParser.cpp : sam/sam.h sam/sam_header.h my_assert.h SamParser.hpp
 
 SamParser.o : SamParser.cpp sam/bam.h sam/sam.h my_assert.h CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp
 	$(CC) $(COFLAGS) $<

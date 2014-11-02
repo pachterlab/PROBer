@@ -64,17 +64,17 @@ public:
     @param   ag_in_mem   an in-memory alignment group, recorded information necessary for EM iteration
     @param   aligns      a pointer to all alignments in ag_in_mem
     @param   ag   an alignment group, which contains the read sequence etc.
-    @func   set probabilities to an alignments of a read
+    @func   set conditional probabilities to an alignments of a read
    */
-  void setProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag);
+  void setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag);
 
   /*
     @param   ag_in_mem
     @param   aligns
     @param   ag
-    @param   fracs   size of ag_in_mem.size + 1, fracs[ag_in_mem.size] contains the noise fraction
+    @param   noise_frac   fractional weight at noise transcript
    */
-  void update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, std::vector<double>& fracs);
+  void update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac);
 
   /*
     @return  partial log-likelihood for unalignable reads
@@ -138,7 +138,7 @@ inline void DMSReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) 
   }
 }
 
-inline void DMSReadModel::setProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
+inline void DMSReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
   int seqlen;
   SEQstring seq;
   QUALstring qual;
@@ -149,12 +149,12 @@ inline void DMSReadModel::setProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, A
   seqlen = ag.getSeqLength();
   if (model_type & 1) assert(ag.getQUAL(qual));
   // set noise probability    
-  ag_in_mem->noise_prob = mld1->getProb(seqlen) * npro->getProb(seq);
+  ag_in_mem->noise_conprb = mld1->getProb(seqlen) * npro->getProb(seq);
   // set alignment probabilities
-  for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac != -1.0) {
+  for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].conprb != -1.0) {
     RefSeq &refseq = refs->getRef(aligns[i].tid);
     assert(ag.getAlignment(i)->getCIGAR(cigar));
-    aligns[i].frac = (aligns[i].fragment_length > 0 ? mld1->getProb(seqlen, aligns[i].fragment_length) : mld1->getProb(seqlen)) * \
+    aligns[i].conprb = (aligns[i].fragment_length > 0 ? mld1->getProb(seqlen, aligns[i].fragment_length) : mld1->getProb(seqlen)) * \
       seqmodel->getProb('+', aligns[i].pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
   }
   
@@ -163,18 +163,18 @@ inline void DMSReadModel::setProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, A
     assert(ag.getSEQ(seq, 2));
     seqlen = ag.getSeqLength(2);
     if (model_type & 1) assert(ag.getQUAL(qual, 2));
-    ag_in_mem->noise_prob *= mld2->getProb(seqlen) * npro->getProb(seq);
-    for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac != -1.0) {
+    ag_in_mem->noise_conprb *= mld2->getProb(seqlen) * npro->getProb(seq);
+    for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].conprb != -1.0) {
       RefSeq &refseq = refs->getRef(aligns[i].tid);
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
-      aligns[i].frac *= mld2->getProb(seqlen, aligns[i].fragment_length) * \
+      aligns[i].conprb *= mld2->getProb(seqlen, aligns[i].fragment_length) * \
 	seqmodel->getProb('-', refseq.getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 }
 
-inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, std::vector<double>& fracs) {
+inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
   SEQstring seq;
   QUALstring qual;
   CIGARstring cigar;
@@ -182,12 +182,12 @@ inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, Ali
   assert(ag.getSEQ(seq));
   if (model_type & 1) assert(ag.getQUAL(qual));
   // update noise prob
-  npro->update(seq, fracs[ag_in_mem->size]);
+  npro->update(seq, noise_frac);
   // update alignment probs
-  for (int i = 0; i < ag_in_mem->size; ++i) if (fracs[i] > 0.0) {
+  for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac > 0.0) {
     RefSeq &refseq = refs->getRef(aligns[i].tid);
     assert(ag.getAlignment(i)->getCIGAR(cigar));
-    seqmodel->update(fracs[i], '+', aligns[i].pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+    seqmodel->update(aligns[i].frac, '+', aligns[i].pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
   }
 
   if (model_type >= 2) {
@@ -195,13 +195,13 @@ inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, Ali
     assert(ag.getSEQ(seq, 2));
     if (model_type & 1) assert(ag.getQUAL(qual, 2));
     // update noise prob
-    npro->update(seq, fracs[ag_in_mem->size]);
+    npro->update(seq, noise_frac);
     // update alignment probs
-    for (int i = 0; i < ag_in_mem->size; ++i) if (fracs[i] > 0.0) {
+    for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac > 0.0) {
       RefSeq &refseq = refs->getRef(aligns[i].tid);
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
-      seqmodel->update(fracs[i], '-', refseq.getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+      seqmodel->update(aligns[i].frac, '-', refseq.getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 } 

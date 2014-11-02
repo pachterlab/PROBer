@@ -15,10 +15,12 @@ public:
     return header;
   }
 
+  const char* getProgramID(); 
+
   bool next(BamAlignment& b) { return b.read(sam_in); }
 
   bool next(AlignmentGroup& ag) { return ag.read(sam_in); }
- 
+  
 private:
   samfile_t *sam_in;
   bam_header_t *header;

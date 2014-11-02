@@ -4,6 +4,7 @@
 #include<cassert>
 
 #include "sam/sam.h"
+#include "sam/sam_header.h"
 
 #include "my_assert.h"
 #include "SamParser.hpp"
@@ -22,4 +23,12 @@ SamParser::SamParser(char inpType, const char* inpF, const char* aux) {
 
 SamParser::~SamParser() {
   samclose(sam_in);
+}
+
+const char* SamParser::getProgramID() {
+  const char *key;
+  if (header->dict == 0) header->dict = sam_header_parse2(header->text);                                                                                                                                 
+
+  general_assert(sam_header2key(header->dict, "PG","ID", &key) != NULL, "Input SAM/BAM file does not contain a program ID!");
+  return key;
 }

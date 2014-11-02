@@ -17,7 +17,7 @@ public:
   /*
     @function   constructor function
     @param   config_file   Configuration file for DMSTransModel static members
-    @param   trans         We obtain transcriopt names and lengths from trans
+    @param   trans         We obtain transcript names and lengths from trans
     @param   num_threads   Number of threads allowed to use
    */
   DMSWholeModel(const char* config_file, const Transcripts* trans = NULL, int num_threads = 1);
@@ -34,7 +34,7 @@ public:
     for (int i = 0; i < alignG->size; ++i) 
       if (transcripts[aligns[i].tid]->addAlignment(aligns + i))
 	counts[aligns[i].tid] += aligns[i].frac; // used for allocating transcripts, frac is 1/total_alignments
-      else aligns[i].frac = -1.0; // This alignment is discarded
+      else aligns[i].conprb = -1.0; // This alignment is discarded, mark its conprb as -1.0
   }
 
   /*
@@ -71,6 +71,11 @@ public:
   }
 
   /*
+    @param   count0    expected count for backgroud noise
+   */
+  void update(double count0);
+
+  /*
     @param   count0   expected count for backgroud noise
     @param   round    number of EM iterations
    */
@@ -80,6 +85,17 @@ public:
     @param   input_name   All input files use input_name as their prefixes
    */
   void read(const char* input_name);
+
+  /*
+    @comment: set default for each transcript if necessary
+   */
+  void setDefault();
+
+  /*
+    @param  exprF   expression result file
+    @comment: this procedure write out a table with column names as transcript_id, length, effective_length, expected_count, TPM and FPKM
+   */
+  void writeExprRes(const char* exprF);
 
   /*
     @param   output_name   All output files use output_name as their prefixes

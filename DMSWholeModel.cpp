@@ -99,12 +99,7 @@ void DMSWholeModel::init_for_EM() {
   calcProbPass();
 }
 
-void DMSWholeModel::runEM(double count0, int round) {
-  // Run EM
-  int Round = 0;
-  double N_obs, sum;
-
-  // Update counts
+void DMSWholeModel::update(double count0) {
   // create threads
   for (int i = 0; i < num_threads; ++i) {
     rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVec[i]));
@@ -120,6 +115,15 @@ void DMSWholeModel::runEM(double count0, int round) {
   counts[0] = count0;
   for (int i = 1; i <= M; ++i)
     counts[i] = transcripts[i]->getNobs();
+}
+
+void DMSWholeModel::runEM(double count0, int round) {
+  // Run EM
+  int Round = 0;
+  double N_obs, sum;
+
+  // Update counts
+  update(count0);
 
   // Calculate total number of observed reads
   N_obs = 0.0;
@@ -164,7 +168,7 @@ void DMSWholeModel::runEM(double count0, int round) {
     N_tot = N_obs / prob_pass;
 
     ++Round;
-    printf("DMSWholeModel EM: Round = %d, prob_pass = %.10g\n", Round, prob_pass);
+    if (verbose) printf("DMSWholeModel EM: Round = %d, prob_pass = %.10g\n", Round, prob_pass);
 
   } while(Round < round);
 }
@@ -227,13 +231,47 @@ void DMSWholeModel::read(const char* input_name) {
     fin.close();
   }
 
-  printf("READ is finished!\n");
+  if (verbose) printf("DMSWHoleModel::read is finished!\n");
+}
+
+void DMSWholeModel::setDefault() {
+  for (int i = 1; i <= M; ++i) transcripts[i]->setDefault();
+}
+
+void DMSWholeModel::writeExprRes(const char* exprF) {
+  std::ofstream fout(exprF);
+  assert(fout.is_open());
+
+  fout.precision(2);
+  fout.setf(std::ios::fixed, std::ios::floatfield);
+
+  double tpm[M + 1], fpkm[M + 1], l_bar;
+  
+  l_bar = 0.0;
+  for (int i = 1; i <= M; ++i) {
+    tpm[i] = theta[i] / (transcripts[i]->getLen() + 1.0);
+    l_bar += tpm[i];
+  }
+  assert(l_bar > 0.0);
+  l_bar = 1.0 / l_bar;
+  for (int i = 1; i <= M; ++i) {
+    tpm[i] *= l_bar * 1e6;
+    fpkm[i] = tpm[i] * 1e3 / l_bar;
+  }
+
+  fout<< "transcript_id\tlength\teffective_length\texpected_count\tTPM\tFPKM"<< std::endl;
+  for (int i = 1; i <= M; ++i) {
+    fout<< transcripts[i]->getName()<< '\t'<< transcripts[i]->getLen() + transcripts[i]->get_primer_length()<< '\t'<< transcripts[i]->getLen() + 1<< '\t'<< counts[i]<< '\t'<< tpm[i]<< '\t'<< fpkm[i]<< '\t'<< std::endl;
+  }
+
+  fout.close();
 }
 
 void DMSWholeModel::write(const char* output_name) {
   char output_param[STRLEN];
   char output_theta[STRLEN];
   char output_rate[STRLEN];
+  char exprF[STRLEN];
 
   std::ofstream fout;
 
@@ -262,6 +300,9 @@ void DMSWholeModel::write(const char* output_name) {
     fout<< theta[M]<< std::endl;
     
     fout.close();
+
+    sprintf(exprF, "%s_minus.expr", output_name);
+    writeExprRes(exprF);
   }
   else {
     sprintf(output_param, "%s.beta", output_name);
@@ -289,6 +330,9 @@ void DMSWholeModel::write(const char* output_name) {
     
     fout.close();
 
+    sprintf(exprF, "%s_plus.expr", output_name);
+    writeExprRes(exprF);
+
     sprintf(output_rate, "%s.rate", output_name);
     sprintf(output_param, "%s.freq", output_name);
     std::ofstream fc(output_rate);
@@ -313,7 +357,7 @@ void DMSWholeModel::write(const char* output_name) {
     fout.close();
   }
 
-  printf("WRITE is finished!\n");
+  if (verbose) printf("DMSWholeModel::write is finished!\n");
 }
 
 void DMSWholeModel::startSimulation() {

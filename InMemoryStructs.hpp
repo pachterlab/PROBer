@@ -8,17 +8,17 @@
 // In memory alignment
 struct InMemAlign {
   int tid, pos, fragment_length;
-  double frac; // the conditional probability of generating the read based on read_model; After the main EM, the expected weight will be assigned to this field
+  double conprb, frac; // conprb, the conditional probability of generating the read based on read_model; frac the expected weight
 
-  InMemAlign() : tid(0), pos(0), fragment_length(0), frac(0.0) {}
+  InMemAlign() : tid(0), pos(0), fragment_length(0), conprb(0.0), frac(0.0) {}
 };
 
 // In memory alignment group
 struct InMemAlignG {
   int size; 
-  double noise_prob;
+  double noise_conprb;
 
-  InMemAlignG() : size(0), noise_prob(0.0) {}
+  InMemAlignG() : size(0), noise_conprb(0.0) {}
 };
 
 // Store in memory information for all alignments of a thread

@@ -24,6 +24,7 @@ using namespace std;
 int num_threads;
 MyHeap my_heap; // a heap to record number of alignments contained in each partition
 
+char imdName[STRLEN], statName[STRLEN];
 char tiF[STRLEN], bamOutF[STRLEN], cntF[STRLEN];
 char paramsF[STRLEN], partitionF[STRLEN];
 
@@ -94,8 +95,8 @@ void writeStat(const char* statName) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 7) { 
-    printf("dms-seq-parse-alignments refName imdName statName number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [--bowtie-filter] [-m max_hit_allowed][-q]\n");
+  if (argc < 8) { 
+    printf("dms-seq-parse-alignments refName imdName statName channel number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [-m max_hit_allowed][-q]\n");
     exit(-1);
   }
 
@@ -103,32 +104,38 @@ int main(int argc, char* argv[]) {
   sprintf(tiF, "%s.ti", argv[1]);
   transcripts.readFrom(tiF);
 
-  num_threads = atoi(argv[4]);
+  sprintf(imdName, "%s_%s", argv[2], argv[4]);
+  sprintf(statName, "%s_%s", argv[3], argv[4]);
+  num_threads = atoi(argv[5]);
   assert(num_threads > 0);
 
   verbose = true;
   bowtie_filter = false;
   max_hit_allowed = 2147483647; // 2^31 - 1
-  for (int i = 7; i < argc; i++) {
+
+  for (int i = 8; i < argc; i++) {
     if (!strcmp(argv[i], "-q")) verbose = false;
-    if (!strcmp(argv[i], "--bowtie-filter")) bowtie_filter = true;
     if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
   }
 
-  parser = new SamParser(argv[5][0], argv[6], NULL);
+  parser = new SamParser(argv[6][0], argv[7], NULL);
+
+  const char* program_id = parser->getProgramID();
+  if (!strcmp(program_id, "Bowtie") || !strcmp(program_id, "bowtie")) bowtie_filter = true;
+
   header = parser->getHeader();
-  transcripts.buildMappings(argv[2], header->n_targets, header->target_name);
+  transcripts.buildMappings(imdName, header->n_targets, header->target_name);
 
   writers.assign(num_threads, NULL);
   writer0 = writer2 = NULL;
 
-  sprintf(bamOutF, "%s_N0.bam", argv[2]);
+  sprintf(bamOutF, "%s_N0.bam", imdName);
   writer0 = new BamWriter(bamOutF, header, "DMS-Seq intermediate"); // only imdName_N0.bam contains a good header
   for (int i = 0; i < num_threads; i++) {
-    sprintf(bamOutF, "%s_%d.bam", argv[2], i);
+    sprintf(bamOutF, "%s_%d.bam", imdName, i);
     writers[i] = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
   }
-  sprintf(bamOutF, "%s_N2.bam", argv[2]);
+  sprintf(bamOutF, "%s_N2.bam", imdName);
   writer2 = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
 
   memset(N, 0, sizeof(N));
@@ -183,7 +190,7 @@ int main(int argc, char* argv[]) {
     if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
   }
 
-  sprintf(partitionF, "%s.partition", argv[2]);
+  sprintf(partitionF, "%s.partition", imdName);
   my_heap.print(partitionF);
   
   delete parser;
@@ -191,7 +198,7 @@ int main(int argc, char* argv[]) {
   delete writer0;
   delete writer2;
 
-  writeStat(argv[3]);
+  writeStat(statName);
 
   return 0;
 }
