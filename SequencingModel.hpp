@@ -52,7 +52,11 @@ private:
   QProfile *qprofile;
 
   void push(std::string& cigar, char opchr, int oplen) {
-    while (oplen > 0) { cigar.push_back(oplen % 10 + '0'); oplen /= 10; }
+    int s = 0;
+    char arr[50];
+
+    while (oplen > 0) { arr[s++] = oplen % 10 + '0'; oplen /= 10; }
+    while (s > 0) cigar.push_back(arr[--s]);
     cigar.push_back(opchr);
   }
 };

@@ -133,6 +133,8 @@ void DMSReadModel::read(const char* modelF) {
   npro->read(fin);
 
   fin.close();
+
+  if (verbose) printf("DMSReadModel::read finished!\n");
 }
 
 void DMSReadModel::write(const char* modelF) {
@@ -166,6 +168,8 @@ void DMSReadModel::write(const char* modelF) {
   npro->write(fout);
 
   fout.close();
+
+  if (verbose) printf("DMSReadModel::write finished!\n");
 }
 
 void DMSReadModel::startSimulation() {

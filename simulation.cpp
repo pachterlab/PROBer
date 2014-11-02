@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
   sprintf(refF, "%s.seq", argv[1]);
   refs.loadRefs(refF);
 
-  sprintf(readModelF, "%s.model", argv[4]);
+  sprintf(readModelF, "%s.read_model", argv[4]);
   read_model = new DMSReadModel(&refs, sampler);
   read_model->read(readModelF);
 
