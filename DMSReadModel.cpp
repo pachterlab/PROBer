@@ -15,12 +15,13 @@
 #include "DMSReadModel.hpp"
 
 DMSReadModel::DMSReadModel(int model_type, Refs* refs) : model_type(model_type), refs(refs) {
+  mld1 = mld2 = NULL;
+  qd = NULL; npro = NULL; seqmodel = NULL;
+
   mld1 = new MateLenDist();
   if (model_type >= 2) mld2 = new MateLenDist();
   if (model_type == 1 || model_type == 3) qd = new QualDist();
   npro = new NoiseProfile(true);
-
-  seqmodel = NULL;
 
   max_len = 0;
   loglik = 0.0;
@@ -28,9 +29,10 @@ DMSReadModel::DMSReadModel(int model_type, Refs* refs) : model_type(model_type),
 }
 
 DMSReadModel::DMSReadModel(DMSReadModel* master_model) {
-  model_type = master_model->model_type;
   mld1 = mld2 = NULL;
-  qd = NULL;
+  qd = NULL; npro = NULL; seqmodel = NULL;
+
+  model_type = master_model->model_type;
   max_len = master_model->max_len;
   loglik = 0.0;
 
@@ -45,9 +47,7 @@ DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(s
   model_type = -1; // not initilaized yet
 
   mld1 = mld2 = NULL;
-  qd = NULL;
-  seqmodel = NULL;
-  npro = NULL;
+  qd = NULL; npro = NULL; seqmodel = NULL;
 
   max_len = 0;
   loglik = 0.0;

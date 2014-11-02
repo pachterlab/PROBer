@@ -247,14 +247,14 @@ inline void DMSTransModel::update() {
   isSE = (alignments[0]->fragment_length == 0); // Only valid if all reads are paired or SE reads and no improper alignment allowed
 
   if (isSE) {
-    for (int i = 0; i < size; ++i) {
+    for (HIT_INT_TYPE i = 0; i < size; ++i) {
       if (alignments[i]->pos + min_frag_len > len || alignments[i]->pos < 0) continue;
       end[alignments[i]->pos] += alignments[i]->frac;
       N_obs += alignments[i]->frac;
     }
   }
   else {
-    for (int i = 0; i < size; ++i) {
+    for (HIT_INT_TYPE i = 0; i < size; ++i) {
       if (alignments[i]->pos + alignments[i]->fragment_length - primer_length > len || alignments[i]->pos < 0) continue;
       end[alignments[i]->pos] += alignments[i]->frac;
       N_obs += alignments[i]->frac;

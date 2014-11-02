@@ -163,7 +163,7 @@ void init() {
     if (verbose) { printf("Thread %d's data is preprocessed!\n", i); }
 
     chunk = paramsVec[i]->chunk;
-    for (int j = 0; j < nlines; ++j) 
+    for (HIT_INT_TYPE j = 0; j < nlines; ++j) 
       if (chunk->aligns[j].conprb == -1.0) ++cnt;
   }
 
