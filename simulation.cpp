@@ -27,12 +27,12 @@ Sampler *sampler;
 int N;
 int model_type;
 
-char refF[STRLEN], readModelF[STRLEN], outF1[STRLEN], outF2[STRLEN];
+char refF[STRLEN], outF1[STRLEN], outF2[STRLEN];
 ofstream out1, out2;
 
 int main(int argc, char* argv[]) {
   if (argc < 8 || argc > 9) {
-    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_input_name <'minus' or 'plus'> number_of_reads output_name [seed]\n");
+    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_file <'minus' or 'plus'> number_of_reads output_name [seed]\n");
     return 0;
   }
 
@@ -53,9 +53,8 @@ int main(int argc, char* argv[]) {
   sprintf(refF, "%s.seq", argv[1]);
   refs.loadRefs(refF);
 
-  sprintf(readModelF, "%s.read_model", argv[4]);
   read_model = new DMSReadModel(&refs, sampler);
-  read_model->read(readModelF);
+  read_model->read(argv[4]);
 
   model_type = read_model->getModelType();
 
