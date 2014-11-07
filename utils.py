@@ -1,18 +1,28 @@
 # utils module
 
+import os
 import sys
 import subprocess
 import argparse
+import textwrap
 
 class MyFormatter(argparse.ArgumentDefaultsHelpFormatter):
     def _split_lines(self, text, width):
         if text.startswith("L:"):
             return text[2:].splitlines()
         return argparse.ArgumentDefaultsHelpFormatter._split_lines(self, text, width)
+    
+    def _fill_text(self, text, width, indent):
+        if text.startswith("L:"):
+            return ''.join([indent + line for line in text[2:].splitlines(True)])
+        else:
+            text = self._whitespace_matcher.sub(' ', text).strip()
+            return textwrap.fill(text, width, initial_indent=indent,
+                                           subsequent_indent=indent)
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
-        sys.stderr.write("{}: error: {}\n".format(sys.argv[0], message))
+        sys.stderr.write("{}: error: {}\n".format(os.path.basename(sys.argv[0]), message))
         self.print_help()
         sys.exit(-1)
 

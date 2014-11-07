@@ -37,7 +37,7 @@ args = parser.parse_args()
 
 #Set executable directory
 
-mydir = os.path.realpath(os.path.dirname(sys.argv[0]))
+mydir = os.path.realpath(os.path.dirname(os.path.expanduser(sys.argv[0])))
 os.environ["PATH"] = mydir + os.pathsep + os.getenv("PATH", ".")
 os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
