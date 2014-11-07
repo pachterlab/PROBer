@@ -121,4 +121,5 @@ elif args.bowtie2:
 elif args.hobbes2:
     command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
 
-runProg(command)
+if len(command) > 0:
+    runProg(command)
