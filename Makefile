@@ -181,5 +181,5 @@ dms-seq-simulate-reads : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o 
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 clean :
-	rm -rf $(PROGRAMS) *.o *~
+	rm -rf $(PROGRAMS) *.o *~ *.pyc
 	cd sam ; $(MAKE) clean
