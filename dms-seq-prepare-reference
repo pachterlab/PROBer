@@ -3,7 +3,6 @@
 import os
 import sys
 import argparse
-#import subprocess
 import glob
 
 import utils
@@ -14,20 +13,20 @@ from utils import MyFormatter, MyParser, runProg
 parser = MyParser(formatter_class=MyFormatter)
 
 parser.add_argument("ref_fastas", help = "Either a comma-separated list of Multi-FASTA formatted files OR a directory name. If a directory name is specified, This program will read all files with suffix \".fa\" or \".fasta\" in this directory. The files should contain either the sequences of transcripts or an entire genome, depending on whether the --gtf or --gff3  option is used.", metavar = "reference_fasta_file(s)")
-parser.add_argument("ref_name", help = "The name of the reference used. This program will generate several reference-related files that are prefixed by this name. This name can contain path information (e.g. /ref/mm9).", metavar = "reference_name")
+parser.add_argument("ref_name", help = "The name of the reference used. This program will generate several reference-related files that are prefixed by this name. This name can contain path information (e.g. /ref/mm9).", type = utils.expand, metavar = "reference_name")
 
 group = parser.add_mutually_exclusive_group()
-group.add_argument("--gtf", help = "<file> is in GTF format. This program will assume reference_fasta_file(s) contains genome sequences and extract transcript sequences using the gene annotation specified in <file>.", metavar = "<file>")
-group.add_argument("--gff3", help = "<file> is in GFF3 format. This program will assume reference_fasta_file(s) contains genome sequences and extract transcript sequences using the gene annotation specified in <file>.", metavar = "<file>")
+group.add_argument("--gtf", help = "<file> is in GTF format. This program will assume reference_fasta_file(s) contains genome sequences and extract transcript sequences using the gene annotation specified in <file>.", type = utils.expand, metavar = "<file>")
+group.add_argument("--gff3", help = "<file> is in GFF3 format. This program will assume reference_fasta_file(s) contains genome sequences and extract transcript sequences using the gene annotation specified in <file>.", type = utils.expand, metavar = "<file>")
 
-parser.add_argument("--transcript-to-gene-map", help = "L:Use information from <file> to map from transcript (isoform) ids to gene ids.\nEach line of <file> should be of the form:\n\ngene_id\ttranscript_id\n\nwith the two fields separated by a tab character.", metavar = "<file>", dest = "tran2gene")
+parser.add_argument("--transcript-to-gene-map", help = "L:Use information from <file> to map from transcript (isoform) ids to gene ids.\nEach line of <file> should be of the form:\n\ngene_id\ttranscript_id\n\nwith the two fields separated by a tab character.", type = utils.expand, metavar = "<file>", dest = "tran2gene")
 
 parser.add_argument("--bowtie", help = "Build Bowtie indices.", action = "store_true")
-parser.add_argument("--bowtie-path", help = "The path to the Bowtie executables.", metavar = "<path>")
+parser.add_argument("--bowtie-path", help = "The path to the Bowtie executables.", type = utils.expand, metavar = "<path>")
 parser.add_argument("--bowtie2", help = "Build Bowtie2 indices.", action = "store_true")
-parser.add_argument("--bowtie2-path", help = "The path to the Bowtie2 executables.", metavar = "<path>")
+parser.add_argument("--bowtie2-path", help = "The path to the Bowtie2 executables.", type = utils.expand, metavar = "<path>")
 parser.add_argument("--hobbes2", help = "Build Hobbes2 indices.", action = "store_true")
-parser.add_argument("--hobbes2-path", help = "The path to the Hobbes2 executables.", metavar = "<path>")
+parser.add_argument("--hobbes2-path", help = "The path to the Hobbes2 executables.", type = utils.expand, metavar = "<path>")
 parser.add_argument("--hobbes2-p", help = "Number of threads to build Hobbes2 indices", type = int, default = 1, metavar = "<int>")
 parser.add_argument("--hobbes2-gram-length", help = "Hobbes2 indices' gram length.", type = int, default = 11, metavar = "<int>")
 
@@ -37,7 +36,7 @@ args = parser.parse_args()
 
 #Set executable directory
 
-mydir = os.path.realpath(os.path.dirname(os.path.expanduser(sys.argv[0])))
+mydir = os.path.dirname(utils.expand(sys.argv[0]))
 os.environ["PATH"] = mydir + os.pathsep + os.getenv("PATH", ".")
 os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
@@ -45,13 +44,19 @@ os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
 #utils.demo = True
        
-ref_name = os.path.expanduser(args.ref_name)
+
+dir_ = os.path.dirname(args.ref_name)
+if not os.path.exists(dir_):
+    os.makedirs(dir_)
+
+command = []
 
 # Prepare GTF file
 gtf_file = None
 if args.gff3 != None:
-    gtf_file = ref_name + os.extsep + "gtf"
-    runProg("gff3_to_gtf {} {}".format(args.gff3, gtf_file))
+    gtf_file = args.ref_name + os.extsep + "gtf"
+    command = ["gff3_to_gtf", args.gff3, gtf_file]
+    runProg(command)
 elif args.gtf != None:
     gtf_file = args.gtf
 
@@ -59,7 +64,7 @@ elif args.gtf != None:
 tmp_list = args.ref_fastas.split(',')
 fasta_files = []
 for afile in tmp_list:
-    afile = os.path.expanduser(afile)
+    afile = utils.expand(afile)
     if os.path.isfile(afile):
         fasta_files.append(afile)
     elif os.path.isdir(afile):
@@ -71,45 +76,47 @@ for afile in tmp_list:
 if len(fasta_files) <= 0:
     print("reference_fasta_file(s) is empty! Please check if the directory name is correct or sequence files are sufficed with either '.fa' or '.fasta'.")
     sys.exit(-1)
-        
-command = ""
 
-# Extract references
+# Extract references        
+command = []
+
 if gtf_file != None:
-    command = "dms-seq-extract-reference-transcripts " + ref_name + " " + ("1" if args.quiet else "0") + " " + gtf_file
-    command += (" 1 {}".format(args.tran2gene) if args.tran2gene != None else " 0")
-    command += " {}".format(" ".join(fasta_files))
-    runProg(command)
+    command.extend(["dms-seq-extract-reference-transcripts", args.ref_name, ("1" if args.quiet else "0"), gtf_file])
+    if args.tran2gene != None:
+        command.extend(["1", args.tran2gene])
+    else:
+        command.append("0")
+    command.extend(fasta_files)
 else:
-    command = "dms-seq-synthesis-reference-transcripts " + ref_name + " " + ("1" if args.quiet else "0")
-    command += (" 1 {}".format(args.tran2gene) if args.tran2gene != None else " 0")
-    command += " {}".format(" ".join(fasta_files))
-    runProg(command)
+    command.extend(["dms-seq-synthesis-reference-transcripts", args.ref_name, ("1" if args.quiet else "0")])
+    if args.tran2gene != None:
+        command.extend(["1", args.tran2gene])
+    else:
+        command.append("0")
+    command.extend(fasta_files)
 
-command = "dms-seq-preref {0}.transcripts.fa 1 {0}".format(ref_name)
-if args.quiet:
-    command += " -q"
 runProg(command)
 
-if args.bowtie:
-    command = ((args.bowtie_path + os.sep) if args.bowtie_path != None else "") + "bowtie-build -f"
-    if args.quiet:
-        command += " -q"
-    command += " {0}.n2g.idx.fa {0}".format(ref_name)
-    runProg(command)
-elif args.bowtie2:
-    command = ((args.bowtie2_path + os.sep) if args.bowtie2_path != None else "") + "bowtie2-build -f"
-    if args.quiet:
-        command += " -q"
-    command += " {0}.idx.fa {0}".format(ref_name)
-    runProg(command)
-elif args.hobbes2:
-    command = ((args.hobbes2_path + os.sep) if args.hobbes2_path != None else "") + "hobbes-index"
-    command += " --sref {0}.idx.fa -i {0}.hix -g {1!s} -p {2!s}".format(ref_name, args.hobbes2_gram_length, args.hobbes2_p)
-    runProg(command)  
-     
-      
+# Prepare references
+command = ["dms-seq-preref", "{}.transcripts.fa".format(args.ref_name), "1", args.ref_name]
+if args.quiet:
+    command.append("-q")
+runProg(command)
 
-        
-    
-    
+# Build aligner indices
+command = []
+
+if args.bowtie:
+    command.extend(["{}bowtie-build".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-f"])
+    if args.quiet:
+        command.append("-q")
+    command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
+elif args.bowtie2:
+    command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
+    if args.quiet:
+        command.append("-q")
+    command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name])
+elif args.hobbes2:
+    command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
+
+runProg(command)

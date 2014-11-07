@@ -3,14 +3,13 @@
 import os
 import sys
 import argparse
-import glob
 
 import utils
 from utils import MyFormatter, MyParser, runProg
 
 #Parse options and arguments
 
-parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name channel {{--bam input.bam | --sam input.sam | --reads mate1_read_file(s) [mate2_read_file(s)]}}".format(os.path.basename(sys.argv[0])), description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", epilog = "L:OUTPUTS:\n"
+parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name channel {{--bam input.bam | --sam input.sam | --reads mate1_read_file(s) [mate2_read_file(s)]}}".format(os.path.basename(utils.expand(sys.argv[0]))), description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", epilog = "L:OUTPUTS:\n"
                   "  sample_name.gamma\n"
                   "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
                        "Then each line describes estimated parameters for a different transcript. "
@@ -57,18 +56,18 @@ parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference
                   "  sample_name.temp\n"
                   "    Temp folder contains intermediate files.\n\n")
                   
-parser.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", metavar = "reference_name")
-parser.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", metavar = "sample_name")
+parser.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", type = utils.expand, metavar = "reference_name")
+parser.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = utils.expand, metavar = "sample_name")
 parser.add_argument("channel", help = "Which channel the data come from. Choose from 'plus' or 'minus'.", choices = ['plus', 'minus'], metavar = "channel")
 
 group = parser.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 
-group.add_argument("--bam", help = "Input is a BAM file containing alignment results, '-' stands for standard input.", metavar = "input.bam")
-group.add_argument("--sam", help = "Input is a SAM file containing alignment results, '-' stands for standard input.", metavar = "input.sam")
+group.add_argument("--bam", help = "Input is a BAM file containing alignment results, '-' stands for standard input.", type = utils.expand, metavar = "input.bam")
+group.add_argument("--sam", help = "Input is a SAM file containing alignment results, '-' stands for standard input.", type = utils.expand, metavar = "input.sam")
 group.add_argument("--reads", help = "L:Input are read files.\nmate1_read_file(s), a comma-separated list of files containing single-end reads or first mates of paired-end reads\n"
                                      "mate2_read_file(s), present only if '--paired-end' is enabled, a comma-separated list of files containing second mates of paired-end reads\n"
                                      "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
-                   nargs = '+', action = utils.nargs_range(1, 2), metavar = "mate_read_file(s)")
+                   nargs = '+', action = utils.nargs_range(1, 2), type = utils.expandAll, metavar = "mate_read_file(s)")
 
 group = parser.add_argument_group(title = "Basic options")
 
@@ -87,13 +86,13 @@ group.add_argument("--beta-init", help = "Initial value for all betas.", type = 
 group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie, Bowtie2, and Hobbes2. All reads with more than 200 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -n 2 -e 99999999 -l 25 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
-group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", metavar = "<path>")
+group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = utils.expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
-group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", metavar = "<path>")
+group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = utils.expand, metavar = "<path>")
 group.add_argument("--hobbes2", help = "Use hobbes2 aligner to align reads, with Hobbes2 parameters \"--norc -p number_threads -k 201\"."
                    " If \"--paired-end\" is set, use Hobbes2 parameters \"--norc -p number_threads -a --pe --min 1 --max 1000\" instead.", action = "store_true")
-group.add_argument("--hobbes2-path", help = "The path to Hobbes2 executables.", metavar = "<path>")
+group.add_argument("--hobbes2-path", help = "The path to Hobbes2 executables.", type = utils.expand, metavar = "<path>")
 group.add_argument("--hobbes2-hamming", help = "Use hamming distance for Hobbes2.", action = "store_true")
 group.add_argument("--hobbes2-indel", help = "Use indel distance for Hobbes2.", action = "store_true")
 group.add_argument("--hobbes2-v", help = "Hobbes2's distance threshold.", type = int, metavar = "<int>")
@@ -111,7 +110,7 @@ elif value > 1:
 
 #Set executable directory
 
-mydir = os.path.realpath(os.path.dirname(os.path.expanduser(sys.argv[0])))
+mydir = os.path.dirname(utils.expand(sys.argv[0]))
 os.environ["PATH"] = mydir + os.pathsep + os.getenv("PATH", ".")
 os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
@@ -119,13 +118,10 @@ os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
 #utils.demo = True
        
-refName = os.path.expanduser(args.ref_name)
-
-sampleName = os.path.expanduser(args.sample_name)
-dir_ = os.path.dirname(sampleName)
+dir_ = os.path.dirname(args.sample_name)
 if dir_ != "":
     dir_ += os.sep
-base_ = os.path.basename(sampleName)
+base_ = os.path.basename(args.sample_name)
 temp_dir = dir_ + base_ + ".temp" 
 imdName = temp_dir + os.sep + base_
 stat_dir = dir_ + base_ + ".stat"
@@ -149,18 +145,19 @@ else:
     else:
         model_type = 1
 
-        
-command = ""
+
+# Parse alignments        
+command = []
 
 if args.bam != None or args.sam != None:
-    command = "dms-seq-parse-alignments {0} {1} {2} {3} {4}".format(refName, imdName, statName, args.channel, args.num_threads)
+    command.extend(["dms-seq-parse-alignments", args.ref_name, imdName, statName, args.channel, str(args.num_threads)])
     if args.bam != None:
-        command += " b {}".format(args.bam)
+        command.extend(["b", args.bam])
     else:
-        command += " s {}".format(args.sam)
-    command += " -m 200"
+        command.extend(["s", args.sam])
+    command.extend(["-m", "200"])
     if args.quiet:
-        command += " -q"
+        command.append("-q")
     runProg(command)
 else:
     if args.bowtie2 and args.hobbes2:
@@ -169,17 +166,20 @@ else:
         args.bowtie = False
 
     if args.bowtie:
-        command = (args.bowtie_path + os.sep if args.bowtie_path != None else "") + "bowtie --norc -p {} -n 2 -e 99999999 -l 25 -a -m 200 -S".format(args.num_threads)
+        command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "--norc", "-p", str(args.num_threads)])
+        command.extend("-n 2 -e 99999999 -l 25 -a -m 200 -S".split())
         if not args.paired_end:
-            command += " {refName} {mate1}".format(refName = refName, mate1 = args.reads[0])
+            command.extend([args.ref_name, args.reads[0]])
         else:
-            command += " -I 1 -X 1000 --chunkmbs 1024 {refName} -1 {mate1} -2 {mate2}".format(refName = refName, mate1 = args.reads[0], mate2 = args.reads[1])       
+            command.extend("-I 1 -X 1000 --chunkmbs 1024".split())
+            command.extend([args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
     elif args.bowtie2:
-        command = (args.bowtie2_path + os.sep if args.bowtie2_path != None else "") + "bowtie2 --norc -p {} -k 201".format(args.num_threads)
+        command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "--norc", "-p", str(args.num_threads), "-k", "201"])
         if not args.paired_end:
-            command += " -x {refName} -U {mate1}".format(refName = refName, mate1 = args.reads[0])
+            command.extend(["-x", args.ref_name, "-U", args.reads[0]])
         else:
-            command += " -I 1 -X 1000 --no-mixed --no-discordant -x {refName} -1 {mate1} -2 {mate2}".format(refName = refName, mate1 = args.reads[0], mate2 = args.reads[1])
+            command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+            command.extend(["-x", args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
     else:
         if not args.hobbes2_hamming and not args.hobbes2_indel:
             parser.error("One of --hobbes2-hamming and --hobbes2indel must be set")
@@ -188,26 +188,29 @@ else:
         if args.hobbes2_v == None:
             parser.error("--hobbes2-v <int> must be set")
 
-        command = (args.hobbes2_path + os.sep if args.hobbes2_path != None else "") + "hobbes --norc -p {}".format(args.num_threads)
-        command += " " + ("--hamming" if args.hobbes2_hamming else "--indel") + " -v {}".format(args.hobbes2_v)
-        command += " --sref {refName}.idx.fa -i {refName}.hix".format(refName = refName)
+        command.extend(["{}hobbes".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--norc", "-p", str(args.num_threads)])
+        command.extend(["--hamming" if args.hobbes2_hamming else "--indel", "-v", str(args.hobbes2_v)])
+        command.extend(["--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name)])
         
         if not args.paired_end:
-            command += " -k 201 -q {mate1}".format(mate1 = args.reads[0])
+            command.extend(["-k", "201", "-q", args.reads[0]])
         else:
-            command += " -a --pe --min 1 --max 1000 --seqfq1 {mate1} --seqfq2 {mate2}".format(mate1 = args.reads[0], mate2 = args.reads[1])
-        
-    command += " | dms-seq-parse-alignments {0} {1} {2} {3} {4} s - -m 200".format(refName, imdName, statName, args.channel, args.num_threads)
-    runProg(command)
+            command.extend("-a --pe --min 1 --max 1000".split())
+            command.extend(["--seqfq1", args.reads[0], "--seqfq2", args.reads[1]])
+    command2 = ["dms-seq-parse-alignments", args.ref_name, imdName, statName, args.channel, str(args.num_threads), "s", "-", "-m", "200"]
+    if args.quiet:
+        command2.append("-q")
+    runProg(command, command2)
 
+# Generate config file
 fh = open("{}_{}.config".format(imdName, args.channel), 'w')
 fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_selection_min, args.size_selection_max, args.gamma_init, args.beta_init))
 fh.close()
-    
-command = "dms-seq-run-em {0} {1} {2} {3} {4} {5} {6}".format(refName, model_type, sampleName, imdName, statName, args.channel, args.num_threads)
-if args.output_bam:
-    command += " --output-bam"
-if args.quiet:
-    command += " -q"
-runProg(command)
 
+# Run EM    
+command = ["dms-seq-run-em", args.ref_name, str(model_type), args.sample_name, imdName, statName, args.channel, str(args.num_threads)]
+if args.output_bam:
+    command.append("--output-bam")
+if args.quiet:
+    command.append("-q")
+runProg(command)

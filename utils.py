@@ -35,18 +35,37 @@ def nargs_range(n_min, n_max):
             setattr(namespace, self.dest, values)
     return _StoreConstraintAction
         
+def expand(input):
+    """ Expand input string to remove ~ and resovle symbolic link"""
+    return os.path.realpath(os.path.expanduser(input))
+
+def expandAll(input):
+    """ input is a list separated by comma """
+    inputs = input.split(',')
+    res = []
+    for afile in inputs:
+        res.append(os.path.realpath(os.path.expanduser(afile)))
+    return ",".join(res)
+
 demo = False
         
-def runProg(command):
-    """ Run command using a subprocess """
+def runProg(command, command2 = None):
+    """ Run command using a subprocess, if command2 != None, use Pipe """
 
-    print(command)
+    commandStr = " ".join(command) + (" | " + " ".join(command2) if command2 != None else "")
+    print(commandStr)
 
     if demo:     
         return None
     
     try:
-        subprocess.check_call(command, shell = True)
+        if command2 == None:
+            subprocess.check_call(command)
+        else:
+            p1 = subprocess.Popen(command, stdout = subprocess.PIPE)
+            subprocess.check_call(command2, stdin = p1.stdout)
+            p1.stdout.close()
     except subprocess.CalledProcessError as error:
-        print("Command \"{}\" failed!".format(error.cmd))
+        print("Command \"{}\" failed!".format(commandStr))
         sys.exit(-1)
+
