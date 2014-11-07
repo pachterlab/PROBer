@@ -3,15 +3,15 @@
 from sys import argv, exit
 import re
 
-if len(argv) != 3:
-    print("Usage: gff3_to_gtf input.gff output.gtf")
+if len(argv) != 4:
+    print("Usage: gff3_to_gtf input.gff output.gtf RNA_patterns")
     exit(-1)
 
 exons = []
 trans2gene = dict()
 
 rgx = re.compile("[\t ]+")
-rgx2 = re.compile("RNA$")
+rgx2 = re.compile("^(" + "|".join(argv[3].split(",")) + ")$")
 
 fin = open(argv[1], "r")
 for line in fin:
@@ -54,8 +54,7 @@ for line in exons:
     for tid in tids:
         tid = tid.strip()
         gid = trans2gene.get(tid, None)
-        if gid == None:
-            print("At line \"" + line + "\", cannot find " + tid + "'s gene id!")
-            exit(-1)
-        fout.write("{}\tgene_id \"{}\"; transcript_id \"{}\";\n".format(fields, gid, tid))    
+        if gid != None:
+            fout.write("{}\tgene_id \"{}\"; transcript_id \"{}\";\n".format(fields, gid, tid))
+
 fout.close()

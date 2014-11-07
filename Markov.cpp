@@ -19,10 +19,10 @@ std::vector<int> Markov::init_chr2state() {
 
 Markov::Markov() {
   // Initialize parameters
-  P_start[M] = 0.9; P_start[I] = P_start[D] = 0.05;
-  P_trans[M][M] = 0.9; P_trans[M][I] = P_trans[M][D] = 0.05;
-  P_trans[I][M] = 0.9; P_trans[I][I] = P_trans[I][D] = 0.05;
-  P_trans[D][M] = 0.9; P_trans[D][I] = P_trans[D][D] = 0.05;
+  P_start[M] = 0.99; P_start[I] = P_start[D] = 0.005;
+  P_trans[M][M] = 0.99; P_trans[M][I] = P_trans[M][D] = 0.005;
+  P_trans[I][M] = 0.99; P_trans[I][I] = P_trans[I][D] = 0.005;
+  P_trans[D][M] = 0.99; P_trans[D][I] = P_trans[D][D] = 0.005;
 
   probI[0] = probI[1] = probI[2] = probI[3] = (1.0 - 1e-5) / 4.0;
   probI[4] = 1e-5;

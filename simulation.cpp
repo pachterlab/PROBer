@@ -32,7 +32,18 @@ ofstream out1, out2;
 
 int main(int argc, char* argv[]) {
   if (argc < 8 || argc > 9) {
-    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_file <'minus' or 'plus'> number_of_reads output_name [seed]\n");
+    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_file channel('minus' or 'plus') number_of_reads output_name [seed]\n\n");
+    printf("Description:\n");
+    printf("  This program simulate reads using parameters learned from data by 'dms-seq-estimate-parameters'.\n\n");
+    printf("Arguments:\n");
+    printf("  reference_name: The reference's name, should be same as the ones used in 'dms-seq-prepare-reference' and 'dms-seq-estimate-parameters'.\n");
+    printf("  config_file: Contains primer length, size selection min and max fragment size etc. 'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.\n");
+    printf("  whole_model_input_name: This should be the 'sample_name' used in 'dms-seq-estimate-parameters'.\n");
+    printf("  read_mode_file: 'sample_name.stat/sample_name_minus.read_model' if chanel is 'minus', 'sample_name.stat/sample_name_plus.read_model' if channel is 'plus'.\n");
+    printf("  channel: 'minus' for minus channel and 'plus' for plus channel, no quotation.\n");
+    printf("  number_of_reads: Number of reads to simulate.\n");
+    printf("  output_name: Output file prefix. Simulated single-end reads will be written into 'output_name_[minus/plus].[fa/fq]'. Simulated paired-end reads will be written into 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].\n");
+    printf("  [seed]: Optional argument, the seed used for simulation.\n");
     return 0;
   }
 
@@ -59,12 +70,12 @@ int main(int argc, char* argv[]) {
   model_type = read_model->getModelType();
 
   if (model_type < 2) {
-    sprintf(outF1, "%s_%s.fq", argv[7], argv[5]);
+    sprintf(outF1, "%s_%s.%s", argv[7], argv[5], (model_type == 0 ? "fa" : "fq"));
     out1.open(outF1);
   }
   else {
-    sprintf(outF1, "%s_%s_1.fq", argv[7], argv[5]);
-    sprintf(outF2, "%s_%s_2.fq", argv[7], argv[5]);
+    sprintf(outF1, "%s_%s_1.%s", argv[7], argv[5], (model_type == 2 ? "fa" : "fq"));
+    sprintf(outF2, "%s_%s_2.%s", argv[7], argv[5], (model_type == 2 ? "fa" : "fq"));
     out1.open(outF1);
     out2.open(outF2);
   }
