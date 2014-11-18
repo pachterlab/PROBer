@@ -104,6 +104,7 @@ void DMSTransModel::calcAuxiliaryArrays() {
     max_pos = i + max_frag_len + 1;
     margin_prob[i] = 1.0 + (beta == NULL ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
       (max_pos > len ? margin_prob[i + 1] : margin_prob[i + 1] - exp(logsum[max_pos] - logsum[pos]));
+    assert(max_pos > len || margin_prob[i + 1] - exp(logsum[max_pos] - logsum[pos]) >= 0.0);
   }
 
   // Calculate the probability of passing the size selection step
@@ -178,9 +179,11 @@ void DMSTransModel::EM(double N_tot, int round) {
       end2[i] += end[i] + end2[i - 1];      
       value = (end2[i] > end2[i - 1]) && (end2[i] > start2[i - 1]) ? (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]) : 0.0;
       if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value; // avoid insufficient data lead to failing rate of 1, may seek better estimator in the future
-      else beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0;
+      else { 
+	beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0; 
+	if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // if floating point inaccuracy leads to beta > 1.0, reset it to be 1.0 - 1e-8
+      }
     }
-    
     // Prepare for the next round
     calcAuxiliaryArrays();
   }
