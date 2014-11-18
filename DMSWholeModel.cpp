@@ -130,7 +130,6 @@ void DMSWholeModel::runEM(double count0, int round) {
   for (int i = 0; i <= M; ++i) 
     if (isZero(counts[i])) counts[i] = 0.0;
     else {
-      assert(!isZero(theta[i]));
       N_obs += counts[i];
     }
   N_tot = N_obs / prob_pass;

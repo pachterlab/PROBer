@@ -173,7 +173,6 @@ private:
     prob_pass = theta[0];
     for (int i = 1; i <= M; ++i) 
       if (!isZero(counts[i])) {
-	assert(!isZero(theta[i]));
 	prob_pass += theta[i] * transcripts[i]->getProbPass();
       }
     assert(!isZero(prob_pass));
