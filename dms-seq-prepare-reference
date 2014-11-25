@@ -113,13 +113,15 @@ if args.bowtie:
     if args.quiet:
         command.append("-q")
     command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
-elif args.bowtie2:
+    runProg(command)
+
+if args.bowtie2:
     command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
     if args.quiet:
         command.append("-q")
     command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name])
-elif args.hobbes2:
-    command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
+    runProg(command)
 
-if len(command) > 0:
+if args.hobbes2:
+    command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
     runProg(command)
