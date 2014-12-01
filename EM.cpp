@@ -58,6 +58,7 @@ int M; // Number of transcripts
 int N0, N_eff; // Number of unalignable reads, number of effective reads (unaligned + aligned)
 int model_type; 
 int num_threads;
+int read_length;
 
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
@@ -91,11 +92,11 @@ void init() {
 
   // Create DMSWholeModel
   sprintf(configF, "%s.config", imdName);
-  whole_model = new DMSWholeModel(configF, &transcripts, num_threads);
+  whole_model = new DMSWholeModel(configF, &transcripts, num_threads, read_length);
   if (!strcmp(channel, "plus")) whole_model->read(sampleName); // Read gamma because this run is used to estimate betas
 
   // Create DMSReadModel
-  read_model = new DMSReadModel(model_type, &refs);
+  read_model = new DMSReadModel(model_type, &refs, read_length);
 
   // Preprocess reads and alignments
   SamParser *parser = NULL;
@@ -128,6 +129,9 @@ void init() {
   int cnt = 0;
   InMemChunk *chunk = NULL;
 
+  bool is_paired;
+  int seqlen;
+
   N_eff = N0;
   paramsVec.assign(num_threads, NULL);
   for (int i = 0; i < num_threads; ++i) {
@@ -141,6 +145,9 @@ void init() {
     rid = 0;
     ag.clear();
     while (parser->next(ag)) {
+      is_paired = ag.isPaired();
+      seqlen = !is_paired ? ag.getSeqLength() : 0; 
+
       assert(paramsVec[i]->chunk->next(a_read, aligns));
       a_read->size = ag.size();
       
@@ -148,7 +155,11 @@ void init() {
 	BamAlignment *ba = ag.getAlignment(j);
 	aligns[j].tid = transcripts.getInternalSid(ba->getTid());
 	aligns[j].pos = ba->getLeftMostPos();
-	aligns[j].fragment_length = ba->isPaired() ? ba->getInsertSize() : 0;
+
+	if (is_paired) aligns[j].fragment_length = ba->getInsertSize();
+	else if (seqlen < read_length) aligns[j].fragment_length = seqlen;
+	else aligns[j].fragment_length = 0;
+
 	aligns[j].frac = 1.0 / ag.size();
       }
       whole_model->addAlignments(a_read, aligns);
@@ -288,7 +299,7 @@ void EM() {
     }
 
     // Run DMSWholeModel's runEM procedure
-    whole_model->runEM(count0, 1);
+    whole_model->runEM(count0);
 
     if (updateReadModel) {
       read_model->init();
@@ -381,7 +392,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 8) {
-    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--output-bam] [-q]\n");
+    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--output-bam] [-q]\n");
     exit(-1);
   }
 
@@ -395,7 +406,9 @@ int main(int argc, char* argv[]) {
 
   verbose = true;
   output_bam = false;
+  read_length = -1;
   for (int i = 8; i < argc; ++i) {
+    if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }

@@ -14,7 +14,7 @@
 #include "MyHeap.hpp"
 #include "DMSWholeModel.hpp"
 
-DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, int num_threads) {
+DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, int num_threads, int read_length) {
   // set DMSTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -24,7 +24,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, 
   assert(fscanf(fi, "%d %d %d %lf %lf", &primer_length, &min_frag_len, &max_frag_len, &gamma_init, &beta_init) == 5);
   fclose(fi);
 
-  DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, gamma_init, beta_init);
+  DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, gamma_init, beta_init, read_length);
 
   readGamma = true;
   this->num_threads = 0;
@@ -117,9 +117,8 @@ void DMSWholeModel::update(double count0) {
     counts[i] = transcripts[i]->getNobs();
 }
 
-void DMSWholeModel::runEM(double count0, int round) {
+void DMSWholeModel::runEM(double count0) {
   // Run EM
-  int Round = 0;
   double N_obs, sum;
 
   // Update counts
@@ -134,42 +133,38 @@ void DMSWholeModel::runEM(double count0, int round) {
     }
   N_tot = N_obs / prob_pass;
 
-  do {
-    // Calculate expected hidden reads to each transcript
-    for (int i = 0; i <= M; ++i) {
-      unobserved[i] = 0.0;
-      // If no counts, force the unobserved counts to be 0!
-      if (i > 0 && !isZero(counts[i])) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass()); 
-    }
+  // Calculate expected hidden reads to each transcript
+  for (int i = 0; i <= M; ++i) {
+    unobserved[i] = 0.0;
+    // If no counts, force the unobserved counts to be 0!
+    if (i > 0 && !isZero(counts[i])) unobserved[i] = N_tot * theta[i] * (1.0 - transcripts[i]->getProbPass()); 
+  }
+  
+  // Estimate new gamma/beta parameters
+  // create threads
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_EM_step_per_thread, (void*)(paramsVec[i]));
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread!");
+  }
+  // join threads
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_join(threads[i], NULL);
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread!");
+  }
 
-    // Estimate new gamma/beta parameters
-    // create threads
-    for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_create(&threads[i], &attr, run_EM_step_per_thread, (void*)(paramsVec[i]));
-      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread!");
-    }
-    // join threads
-    for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_join(threads[i], NULL);
-      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "( numbered from 0) for run_EM_step_per_thread!");
-    }
+  // Estimate new theta
+  sum = 0.0;
+  for (int i = 0; i <= M; ++i) {
+    theta[i] = counts[i] + unobserved[i];
+    sum += theta[i];
+  }
+  assert(!isZero(sum));
+  for (int i = 0; i <= M; ++i) theta[i] /= sum;
 
-    // Estimate new theta
-    sum = 0.0;
-    for (int i = 0; i <= M; ++i) {
-      theta[i] = counts[i] + unobserved[i];
-      sum += theta[i];
-    }
-    assert(!isZero(sum));
-    for (int i = 0; i <= M; ++i) theta[i] /= sum;
+  calcProbPass();
+  N_tot = N_obs / prob_pass;
 
-    calcProbPass();
-    N_tot = N_obs / prob_pass;
-
-    ++Round;
-    if (verbose) printf("DMSWholeModel EM: Round = %d, prob_pass = %.10g\n", Round, prob_pass);
-
-  } while(Round < round);
+  if (verbose) printf("DMSWholeModel EM: prob_pass = %.10g\n", prob_pass);
 }
 
 void DMSWholeModel::read(const char* input_name) {

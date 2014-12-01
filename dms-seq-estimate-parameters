@@ -83,6 +83,10 @@ group.add_argument("--size-selection-max", help = "The maximum fragment length t
 group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.01, metavar = "<float>")
 group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.01, metavar = "<float>")
 
+group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
+
+
+
 group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie, Bowtie2, and Hobbes2. All reads with more than 200 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -n 2 -e 99999999 -l 25 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
@@ -156,6 +160,8 @@ if args.bam != None or args.sam != None:
     else:
         command.extend(["s", args.sam])
     command.extend(["-m", "200"])
+    if args.read_length != None and args.size_selection_min < args.read_length:
+        command2.extend(["--shorter-than", str(args.size_selection_min)])        
     if args.quiet:
         command.append("-q")
     runProg(command)
@@ -198,6 +204,8 @@ else:
             command.extend("-a --pe --min 1 --max 1000".split())
             command.extend(["--seqfq1", args.reads[0], "--seqfq2", args.reads[1]])
     command2 = ["dms-seq-parse-alignments", args.ref_name, imdName, statName, args.channel, str(args.num_threads), "s", "-", "-m", "200"]
+    if args.read_length != None and args.size_selection_min < args.read_length:
+        command2.extend(["--shorter-than", str(args.size_selection_min)])
     if args.quiet:
         command2.append("-q")
     runProg(command, command2)
@@ -209,6 +217,8 @@ fh.close()
 
 # Run EM    
 command = ["dms-seq-run-em", args.ref_name, str(model_type), args.sample_name, imdName, statName, args.channel, str(args.num_threads)]
+if args.read_length != None:
+    command.extend(["--read-length", str(args.read_length)])
 if args.output_bam:
     command.append("--output-bam")
 if args.quiet:

@@ -15,8 +15,8 @@ public:
   int getMaxL() const { return ub; }
 
   double getProb(int len, int upper_bound = MAXV) const {
-    assert(len >= lb && len <= ub && len <= upper_bound);
-    return (len < upper_bound ? pmf[len - lb] : pmf[len - lb] + (cdf[span - 1] - cdf[len - lb]));
+    assert(len >= lb && len <= ub);
+    return (len != upper_bound ? pmf[len - lb] : pmf[len - lb] + (cdf[span - 1] - cdf[len - lb]));
   }
     
   void update(int len, bool is_noise = false) {
@@ -34,7 +34,7 @@ public:
   void write(std::ofstream& fout);
 
   int simulate(Sampler* sampler, int upper_bound = MAXV) {
-    assert(upper_bound >= lb);
+    if (upper_bound < lb) return upper_bound;
     int len = lb + sampler->sample(cdf, span);
     if (upper_bound < len) len = upper_bound;
     return len;

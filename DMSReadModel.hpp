@@ -32,9 +32,10 @@ public:
   /*
     @param   model_type   0, SE, no qual; 1, SE qual; 2, PE, no qual; 3 PE, qual
     @param   refs         a pointer to reference sequences
+    @param   read_length  if set, assume all read length are the same, in addition, all reads whose lengths < read_length are due to adaptor trimming
     @comment: Master thread for learning model parameters
    */
-  DMSReadModel(int model_type, Refs* refs);
+  DMSReadModel(int model_type, Refs* refs, int read_length = -1);
 
   /*
     @param   master_model   The master model for learning parameters
@@ -108,14 +109,16 @@ private:
 
   Refs *refs;  
   Sampler *sampler;
+
+  int read_length; // the minimum read length, if read_length is set (not -1), all mates have a same length. 
 };
 
 inline void DMSReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) {
   // Update MLDs
-  int len = ag.getSeqLength(1);
+  int len = read_length < 0 ? ag.getSeqLength(1) : read_length;
   mld1->update(len, !isAligned);
   if (model_type >= 2) {
-    len = ag.getSeqLength(2);
+    len = read_length < 0 ? ag.getSeqLength(2) : read_length;
     mld2->update(len, !isAligned);
   }
   
@@ -146,7 +149,7 @@ inline void DMSReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns
 
   // Get read sequences and quality scores
   assert(ag.getSEQ(seq));
-  seqlen = ag.getSeqLength();
+  seqlen = read_length < 0 ? ag.getSeqLength() : read_length;
   if (model_type & 1) assert(ag.getQUAL(qual));
   // set noise probability    
   ag_in_mem->noise_conprb = mld1->getProb(seqlen) * npro->getProb(seq);
@@ -161,7 +164,7 @@ inline void DMSReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns
   if (model_type >= 2) {
     // paired-end reads
     assert(ag.getSEQ(seq, 2));
-    seqlen = ag.getSeqLength(2);
+    seqlen = read_length < 0 ? ag.getSeqLength(2) : read_length;
     if (model_type & 1) assert(ag.getQUAL(qual, 2));
     ag_in_mem->noise_conprb *= mld2->getProb(seqlen) * npro->getProb(seq);
     for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].conprb != -1.0) {

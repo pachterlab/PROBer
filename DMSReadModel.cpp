@@ -14,7 +14,7 @@
 
 #include "DMSReadModel.hpp"
 
-DMSReadModel::DMSReadModel(int model_type, Refs* refs) : model_type(model_type), refs(refs) {
+DMSReadModel::DMSReadModel(int model_type, Refs* refs, int read_length) : model_type(model_type), refs(refs), read_length(read_length) {
   mld1 = mld2 = NULL;
   qd = NULL; npro = NULL; seqmodel = NULL;
 
@@ -41,6 +41,8 @@ DMSReadModel::DMSReadModel(DMSReadModel* master_model) {
 
   refs = master_model->refs;
   sampler = NULL;
+
+  read_length = -1;
 }
 
 DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(sampler) {
@@ -51,6 +53,8 @@ DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(s
 
   max_len = 0;
   loglik = 0.0;
+
+  read_length = -1;
 }
 
 DMSReadModel::~DMSReadModel() {

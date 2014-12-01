@@ -33,7 +33,7 @@ public:
   /*
     @comment: This function sets parameters shared by all transcripts, should be called before any DMSTransModel object is created.
    */
-  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init);
+  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length);
 
   /*
     @return   primer length
@@ -82,12 +82,12 @@ public:
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  
-    @return   the probability of generating a SE read end at pos
+    @return  the probability of generating a SE read end at pos
    */
   double getProb(int pos) const {
-    int start_pos = pos + min_frag_len;
+    int start_pos = pos + min_alloc_len;
     if (start_pos > len || pos < 0) return 0.0;
-    double res = delta * margin_prob[pos] * exp(logsum[start_pos] - logsum[pos]);
+    double res = delta * (min_alloc_len == min_frag_len ? margin_prob[pos] : margin_prob2[pos]) * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
 
     return res;
@@ -96,7 +96,7 @@ public:
   /*
     @param   pos      same as the above function
     @param   fragment_length     fragment length of the PE read
-    @return   the probability of generating a PE read pair end at pos and has fragment length fragment_length
+    @return  the probability of generating a PE read pair end at pos and has fragment length fragment_length
    */
   double getProb(int pos, int fragment_length) const {
     fragment_length -= primer_length;
@@ -118,7 +118,7 @@ public:
   bool addAlignment(InMemAlign* alignment) {
     int frag_len = alignment->fragment_length;
     if (frag_len == 0) { // SE reads
-      if (alignment->pos + min_frag_len > len) return false;
+      if (alignment->pos + min_alloc_len > len) return false;
     }
     else { // PE reads
       frag_len -= primer_length;
@@ -130,14 +130,14 @@ public:
     return true;
   }
 
-  // Update counts information at each position
-  void update();
-
   /*
     @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
     @comment: It should be called before EM or getProb or get ProbPass etc. 
    */
   void calcAuxiliaryArrays();
+
+  // Update counts information at each position
+  void update();
 
   /*
     @return the probability of passing the size selection step
@@ -157,10 +157,9 @@ public:
 
   /*
     @param   N_tot   expected total counts for this transcript
-    @param   round   number of EM rounds to go through
-    @comment: Run EM algorithm on a single transcript
+    @comment: Run one iteration of EM algorithm  a single transcript
    */
-  void EM(double N_tot, int round = 1);
+  void EM(double N_tot);
 
   /*
     @param   fin   input stream
@@ -211,9 +210,11 @@ private:
 
   static double gamma_init, beta_init;
 
+  static int min_alloc_len; // minimum fragment length (primer length excluded) for allocating single end reads
+
+
   std::string name; // transcript name
   bool learning; // if learn parameters
-  bool isSE; // if reads are SE reads 
   int len; // len, number of position can learn parameters, transcript_length - primer_length
   int efflen; // efflen, number of positions can generate a valid fragment, len - min_frag_len + 1
   double N_obs; // Total number of observed counts
@@ -226,7 +227,10 @@ private:
     comment: Auxiliary arrays below
    */
   double *logsum; // logsum[i] = \sigma_{j=1}^{i} log(1-gamma[j]) if beta == NULL or \sigma_{j=1}^{i} log(1-gamma[j])(1-beta[j]). Thus a product from a to b is exp(logsum[b]-logsum[a-1]). 
-  double *margin_prob; // For SE reads, margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
+  double *margin_prob; // margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
+
+  int efflen2; // number of positions can generate a full length read
+  double *margin_prob2; // not NULL only if min_alloc_len > min_frag_len, margin_prob2[i] = \sigma_{j = i + min_alloc_len} ^ {i + max_frag_len} \prod_{k = i + min_alloc_len + 1} ^ {j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
 
@@ -234,33 +238,5 @@ private:
 
   std::vector<InMemAlign*> alignments; // In memory alignments used for update
 };
-
-inline void DMSTransModel::update() {
-  HIT_INT_TYPE size = alignments.size();
-  if (size == 0) return;
-
-  // initialize
-  N_obs = 0.0;
-  memset(start, 0, sizeof(double) * (len + 1));
-  memset(end, 0, sizeof(double) * (len + 1));
-  
-  isSE = (alignments[0]->fragment_length == 0); // Only valid if all reads are paired or SE reads and no improper alignment allowed
-
-  if (isSE) {
-    for (HIT_INT_TYPE i = 0; i < size; ++i) {
-      if (alignments[i]->pos + min_frag_len > len || alignments[i]->pos < 0) continue;
-      end[alignments[i]->pos] += alignments[i]->frac;
-      N_obs += alignments[i]->frac;
-    }
-  }
-  else {
-    for (HIT_INT_TYPE i = 0; i < size; ++i) {
-      if (alignments[i]->pos + alignments[i]->fragment_length - primer_length > len || alignments[i]->pos < 0) continue;
-      end[alignments[i]->pos] += alignments[i]->frac;
-      N_obs += alignments[i]->frac;
-      start[alignments[i]->pos + alignments[i]->fragment_length - primer_length] += alignments[i]->frac; 
-    }    
-  }
-}
 
 #endif
