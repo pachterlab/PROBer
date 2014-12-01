@@ -161,7 +161,7 @@ if args.bam != None or args.sam != None:
         command.extend(["s", args.sam])
     command.extend(["-m", "200"])
     if args.read_length != None and args.size_selection_min < args.read_length:
-        command2.extend(["--shorter-than", str(args.size_selection_min)])        
+        command.extend(["--shorter-than", str(args.size_selection_min)])        
     if args.quiet:
         command.append("-q")
     runProg(command)

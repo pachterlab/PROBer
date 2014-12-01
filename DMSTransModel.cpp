@@ -183,7 +183,7 @@ void DMSTransModel::update() {
       value = prev;
       if (max_end_i >= 0) {
 	value -= ((end2[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end2[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
-	assert(value >= 0.0);
+	if (value < 0.0) value = 0.0;
       }
 
       curr += (beta == NULL ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * value;

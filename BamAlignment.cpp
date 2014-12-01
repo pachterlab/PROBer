@@ -50,10 +50,11 @@ bool BamAlignment::read(samfile_t *in, BamAlignment *o) {
 bool BamAlignment::write(samfile_t *out, int choice, BamAlignment *o) {
   assert(is_aligned >= 0 && b != NULL && (!is_paired || b2 != NULL));
 
+  if (b->core.l_qname == 1) b->core.l_qseq = 0;
+  if (is_paired && (b2->core.l_qname == 1)) b2->core.l_qseq = 0;
+
   switch(choice) {
   case 0: 
-    if (b->core.l_qname == 1) b->core.l_qseq = 0;
-    if (is_paired && (b2->core.l_qname == 1)) b2->core.l_qseq = 0;
     break;
   case 1: 
     if (b->core.l_qname > 1) {

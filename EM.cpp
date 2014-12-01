@@ -5,6 +5,7 @@
 #include<cassert>
 #include<vector>
 #include<string>
+#include<iostream>
 #include<pthread.h>
 
 #include "utils.h"
@@ -166,7 +167,7 @@ void init() {
       read_model->update_preprocess(ag, true);
       ++rid;
 
-      if (verbose && (rid % 1000000 == 0)) printf("Loaded %llu reads!\n", rid); 
+      if (verbose && (rid % 1000000 == 0)) cout<< "Loaded "<< rid<< " reads!"<< endl;
     }
     assert(rid == nreads);
 
@@ -259,11 +260,11 @@ inline bool needUpdateReadModel(int ROUND) {
 void EM() {
   int ROUND;
   double count0;
-  double loglik, loglik_old;
+  double loglik;
 
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
-  loglik_old = loglik = 0.0;
+  loglik = 0.0;
 
   do {
     ++ROUND;
@@ -283,7 +284,6 @@ void EM() {
     }
 
     count0 = N0;
-    loglik_old = loglik;
     loglik = N0 * log(whole_model->getTheta(0)) + read_model->calcLogP();
     for (int i = 0; i < num_threads; ++i) {
       count0 += paramsVec[i]->count0;
@@ -345,7 +345,7 @@ void writeResults() {
 	writer->write(ag, 2);
 
 	++cnt;
-	if (verbose && (cnt % 1000000 == 0)) printf("Processed %llu reads!\n", cnt);
+	if (verbose && (cnt % 1000000 == 0)) cout<< "Processed "<< cnt<< " reads!"<< endl;
       }
       delete parser;
     }
