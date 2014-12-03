@@ -38,14 +38,14 @@ DMSTransModel::DMSTransModel(bool learning, const std::string& name, int transcr
   delta = 1.0 / (len + 1.0);
   
   gamma = new double[len + 1];
-  memset(gamma, 0, sizeof(double) * (len + 1));
+  gamma[0] = 0.0;
+  for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
 
   if (efflen <= 0) return;
 
   // auxiliary arrays
   logsum = new double[len + 1];
   margin_prob = new double[efflen];
-  for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
   
   start = new double[len + 1];
   end = new double[len + 1];
@@ -81,8 +81,9 @@ int DMSTransModel::max_frag_len;
 double DMSTransModel::gamma_init;
 double DMSTransModel::beta_init;
 int DMSTransModel::min_alloc_len;
+bool DMSTransModel::isMAP;
 
-void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length) {
+void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length, bool isMAP) {
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   DMSTransModel::primer_length = primer_length;
   DMSTransModel::min_frag_len = min_frag_len - primer_length;
@@ -92,6 +93,8 @@ void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max
   DMSTransModel::beta_init = beta_init;
 
   DMSTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
+  
+  DMSTransModel::isMAP = isMAP;
 }
 
 void DMSTransModel::calcAuxiliaryArrays() {
@@ -197,7 +200,6 @@ void DMSTransModel::EM(double N_tot) {
 
   int max_end_i;
   double psum, value;
-  //  double N_tot = N_obs / prob_pass;
 
   assert(start2 != NULL && end2 != NULL);
 
@@ -234,13 +236,36 @@ void DMSTransModel::EM(double N_tot) {
   end2[0] += end[0];
   for (int i = 1; i <= len; ++i) {
     start2[i] += start[i] + start2[i - 1];
-    end2[i] += end[i] + end2[i - 1];      
-    value = (end2[i] > end2[i - 1]) && (end2[i] > start2[i - 1]) ? (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]) : 0.0;
-    if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value; // avoid insufficient data lead to failing rate of 1, may seek better estimator in the future
-    else { 
-      beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0; 
-      if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // if floating point inaccuracy leads to beta > 1.0, reset it to be 1.0 - 1e-8
+    end2[i] += end[i] + end2[i - 1];
+    
+    if (isMAP) {
+      // MAP estimates
+      if (beta == NULL) {
+	gamma[i] = (std::max(0.0, end2[i] - end2[i - 1]) + gamma_init) / (std::max(0.0, end2[i] - start2[i - 1]) + 1.0);
+      }
+      else {
+	double dc = std::max(0.0, end2[i] - end2[i - 1]); // drop-off count
+	double cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
+	double gs = gamma[i] / (1.0 - gamma[i]); // gamma star
+	double a = dc + cc + 1.0;
+	double b = gs - beta_init - (dc - gs * cc);
+	double c = - beta_init * gs;
+	double sqd = sqrt(b * b - 4.0 * a * c); // square-root of delta
+	value = (sqd - b) / a / 2.0;
+	if (value > 0.0 && value < 1.0) beta[i] = value;
+	else beta[i] = 1.0 - 1e-8;
+      }
     }
+    else {
+      // ML estimates
+      value = (end2[i] > end2[i - 1]) && (end2[i] > start2[i - 1]) ? (end2[i] - end2[i - 1]) / (end2[i] - start2[i - 1]) : 0.0;
+      if (beta == NULL) gamma[i] = isZero(1.0 - value) ? 1.0 - 1e-8 : value; // avoid insufficient data lead to failing rate of 1, may seek better estimator in the future
+      else { 
+	beta[i] = (value > gamma[i]) && (gamma[i] < 1.0) ? (value - gamma[i]) / (1.0 - gamma[i]) : 0.0; 
+	if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // if floating point inaccuracy leads to beta > 1.0, reset it to be 1.0 - 1e-8
+      }
+    }
+
   }
   
   // Prepare for the next round
@@ -260,8 +285,8 @@ void DMSTransModel::read(std::ifstream& fin) {
       for (int i = 1; i <= len; ++i) fin>> gamma[i];
       // Set initial values
       beta = new double[len + 1];
-      memset(beta, 0, sizeof(double) * (len + 1));
-      if (efflen > 0) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
+      beta[0] = 0.0;
+      for (int i = 1; i <= len; ++i) beta[i] = beta_init;
     }
     else {
       assert(false);

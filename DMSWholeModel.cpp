@@ -14,7 +14,7 @@
 #include "MyHeap.hpp"
 #include "DMSWholeModel.hpp"
 
-DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, int num_threads, int read_length) {
+DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
   // set DMSTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -24,7 +24,7 @@ DMSWholeModel::DMSWholeModel(const char* config_file, const Transcripts* trans, 
   assert(fscanf(fi, "%d %d %d %lf %lf", &primer_length, &min_frag_len, &max_frag_len, &gamma_init, &beta_init) == 5);
   fclose(fi);
 
-  DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, gamma_init, beta_init, read_length);
+  DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, gamma_init, beta_init, read_length, isMAP);
 
   readGamma = true;
   this->num_threads = 0;

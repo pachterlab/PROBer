@@ -33,7 +33,7 @@ public:
   /*
     @comment: This function sets parameters shared by all transcripts, should be called before any DMSTransModel object is created.
    */
-  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length);
+  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length, bool isMAP);
 
   /*
     @return   primer length
@@ -74,6 +74,8 @@ public:
     @comment: if this transcript has 0 reads, set its gamma/beta values to default
    */
   void setDefault() {
+    return;
+
     if (!isZero(N_obs)) return;
     N_obs = 0.0;
     if (beta == NULL) memset(gamma, 0, sizeof(double) * (len + 1));
@@ -211,7 +213,7 @@ private:
   static double gamma_init, beta_init;
 
   static int min_alloc_len; // minimum fragment length (primer length excluded) for allocating single end reads
-
+  static bool isMAP; // if we should use MAP estimates instead of ML estimates
 
   std::string name; // transcript name
   bool learning; // if learn parameters

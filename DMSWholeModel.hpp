@@ -20,8 +20,9 @@ public:
     @param   trans         We obtain transcript names and lengths from trans
     @param   num_threads   Number of threads allowed to use
     @param   read_length   If set, assuming all reads < read_length are due to adaptor trimming
+    @param   isMAP         Use MAP estimates if true
    */
-  DMSWholeModel(const char* config_file, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1);
+  DMSWholeModel(const char* config_file, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = false);
 
   /*
     @function   destructor function, release contents of treads and transcripts

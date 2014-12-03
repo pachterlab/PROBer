@@ -60,6 +60,7 @@ int N0, N_eff; // Number of unalignable reads, number of effective reads (unalig
 int model_type; 
 int num_threads;
 int read_length;
+bool isMAP;
 
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
@@ -93,7 +94,7 @@ void init() {
 
   // Create DMSWholeModel
   sprintf(configF, "%s.config", imdName);
-  whole_model = new DMSWholeModel(configF, &transcripts, num_threads, read_length);
+  whole_model = new DMSWholeModel(configF, &transcripts, num_threads, read_length, isMAP);
   if (!strcmp(channel, "plus")) whole_model->read(sampleName); // Read gamma because this run is used to estimate betas
 
   // Create DMSReadModel
@@ -392,7 +393,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 8) {
-    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--output-bam] [-q]\n");
+    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--MAP] [--output-bam] [-q]\n");
     exit(-1);
   }
 
@@ -407,8 +408,10 @@ int main(int argc, char* argv[]) {
   verbose = true;
   output_bam = false;
   read_length = -1;
+  isMAP = false;
   for (int i = 8; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
+    if (!strcmp(argv[i], "--MAP")) isMAP = true;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }

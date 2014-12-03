@@ -84,7 +84,7 @@ group.add_argument("--gamma-init", help = "Intial value for all gammas.", type =
 group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.01, metavar = "<float>")
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
-
+group.add_argument("--MAP", help = "Use MAP estimates.", action = "store_true", dest = "map_est")
 
 
 group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie, Bowtie2, and Hobbes2. All reads with more than 200 alignments will be filtered by this script.")
@@ -219,6 +219,8 @@ fh.close()
 command = ["dms-seq-run-em", args.ref_name, str(model_type), args.sample_name, imdName, statName, args.channel, str(args.num_threads)]
 if args.read_length != None:
     command.extend(["--read-length", str(args.read_length)])
+if args.map_est:
+    command.append("--MAP")
 if args.output_bam:
     command.append("--output-bam")
 if args.quiet:
