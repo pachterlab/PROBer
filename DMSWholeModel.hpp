@@ -69,6 +69,7 @@ public:
 
   /*
     @param   tid   transcript id, 0 means noise transcript
+    @return   the theta defined as the fraction of reads, including noise transcript
    */
   double getTheta(int tid) {
     assert(tid >= 0 && tid <= M);

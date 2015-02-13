@@ -56,68 +56,53 @@ struct InMemParams {
 };
 
 int M; // Number of transcripts
-int N0, N_eff; // Number of unalignable reads, number of effective reads (unaligned + aligned)
+int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
+double count0[2], loglik[2]; // Used in EM algorithm, number of unalignable reads and log likelihood for each channel
+
 int model_type; 
 int num_threads;
 int read_length;
 bool isMAP;
 
+char channelStr[2][STRLEN] = {"minus", "plus"};
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
 Refs refs;
 Transcripts transcripts;
 
 DMSWholeModel *whole_model;
-DMSReadModel *read_model;
+DMSReadModel *read_models[2];
 
 bool needCalcConPrb, updateReadModel;
-vector<InMemParams*> paramsVec;
+vector<InMemParams*> paramsVecs[2];
 vector<pthread_t> threads;
 pthread_attr_t attr;
 int rc;
 
 bool output_bam;
 
-void init() {
-  char refF[STRLEN], tiF[STRLEN];
-  char configF[STRLEN];
+// Preprocess reads and alignments
+void preprocessAlignments(int channel) {
   char bamF[STRLEN], partitionF[STRLEN];
-
-  // Load references
-  sprintf(refF, "%s.seq", refName);
-  refs.loadRefs(refF);
-  M = refs.getM();
-  
-  sprintf(tiF, "%s.ti", refName);
-  transcripts.readFrom(tiF);
-  transcripts.buildMappings(imdName);
-
-  // Create DMSWholeModel
-  sprintf(configF, "%s.config", imdName);
-  whole_model = new DMSWholeModel(configF, (!strcmp(channel, "minus") ? 0 : 1), &transcripts, num_threads, read_length, isMAP);
-  if (!strcmp(channel, "plus")) whole_model->read(sampleName); // Read gamma because this run is used to estimate betas
-
-  // Create DMSReadModel
-  read_model = new DMSReadModel(model_type, &refs, read_length);
-
-  // Preprocess reads and alignments
   SamParser *parser = NULL;
   AlignmentGroup ag;
 
+  if (verbose) { printf("Begin to preprocess BAM files for channel %s!\n", channelStr[channel]); }
+
   // Preprocess unalignable reads
-  sprintf(bamF, "%s_N0.bam", imdName);
+  sprintf(bamF, "%s_%s_N0.bam", imdName, channelStr[channel]);
   parser = new SamParser('b', bamF, NULL);
 
-  N0 = 0;
+  N0[channel] = 0;
   while (parser->next(ag)) {
-    read_model->update_preprocess(ag, false);
-    ++N0;
+    read_models[channel]->update_preprocess(ag, false);
+    ++N0[channel];
   }
   delete parser;
   if (verbose) { printf("Unalignable reads are preprocessed!\n"); }
 
   // Preprocess alignable reads
-  sprintf(partitionF, "%s.partition", imdName);
+  sprintf(partitionF, "%s_%s.partition", imdName, channelStr[channel]);
   ifstream fin(partitionF);
   assert(fin.is_open());
 
@@ -134,15 +119,15 @@ void init() {
   bool is_paired;
   int seqlen;
 
-  N_eff = N0;
-  paramsVec.assign(num_threads, NULL);
+  N_eff[channel] = N0[channel];
+  paramsVecs[channel].assign(num_threads, NULL);
   for (int i = 0; i < num_threads; ++i) {
     fin>> id>> nreads>> nlines;
     assert(id == i);
-    N_eff += nreads;
-    paramsVec[i] = new InMemParams(i, whole_model, read_model, nreads, nlines);
+    N_eff[channel] += nreads;
+    paramsVecs[channel][i] = new InMemParams(i, whole_model, read_models[channel], nreads, nlines);
 
-    sprintf(bamF, "%s_%d.bam", imdName, i);
+    sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
     parser = new SamParser('b', bamF, NULL);
     rid = 0;
     ag.clear();
@@ -150,7 +135,7 @@ void init() {
       is_paired = ag.isPaired();
       seqlen = !is_paired ? ag.getSeqLength() : 0; 
 
-      assert(paramsVec[i]->chunk->next(a_read, aligns));
+      assert(paramsVecs[channel][i]->chunk->next(a_read, aligns));
       a_read->size = ag.size();
       
       for (int j = 0; j < ag.size(); ++j) {
@@ -165,7 +150,7 @@ void init() {
 	aligns[j].frac = 1.0 / ag.size();
       }
       whole_model->addAlignments(a_read, aligns);
-      read_model->update_preprocess(ag, true);
+      read_models[channel]->update_preprocess(ag, true);
       ++rid;
 
       if (verbose && (rid % 1000000 == 0)) cout<< "Loaded "<< rid<< " reads!"<< endl;
@@ -175,7 +160,7 @@ void init() {
     delete parser;
     if (verbose) { printf("Thread %d's data is preprocessed!\n", i); }
 
-    chunk = paramsVec[i]->chunk;
+    chunk = paramsVecs[channel][i]->chunk;
     for (HIT_INT_TYPE j = 0; j < nlines; ++j) 
       if (chunk->aligns[j].conprb == -1.0) ++cnt;
   }
@@ -183,9 +168,40 @@ void init() {
   if (verbose) { printf("There are %d alignments filtered!\n", cnt); }
 
   for (int i = 0; i < num_threads; ++i) 
-    paramsVec[i]->estimator = new DMSReadModel(read_model);
-  whole_model->init();
-  read_model->finish_preprocess();
+    paramsVecs[channel][i]->estimator = new DMSReadModel(read_models[channel]);
+  read_models[channel]->finish_preprocess();
+  
+  if (verbose) { printf("Bam preprocessing is done for channel %s!\n", channelStr[channel]); }
+
+  // change to the other state for furtuer analysis
+  whole_model->flipState();
+}
+
+void init() {
+  char refF[STRLEN], tiF[STRLEN];
+  char configF[STRLEN];
+
+  // Load references
+  sprintf(refF, "%s.seq", refName);
+  refs.loadRefs(refF);
+  M = refs.getM();
+  
+  sprintf(tiF, "%s.ti", refName);
+  transcripts.readFrom(tiF);
+  transcripts.buildMappings(imdName);
+
+  // Create DMSWholeModel
+  sprintf(configF, "%s.config", imdName);
+  whole_model = new DMSWholeModel(configF, 2, &transcripts, num_threads, read_length, isMAP);
+
+  // Create DMSReadModels
+  read_models[0] = new DMSReadModel(model_type, &refs, read_length);
+  read_models[1] = new DMSReadModel(model_type, &refs, read_length);
+
+  // Preprocess data for (-)
+  preprocessAlignments(0);
+  // Preprocess data for (+)
+  preprocessAlignments(1);
 
   threads.assign(num_threads, pthread_t());
   /* set thread attribute to be joinable */
@@ -212,7 +228,7 @@ void* E_STEP(void* arg) {
 
   if (needCalcConPrb || updateReadModel) {
     char bamF[STRLEN];
-    sprintf(bamF, "%s_%d.bam", imdName, params->no);
+    sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[whole_model->getChannel()], params->no);
     parser = new SamParser('b', bamF, NULL); 
   }
   if (updateReadModel) estimator->init();
@@ -258,55 +274,65 @@ inline bool needUpdateReadModel(int ROUND) {
   return ROUND <= 10;
 }
 
+void one_EM_iteration(int channel, int ROUND) {
+  assert(whole_model->getChannel() == channel);
+
+  // init
+  if (ROUND == 1) whole_model->init();
+
+  // E step
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_create(&threads[i], &attr, E_STEP, (void*)paramsVecs[channel][i]);
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + " for " + channelStr[channel] + " channel!");
+  }
+    
+  for (int i = 0; i < num_threads; ++i) {
+    rc = pthread_join(threads[i], NULL);
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
+  }
+
+  count0[channel] = N0[channel];
+  loglik[channel] = N0[channel] * log(whole_model->getTheta(0)) + read_models[channel]->calcLogP();
+  for (int i = 0; i < num_threads; ++i) {
+    count0[channel] += paramsVecs[channel][i]->count0;
+    loglik[channel] += paramsVecs[channel][i]->loglik;
+  }
+  loglik[channel] -= N_eff[channel] * log(whole_model->getProbPass());
+  
+  if (verbose) printf("E step for %s channel is done. Loglik of ROUND %d is: %.2f\n", channelStr[channel], ROUND - 1, loglik[channel]);
+  
+  if (ROUND > MAX_ROUND) whole_model->update(count0[channel]);
+  else {
+    // Run DMSWholeModel's EM_step procedure
+    whole_model->EM_step(count0[channel]);
+    
+    if (updateReadModel) {
+      read_models[channel]->init();
+      for (int i = 0; i < num_threads; ++i) read_models[channel]->collect(paramsVecs[channel][i]->estimator);
+      read_models[channel]->finish();
+    }
+  }
+}
+
 void EM() {
   int ROUND;
-  double count0;
-  double loglik;
 
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
-  loglik = 0.0;
 
   do {
     ++ROUND;
 
     needCalcConPrb = updateReadModel;
     updateReadModel = needUpdateReadModel(ROUND);
-    
-    // E step
-    for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_create(&threads[i], &attr, E_STEP, (void*)paramsVec[i]);
-      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
-    }
-    
-    for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_join(threads[i], NULL);
-      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
-    }
 
-    count0 = N0;
-    loglik = N0 * log(whole_model->getTheta(0)) + read_model->calcLogP();
-    for (int i = 0; i < num_threads; ++i) {
-      count0 += paramsVec[i]->count0;
-      loglik += paramsVec[i]->loglik;
-    }
-    loglik -= N_eff * log(whole_model->getProbPass());
+    // (-) channel
+    one_EM_iteration(0, ROUND);
+    whole_model->flipState();
 
-    if (verbose) printf("E step is done. Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik);
-
-    if (ROUND > MAX_ROUND) {
-      whole_model->update(count0);
-      continue;
-    }
-
-    // Run DMSWholeModel's runEM procedure
-    whole_model->EM_step(count0);
-
-    if (updateReadModel) {
-      read_model->init();
-      for (int i = 0; i < num_threads; ++i) read_model->collect(paramsVec[i]->estimator);
-      read_model->finish();
-    }
+    // (+) channel
+    one_EM_iteration(1, ROUND);
+    whole_model->flipState();
 
     if (verbose) printf("ROUND %d finished!\n", ROUND);
 
@@ -315,69 +341,79 @@ void EM() {
   if (verbose) printf("EM is finished!\n");
 }
 
+void outputBamFiles(int channel) {
+  char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
+
+  sprintf(inp0F, "%s_%s_N0.bam", imdName, channelStr[channel]);
+  sprintf(outF, "%s_%s.transcripts.bam", sampleName, channelStr[channel]);
+  
+  SamParser* parser0 = new SamParser('b', inp0F, NULL);
+  BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "DMS-Seq");
+  AlignmentGroup ag;
+  READ_INT_TYPE cnt = 0;
+  
+  for (int i = 0; i < num_threads; ++i) {
+    sprintf(inpF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
+    SamParser* parser = new SamParser('b', inpF, NULL);
+    InMemChunk *chunk = paramsVecs[channel][i]->chunk;
+    READ_INT_TYPE nreads = chunk->nreads;
+    InMemAlignG *a_read = NULL;
+    InMemAlign *aligns = NULL;
+    
+    ag.clear();
+    chunk->reset();
+    for (READ_INT_TYPE j = 0; j < nreads; ++j) {
+      assert(parser->next(ag));
+      assert(chunk->next(a_read, aligns));
+      
+      int size = a_read->size;
+      for (int k = 0; k < size; ++k) 
+	ag.getAlignment(k)->setFrac(aligns[k].frac);
+      writer->write(ag, 2);
+      
+      ++cnt;
+      if (verbose && (cnt % 1000000 == 0)) cout<< "Processed "<< cnt<< " reads!"<< endl;
+    }
+    delete parser;
+  }
+  
+  // write out unalignable reads
+  ag.clear();
+  while (parser0->next(ag)) writer->write(ag, 2);
+  delete parser0;
+  
+  // write out filtered reads
+  sprintf(inp2F, "%s_%s_N2.bam", imdName, channelStr[channel]);
+  SamParser* parser2 = new SamParser('b', inp2F, NULL);
+  ag.clear();
+  while (parser2->next(ag)) {
+    ag.markAsFiltered(); // Mark each alignment as filtered by append a "ZF:A:!" field
+    writer->write(ag, 2);
+  }
+  delete parser2;
+  
+  delete writer;
+  
+  if (verbose) printf("OUTPUT BAM for %s channel is done!\n", channelStr[channel]);
+}
+
 void writeResults() {
   // output read model parameters
   char readModelF[STRLEN];
-  sprintf(readModelF, "%s.read_model", statName);
-  read_model->write(readModelF);
+  for (int i = 0; i < 2; ++i) {
+    sprintf(readModelF, "%s_%s.read_model", channelStr[i], statName);
+    read_models[i]->write(readModelF);
+  }
   
   // output whole model parameters
   whole_model->write(sampleName);
 
   // output BAM files
   if (output_bam) {
-    char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
-    sprintf(inp0F, "%s_N0.bam", imdName);
-    sprintf(outF, "%s_%s.transcripts.bam", sampleName, channel);
-    
-    SamParser* parser0 = new SamParser('b', inp0F, NULL);
-    BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "DMS-Seq");
-    AlignmentGroup ag;
-    READ_INT_TYPE cnt = 0;
-
-    for (int i = 0; i < num_threads; ++i) {
-      sprintf(inpF, "%s_%d.bam", imdName, i);
-      SamParser* parser = new SamParser('b', inpF, NULL);
-      InMemChunk *chunk = paramsVec[i]->chunk;
-      READ_INT_TYPE nreads = chunk->nreads;
-      InMemAlignG *a_read = NULL;
-      InMemAlign *aligns = NULL;
-
-      ag.clear();
-      chunk->reset();
-      for (READ_INT_TYPE j = 0; j < nreads; ++j) {
-	assert(parser->next(ag));
-	assert(chunk->next(a_read, aligns));
-
-	int size = a_read->size;
-	for (int k = 0; k < size; ++k) 
-	  ag.getAlignment(k)->setFrac(aligns[k].frac);
-	writer->write(ag, 2);
-
-	++cnt;
-	if (verbose && (cnt % 1000000 == 0)) cout<< "Processed "<< cnt<< " reads!"<< endl;
-      }
-      delete parser;
-    }
-
-    // write out unalignable reads
-    ag.clear();
-    while (parser0->next(ag)) writer->write(ag, 2);
-    delete parser0;
-
-    // write out filtered reads
-    sprintf(inp2F, "%s_N2.bam", imdName);
-    SamParser* parser2 = new SamParser('b', inp2F, NULL);
-    ag.clear();
-    while (parser2->next(ag)) {
-      ag.markAsFiltered(); // Mark each alignment as filtered by append a "ZF:A:!" field
-      writer->write(ag, 2);
-    }
-    delete parser2;
-
-    delete writer;
-    
-    if (verbose) printf("OUTPUT BAM is written!\n");
+    // Bam files for (-) channel
+    outputBamFiles(0);
+    // Bam files for (+) channel
+    outputBamFiles(1);
   }
 
   if (verbose) printf("WriteResults is finished!\n");
@@ -386,30 +422,34 @@ void writeResults() {
 void release() {
   pthread_attr_destroy(&attr);
 
-  for (int i = 0; i < num_threads; ++i) delete paramsVec[i];
+  for (int i = 0; i < num_threads; ++i) {
+    delete paramsVecs[0][i];
+    delete paramsVecs[1][i];
+  }
+
   delete whole_model;
-  delete read_model;
+  delete read_models[0];
+  delete read_models[1];
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 8) {
-    printf("Usage: dms-seq-run-em refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--MAP] [--output-bam] [-q]\n");
+  if (argc < 7) {
+    printf("Usage: dms-seq-run-em-joint refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--MAP] [--output-bam] [-q]\n");
     exit(-1);
   }
 
   strcpy(refName, argv[1]);
   model_type = atoi(argv[2]);
   strcpy(sampleName, argv[3]);
-  sprintf(imdName, "%s_%s", argv[4], argv[6]);
-  sprintf(statName, "%s_%s", argv[5], argv[6]);
-  strcpy(channel, argv[6]);
-  num_threads = atoi(argv[7]);
+  sprintf(imdName, "%s", argv[4]);
+  sprintf(statName, "%s", argv[5]);
+  num_threads = atoi(argv[6]);
 
   verbose = true;
   output_bam = false;
   read_length = -1;
   isMAP = false;
-  for (int i = 8; i < argc; ++i) {
+  for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--MAP")) isMAP = true;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
