@@ -22,18 +22,32 @@
 class DMSTransModel {
 public:
   /*
-    @param   learning    if we need to learn parameters
+    @param   tid     transcript id (internal use)
     @param   name    transcript name
     @param   transcript_length  the length of this transcript
    */
-  DMSTransModel(bool learning, const std::string& name = "", int transcript_length = -1);
+  DMSTransModel(int tid, const std::string& name = "", int transcript_length = -1);
 
   ~DMSTransModel();
 
   /*
-    @comment: This function sets parameters shared by all transcripts, should be called before any DMSTransModel object is created.
+    @param   primer_length   the length of random primer
+    @param   min_frag_len    minimum fragment length
+    @param   max_frag_len    maximum fragment length
+    @param   init_state      the initial state ((-) or (+) channel, if learning jointly or not)
+    @comment: This function sets parameters shared by all transcripts for both simulation and learning, should be called before any DMSTransModel object is created.
    */
-  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, double gamma_init, double beta_init, int read_length, bool isMAP);
+  static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state);
+  
+  /*
+    @param   gamma_init   initial value for gamma
+    @param   beta_init    initial value for beta
+    @param   base         base = alpha + beta - 2 for Beta(alpha, beta) distribution
+    @param   read_length  the length of a single-end read
+    @param   isMAP        if we want MAP estimates
+    @comment: This function sets learning related parameters shared by all transcripts, calling this function means that we want to learn parameters from data.
+  */
+  static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP);
 
   /*
     @return   primer length
@@ -51,6 +65,36 @@ public:
   static int get_maximum_fragment_length() { return max_frag_len + primer_length; }
 
   /*
+    @return   if learning or simulation
+   */
+  static bool isLearning() { return learning; }
+
+  /*
+    @return   current state
+  */
+  static int getState() { return state; }
+
+  /*
+    @comment: change channel
+   */
+  static void flipState() { state = state ^ 1; }
+
+  /*
+    @return   which channel we are dealing with (0, -; 1, +)
+   */
+  static int getChannel() { return state & 1; }
+
+  /*
+    @return   if joint learning, true; otherwise, false
+  */
+  static bool isJoint() { return state >= 2; }
+
+  /*
+    @return   transcript id
+  */
+  int getTid() const { return tid; }
+
+  /*
     @return   transcript name
    */    
   const std::string& getName() const { return name; }
@@ -66,21 +110,21 @@ public:
   int getEffLen() const { return efflen; }
 
   /*
-    @return   N_obs, number of observed reads
-   */
-  double getNobs() const { return N_obs; }
+    @return   number of alignments this transcript has
+  */
+  HIT_INT_TYPE getNumAlignments() const {
+    return alignmentsArr[getChannel()].size();
+  }
 
   /*
-    @comment: if this transcript has 0 reads, set its gamma/beta values to default
+    @return   N_obs, number of observed reads
    */
-  void setDefault() {
-    return;
+  double getNobs() const { return N_obs[getChannel()]; }
 
-    if (!isZero(N_obs)) return;
-    N_obs = 0.0;
-    if (beta == NULL) memset(gamma, 0, sizeof(double) * (len + 1));
-    else memset(beta, 0, sizeof(double) * (len + 1));
-  }
+  /*
+    @return the probability of passing the size selection step
+   */
+  double getProbPass() const { return prob_pass[getChannel()]; }
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  
@@ -90,7 +134,7 @@ public:
     int start_pos = pos + min_alloc_len;
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * (min_alloc_len == min_frag_len ? margin_prob[pos] : margin_prob2[pos]) * exp(logsum[start_pos] - logsum[pos]);
-    if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
 
     return res;
   }
@@ -107,44 +151,10 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
-    if (pos > 0) res *= (beta == NULL ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
 
     return res;
   }
-
-  /*
-    @param   alignment   an in memory alignment belong to this transcript
-    @return   true if the alignment is added, false otherwise
-    @comment:  if the alignment's fragment length is not in [min_frag_len, max_frag_len] range, reject it
-   */
-  bool addAlignment(InMemAlign* alignment) {
-    int frag_len = alignment->fragment_length;
-    if (frag_len == 0) { // SE reads
-      if (alignment->pos + min_alloc_len > len) return false;
-    }
-    else { // PE reads
-      frag_len -= primer_length;
-      if (frag_len < min_frag_len || frag_len > max_frag_len || alignment->pos + frag_len > len)  return false;
-    }
-
-    alignments.push_back(alignment);
-
-    return true;
-  }
-
-  /*
-    @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
-    @comment: It should be called before EM or getProb or get ProbPass etc. 
-   */
-  void calcAuxiliaryArrays();
-
-  // Update counts information at each position
-  void update();
-
-  /*
-    @return the probability of passing the size selection step
-   */
-  double getProbPass() const { return prob_pass; }
 
   /*
     @param   start2   auxiliary array used in EM
@@ -158,10 +168,43 @@ public:
   }
 
   /*
-    @param   N_tot   expected total counts for this transcript
-    @comment: Run one iteration of EM algorithm  a single transcript
+    @comment: if this transcript has 0 reads, set its gamma/beta values to default
    */
-  void EM(double N_tot);
+
+  /*
+    @param   alignment   an in memory alignment belong to this transcript
+    @return   true if the alignment is added, false otherwise
+    @comment:  if the alignment's fragment length is not in [min_frag_len, max_frag_len] range, reject it
+   */
+  bool addAlignment(InMemAlign* alignment) {
+    int frag_len = alignment->fragment_length;
+    if (frag_len == 0) { // SE reads
+      if (alignment->pos + min_alloc_len > len) return false;
+      hasSE = true; // we have at least one SE read
+    }
+    else { // PE reads
+      frag_len -= primer_length;
+      if (frag_len < min_frag_len || frag_len > max_frag_len || alignment->pos + frag_len > len)  return false;
+    }
+
+    alignmentsArr[getChannel()].push_back(alignment);
+
+    return true;
+  }
+
+  /*
+    @comment: Initialize related data members to prepare this transcript for parameter esitmation. Call only after all alignments are added.
+   */
+  void init();
+
+  // Update counts information at each position
+  void update();
+
+  /*
+    @param   N_tot   expected total counts for this transcript
+    @comment: Run one iteration of EM algorithm for a single transcript
+   */
+  void EM_step(double N_tot);
 
   /*
     @param   fin   input stream
@@ -209,21 +252,31 @@ private:
 
   static int primer_length; // primer_length, the length of primers
   static int min_frag_len, max_frag_len; // min_frag_len and max_frag_len, the min and max fragment length (primer length excluded)
+  static int state; // 0, learn/simulate gamma; 1, learn/simulate beta; 2, joint learning, gamma; 3, joint learning, beta
 
   static double gamma_init, beta_init;
 
   static int min_alloc_len; // minimum fragment length (primer length excluded) for allocating single end reads
   static bool isMAP; // if we should use MAP estimates instead of ML estimates
+  static double base, dgamma, cgamma, dbeta, cbeta; // if MAP, gamma ~ Beta(dgamma + 1, cgamma + 1), beta ~ Beta(dbeta + 1, cbeta + 1); base = dgamma + cgamma = dbeta + cbeta
 
+  static bool learning; // true if learning parameters, false if simulation
+
+  int tid; // transcript id
   std::string name; // transcript name
-  bool learning; // if learn parameters
+
   int len; // len, number of position can learn parameters, transcript_length - primer_length
   int efflen; // efflen, number of positions can generate a valid fragment, len - min_frag_len + 1
-  double N_obs; // Total number of observed counts
   double delta; // probability of priming from a particular position, delta = 1.0 / (len + 1)
-  double prob_pass; // probability of generating a read that passes the size selection step
+  double N_obs[2]; // Total number of observed counts
+  double prob_pass[2]; // probability of generating a read that passes the size selection step
   double *gamma, *beta; // gamma, the vector of probability of drop-off at i (1-based); beta, the vector of probability of demtheylation at position i (1-based); 
   double *start, *end; // start, number of reads with first base after primer starting at a position; end, number of reads whose TF drops off at a position
+  double *dcm, *ccm; // drop-off counts and covering counts for (-) channel
+  double *end_se; // number of SE reads end at a position
+
+  bool hasSE; // if this transcript has SE reads, which means we do not know its start, from either of the channels
+  double N_se; // number of reads that we do not know their start positions
 
   /*
     comment: Auxiliary arrays below
@@ -238,7 +291,35 @@ private:
 
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 
-  std::vector<InMemAlign*> alignments; // In memory alignments used for update
+  std::vector<InMemAlign*> alignmentsArr[2]; // In memory alignments used for update from (-) and (+) channels
+
+
+
+  /*
+    @param   channel   which channel we should calculate for
+    @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
+    @comment: It should be called before EM or getProb or get ProbPass etc. 
+   */
+  void calcAuxiliaryArrays(int channel);
+
+  /*
+    @param   beta   beta value at a position, this is the to-be-estimated parameter
+    @param   gamma  gamma value at the same position, which is assumed known
+    @param   dc     drop-off counts at the position
+    @param   cc     covering counts at the position
+    @comment: This function estimate MAP beta by solving an quadratic equation. It is only used when we estimate gamma and beta separately.
+   */
+  void solveQuadratic1(double& beta, double gamma, double dc, double cc);
+
+  /*
+    @param   gamma   gamma to be estimated
+    @param   beta    beta to be estimated
+    @param   dcm     drop-off counts at (-) channel
+    @param   ccm     covering counts at (-) channel
+    @param   dcp     drop-off counts at (+) channel
+    @param   ccp     covering counts at (+) channel
+   */
+  void solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp);
 };
 
 #endif

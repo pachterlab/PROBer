@@ -35,7 +35,8 @@ public:
   void init(int size);
   int getTop() const { return elements[0].id; }
   void updateTop(HIT_INT_TYPE nlines);
-  
+
+  READ_INT_TYPE getNum(int id) const { return elements[id].nreads; }
   void print(const char* outF = NULL);
 
 private:
