@@ -17,6 +17,13 @@ int DMSTransModel::max_frag_len;
 
 double DMSTransModel::gamma_init;
 double DMSTransModel::beta_init;
+
+double DMSTransModel::base;
+double DMSTransModel::cgamma;
+double DMSTransModel::dgamma;
+double DMSTransModel::cbeta;
+double DMSTransModel::dbeta;
+
 int DMSTransModel::min_alloc_len;
 bool DMSTransModel::isMAP = true; // default is true
 

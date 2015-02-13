@@ -36,6 +36,11 @@ public:
   void flipState() { DMSTransModel::flipState(); }
 
   /*
+    @comment: get channel information from DMSTransModel
+   */
+  int getChannel() const { return DMSTransModel::getChannel(); }
+
+  /*
     @param   alignG   An alignment group, representing a single read's all alignments
    */
   void addAlignments(InMemAlignG* alignG, InMemAlign* aligns) {

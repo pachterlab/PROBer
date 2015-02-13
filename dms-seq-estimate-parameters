@@ -9,7 +9,9 @@ from utils import MyFormatter, MyParser, runProg
 
 #Parse options and arguments
 
-parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name channel {{--bam input.bam | --sam input.sam | --reads mate1_read_file(s) [mate2_read_file(s)]}}".format(os.path.basename(utils.expand(sys.argv[0]))), description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", epilog = "L:OUTPUTS:\n"
+program_name = os.path.basename(utils.expand(sys.argv[0]))
+
+parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name channel {{--bam input.bam | --sam input.sam | --reads mate1_read_file(s) [mate2_read_file(s)]}}".format(program_name), description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", epilog = "L:OUTPUTS:\n"
                   "  sample_name.gamma\n"
                   "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
                        "Then each line describes estimated parameters for a different transcript. "
@@ -67,7 +69,7 @@ group.add_argument("--sam", help = "Input is a SAM file containing alignment res
 group.add_argument("--reads", help = "L:Input are read files.\nmate1_read_file(s), a comma-separated list of files containing single-end reads or first mates of paired-end reads\n"
                                      "mate2_read_file(s), present only if '--paired-end' is enabled, a comma-separated list of files containing second mates of paired-end reads\n"
                                      "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
-                   nargs = '+', action = utils.nargs_range(1, 2), type = utils.expandAll, metavar = "mate_read_file(s)")
+                   nargs = '+', action = utils.nargs_range([1, 2]), type = utils.expandAll, metavar = "mate_read_file(s)")
 
 group = parser.add_argument_group(title = "Basic options")
 

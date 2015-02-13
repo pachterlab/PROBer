@@ -26,11 +26,11 @@ class MyParser(argparse.ArgumentParser):
         self.print_help()
         sys.exit(-1)
 
-def nargs_range(n_min, n_max):
+def nargs_range(list_of_range):
     """ Require number of arguments between n_min and n_max """
     class _StoreConstraintAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string = None):
-            if len(values) > n_max or len(values) < n_min:
+            if not (len(values) in list_of_range):
                 raise argparse.ArgumentTypeError("{} needs {} ~ {} arguments".format(self.dest, n_min, n_max))
             setattr(namespace, self.dest, values)
     return _StoreConstraintAction

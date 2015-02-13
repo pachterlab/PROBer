@@ -316,6 +316,16 @@ void EM() {
 }
 
 void writeResults() {
+  // output read model parameters
+  char readModelF[STRLEN];
+  sprintf(readModelF, "%s.read_model", statName);
+  read_model->write(readModelF);
+  
+  // output whole model parameters
+  whole_model->setDefault();
+  whole_model->write(sampleName);
+
+  // output BAM files
   if (output_bam) {
     char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
     sprintf(inp0F, "%s_N0.bam", imdName);
@@ -367,18 +377,9 @@ void writeResults() {
     delete parser2;
 
     delete writer;
-
+    
     if (verbose) printf("OUTPUT BAM is written!\n");
   }
-
-  // output read model parameters
-  char readModelF[STRLEN];
-  sprintf(readModelF, "%s.read_model", statName);
-  read_model->write(readModelF);
-  
-  // output whole model parameters
-  whole_model->setDefault();
-  whole_model->write(sampleName);
 
   if (verbose) printf("WriteResults is finished!\n");
 }
