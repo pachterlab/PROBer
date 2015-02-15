@@ -64,7 +64,6 @@ int num_threads;
 int read_length;
 bool isMAP;
 
-char channelStr[2][STRLEN] = {"minus", "plus"};
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
 Refs refs;
@@ -173,7 +172,7 @@ void preprocessAlignments(int channel) {
   
   if (verbose) { printf("Bam preprocessing is done for channel %s!\n", channelStr[channel]); }
 
-  // change to the other state for furtuer analysis
+  // change to the other state for further analysis
   whole_model->flipState();
 }
 
@@ -288,7 +287,7 @@ void one_EM_iteration(int channel, int ROUND) {
     
   for (int i = 0; i < num_threads; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + "!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) at EM ROUND " + itos(ROUND) + " for " + channelStr[channel] + " channel!");
   }
 
   count0[channel] = N0[channel];
@@ -298,8 +297,6 @@ void one_EM_iteration(int channel, int ROUND) {
     loglik[channel] += paramsVecs[channel][i]->loglik;
   }
   loglik[channel] -= N_eff[channel] * log(whole_model->getProbPass());
-  
-  if (verbose) printf("E step for %s channel is done. Loglik of ROUND %d is: %.2f\n", channelStr[channel], ROUND - 1, loglik[channel]);
   
   if (ROUND > MAX_ROUND) whole_model->update(count0[channel]);
   else {
@@ -334,7 +331,7 @@ void EM() {
     one_EM_iteration(1, ROUND);
     whole_model->flipState();
 
-    if (verbose) printf("ROUND %d finished!\n", ROUND);
+    if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik[0] + loglik[1]);
 
   } while (ROUND <= MAX_ROUND);
   

@@ -110,10 +110,18 @@ public:
   int getEffLen() const { return efflen; }
 
   /*
-    @return   number of alignments this transcript has
+    @param   channel   which channel to look at
+    @return   number of alignments this transcript has for channel
   */
-  HIT_INT_TYPE getNumAlignments() const {
-    return alignmentsArr[getChannel()].size();
+  HIT_INT_TYPE getNumAlignments(int channel) const {
+    return alignmentsArr[channel].size();
+  }
+
+  /*
+    @comment: check if this transcript can be excluded from learning procedure due to either no available position or no alignments. Must call after alignments are processed!
+  */
+  bool isExcluded() const {
+    return efflen <= 0 || (!isJoint() && alignmentsArr[getChannel()].size() == 0) || (isJoint() && alignmentsArr[0].size() == 0 && alignmentsArr[1].size() == 0);
   }
 
   /*
@@ -213,10 +221,11 @@ public:
   void read(std::ifstream& fin);
 
   /*
-    @param   fout output stream
+    @param   fout     output stream
+    @param   channel  which channel 
     @format: the same as read
    */
-  void write(std::ofstream& fout);
+  void write(std::ofstream& fout, int channel);
 
   /*
     @param   fc   output stream for c, the marking rate
@@ -284,7 +293,7 @@ private:
   double *logsum; // logsum[i] = \sigma_{j=1}^{i} log(1-gamma[j]) if beta == NULL or \sigma_{j=1}^{i} log(1-gamma[j])(1-beta[j]). Thus a product from a to b is exp(logsum[b]-logsum[a-1]). 
   double *margin_prob; // margin_prob[i] = \sigma_{j = i + min_frag_len} ^ {i + max_frag_len} \prod_{k=i + min_frag_len + 1} ^{j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
-  int efflen2; // number of positions can generate a full length read
+  int efflen2; // number of positions can generate a full length SE read
   double *margin_prob2; // not NULL only if min_alloc_len > min_frag_len, margin_prob2[i] = \sigma_{j = i + min_alloc_len} ^ {i + max_frag_len} \prod_{k = i + min_alloc_len + 1} ^ {j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts

@@ -164,7 +164,7 @@ private:
   std::vector<pthread_t> threads; // pthreads
   pthread_attr_t attr; // pthread attribute
   int rc; // status of pthread running condition
-  std::vector<Params*> paramsVecUp[2], paramsVecEM[2]; // parameters used by each thread for updates and EM steps
+  std::vector<Params*> paramsVecUp[2], paramsVecEM; // parameters used by each thread for updates and EM steps
 
   /*
     @param   channel   (+) or (-), which channel we are working on
@@ -178,10 +178,11 @@ private:
   }
 
   /*
-    @param   channel   the current channel
+    @param   state     state to deal with
+    @param   channel   channel to deal with
     @comment: This function tries to allocate transcripts to threads evenly
    */
-  void allocateTranscriptsToThreads(int channel);
+  void allocateTranscriptsToThreads(int state, int channel);
 
   /*
     @param  state   the current state
@@ -189,7 +190,6 @@ private:
     @comment: this procedure write out a table with column names as transcript_id, length, effective_length, expected_count (or expected_count_plus and expected_count_minus), TPM and FPKM
    */
   void writeExprRes(int state, const char* output_name);
-
 
   void run_init(Params* params) {
     for (int i = 0; i < params->num_trans; ++i)  

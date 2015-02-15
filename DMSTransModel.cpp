@@ -88,14 +88,13 @@ DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_le
   efflen2 = len - min_alloc_len + 1;
   delta = 1.0 / (len + 1.0);
   
+  // If a transcript is excluded from analysis, all its gamma/beta values become 0
   gamma = new double[len + 1];
-  gamma[0] = 0.0;
-  for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
+  memset(gamma, 0, sizeof(double) * (len + 1));
 
   if (getState() > 0) {
     beta = new double[len + 1];
-    beta[0] = 0.0;
-    for (int i = 1; i <= len; ++i) beta[i] = beta_init;
+    memset(beta, 0, sizeof(double) * (len + 1));
   }
 }
 
@@ -121,42 +120,45 @@ DMSTransModel::~DMSTransModel() {
 }
 
 void DMSTransModel::init() {
-  // If effective length is <= 0, do not need to run EM
-  if (efflen <= 0) return; 
-  // If no reads aligned to this transcript for both channels, do not need to run EM
-  if ((!isJoint() && alignmentsArr[getChannel()].size() == 0) || (isJoint() && alignmentsArr[0].size() == 0 && alignmentsArr[1].size() == 0)) return;
+  int state = getState();
 
-  // count vectors for fragment starts and ends
-  start = new double[len + 1];
-  end = new double[len + 1];
-  memset(start, 0, sizeof(double) * (len + 1));
-  memset(end, 0, sizeof(double) * (len + 1));
+  // set initial values for EM
+  if ((state & 1) == 0) for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
+  if ((state & 1) == 1) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
 
-  // auxiliary arrays
-  logsum = new double[len + 1];
-  margin_prob = new double[efflen];
-  memset(logsum, 0, sizeof(double) * (len + 1));
-  memset(margin_prob, 0, sizeof(double) * efflen);
-
-  if (efflen != efflen2 && efflen2 > 0) {
-    margin_prob2 = new double[efflen2];
-    memset(margin_prob2, 0, sizeof(double) * (efflen2));
-  }
-
-  if (isJoint()) {
-    dcm = new double[len + 1];
-    ccm = new double[len + 1];
-    memset(dcm, 0, sizeof(double) * (len + 1));
-    memset(ccm, 0, sizeof(double) * (len + 1));
-  }
-
-  if (hasSE) {
-    end_se = new double[len + 1];
-    memset(end_se, 0, sizeof(double) * (len + 1));
+  if (state < 3) {
+    // count vectors for fragment starts and ends
+    start = new double[len + 1];
+    end = new double[len + 1];
+    memset(start, 0, sizeof(double) * (len + 1));
+    memset(end, 0, sizeof(double) * (len + 1));
+    
+    // auxiliary arrays
+    logsum = new double[len + 1];
+    margin_prob = new double[efflen];
+    memset(logsum, 0, sizeof(double) * (len + 1));
+    memset(margin_prob, 0, sizeof(double) * efflen);
+    
+    if (efflen != efflen2 && efflen2 > 0) {
+      margin_prob2 = new double[efflen2];
+      memset(margin_prob2, 0, sizeof(double) * (efflen2));
+    }
+    
+    if (state == 2) {
+      dcm = new double[len + 1];
+      ccm = new double[len + 1];
+      memset(dcm, 0, sizeof(double) * (len + 1));
+      memset(ccm, 0, sizeof(double) * (len + 1));
+    }
+    
+    if (hasSE) {
+      end_se = new double[len + 1];
+      memset(end_se, 0, sizeof(double) * (len + 1));
+    }
   }
 
   // Calculate auxiliary arrays before the first EM run
-  calcAuxiliaryArrays(getChannel());
+  calcAuxiliaryArrays(state & 1);
 }
 
 void DMSTransModel::update() {
@@ -165,8 +167,6 @@ void DMSTransModel::update() {
 
   HIT_INT_TYPE size = alignments.size();
   double N_se;
-
-  if (size == 0) return;
 
   // initialize
   N_obs[channel] = 0.0;
@@ -186,12 +186,14 @@ void DMSTransModel::update() {
       N_se += alignments[i]->frac;
     }
     N_obs[channel] += alignments[i]->frac;
-  }    
+  }
+
+  if (isZero(N_obs[channel])) N_obs[channel] = 0.0; // if N_obs is small, directly set it to 0
 }
 
 inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
   double a = (1.0 - gamma) * (cbeta + cc + dbeta + dc);
-  double b = ((cbeta + cc + 2 * dbeta + dc) * gamma - (dc + dbeta)) / a;
+  double b = ((cbeta + cc + 2.0 * dbeta + dc) * gamma - (dc + dbeta)) / a;
   double c = (-dbeta * gamma) / a;
   double sqt_delta = sqrt(b * b - 4.0 * c);
   assert(sqt_delta > fabs(b));
@@ -227,126 +229,161 @@ inline void DMSTransModel::solveQuadratic2(double& gamma, double& beta, double d
 
 void DMSTransModel::EM_step(double N_tot) {
   int channel = getChannel();
-  if (efflen <= 0 || isZero(N_obs[channel])) return;
 
   int max_end_i;
   double psum, value;
   
   assert(start2 != NULL && end2 != NULL);
 
-  //E step, if we have reads that do not know their start positions, infer start from end
-  if (!isZero(N_se)) {
-    double prev, curr;
-    double *mp = NULL;
-
-    assert(efflen2 > 0);
-    
-    mp = (min_alloc_len > min_frag_len ? margin_prob2 : margin_prob);
-    curr = (end_se[0] > 0.0 && mp[0] > 0.0) ? end_se[0] / mp[0] : 0.0;
-    start[min_alloc_len] += curr;
-    for (int i = 1, pos = min_alloc_len + 1; i < efflen2; ++i, ++pos) {
-      prev = curr;
-      curr = (end_se[i] > 0.0 && mp[i] > 0.0) ? end_se[i] / mp[i] : 0.0;
-      max_end_i = pos - max_frag_len - 1;
-
-      value = prev;
-      if (max_end_i >= 0) {
-	value -= ((end_se[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end_se[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
-	if (value < 0.0) value = 0.0;
-      }
-
-      curr += (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * value;
-      start[pos] += curr;
-    }
-  }
-
-  // E step, calculate hidden reads
-  // Calculate end2
-  psum = 1.0;
-  for (int i = len; i >= 0; --i) {
-    if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
-    else end2[i] = psum;
-    if (i > 0) end2[i] *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
-    end2[i] *= delta * N_tot;
-    if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
-  }
-  
-  // Calculate start2
-  for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
-  psum = 1.0;
-  for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
-    start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
-    start2[i] *= delta * N_tot;
-    if (i < len) {
-      max_end_i = i - max_frag_len;
-      if (max_end_i >= 0) {
-	value = exp(logsum[pos] - logsum[max_end_i]);
-	if (max_end_i > 0) value *= (channel == 0 ? gamma[max_end_i] : gamma[max_end_i] + beta[max_end_i] - gamma[max_end_i] * beta[max_end_i]);
-	psum = std::max(psum - value, 0.0);
-      }
-      psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
-    }
-  }
-  
-  // M step
-  double dc, cc; // dc: drop-off count; cc: covering count
-
-  start2[0] += start[0];
-  end2[0] += end[0];
-  for (int i = 1; i <= len; ++i) {
-    start2[i] += start[i] + start2[i - 1];
-    end2[i] += end[i] + end2[i - 1];
-
-    dc = std::max(0.0, end2[i] - end2[i - 1]); // drop-off count
-    cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
-    
+  // What to do if no observed reads
+  if (isZero(N_obs[channel])) {
+    // force unobserved reads to zero
     switch(getState()) {
-    case 0: 
-      // learn separately, (-) channel 
-      if (isMAP) {
-	gamma[i] = (dgamma + dc) / (dgamma + dc + cgamma + cc);
-      }
-      else {
-	gamma[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-      }
+    case 0:
+      value = (isMAP ? dgamma / (cgamma + dgamma) : 0.0);
+      for (int i = 1; i <= len; ++i) gamma[i] = value;
       break;
     case 1:
-      // learn separately, (+) channel
-      if (isMAP) {
-	solveQuadratic1(beta[i], gamma[i], dc, cc);
-      }
-      else {
-	beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	beta[i] = ((beta[i] > gamma[i]) && (gamma[i] < 1.0) ? (beta[i] - gamma[i]) / (1.0 - gamma[i]) : 0.0);
-	if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
-      }
+      value = (isMAP ? dbeta / (cbeta + dbeta) : 0.0);
+      for (int i = 1; i <= len; ++i) beta[i] = value;
       break;
     case 2:
-      dcm[i] = dc;
-      ccm[i] = cc;
+      memset(dcm, 0, sizeof(double) * (len + 1));
+      memset(ccm, 0, sizeof(double) * (len + 1));
       break;
     case 3:
       if (isMAP) {
-	solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
+	value = dbeta / (cbeta + dbeta);
+	for (int i = 1; i <= len; ++i) {
+	  gamma[i] = (dgamma + dcm[i]) / (cgamma + ccm[i] + dgamma + dcm[i]); 
+	  beta[i] = value;
+	}
       }
       else {
-	gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
-	beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	if (beta[i] > gamma[i]) { 
-	  assert(gamma[i] < 1.0);
-	  beta[i] = (beta[i] - gamma[i]) / (1.0 - gamma[i]);
-	}
-	else {
-	  gamma[i] = (dcm[i] + dc > 0.0 ? (dcm[i] + dc) / (dcm[i] + ccm[i] + dc + cc) : 0.0);
+	for (int i = 1; i <= len; ++i) {
+	  gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
 	  beta[i] = 0.0;
 	}
-	if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
       }
       break;
     default: assert(false);
     }
   }
-  
+  else {
+    //E step, if we have reads that do not know their start positions, infer start from end
+    if (!isZero(N_se)) {
+      double prev, curr;
+      double *mp = NULL;
+      
+      assert(efflen2 > 0);
+      
+      mp = (min_alloc_len > min_frag_len ? margin_prob2 : margin_prob);
+      curr = (end_se[0] > 0.0 && mp[0] > 0.0) ? end_se[0] / mp[0] : 0.0;
+      start[min_alloc_len] += curr;
+      for (int i = 1, pos = min_alloc_len + 1; i < efflen2; ++i, ++pos) {
+	prev = curr;
+	curr = (end_se[i] > 0.0 && mp[i] > 0.0) ? end_se[i] / mp[i] : 0.0;
+	max_end_i = (pos - 1) - max_frag_len;
+	
+	value = prev;
+	if (max_end_i >= 0) {
+	  value -= ((end_se[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end_se[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
+	  if (value < 0.0) value = 0.0;
+	}
+	
+	curr += (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * value;
+	start[pos] += curr;
+      }
+    }
+    
+    // E step, calculate hidden reads
+    // Calculate end2
+    psum = 1.0;
+    for (int i = len; i >= 0; --i) {
+      if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
+      else end2[i] = psum;
+      if (i > 0) end2[i] *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
+      end2[i] *= delta * N_tot;
+      if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
+    }
+    
+    // Calculate start2
+    for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
+    psum = 1.0;
+    for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
+      start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
+      start2[i] *= delta * N_tot;
+      if (i < len) {
+	max_end_i = i - max_frag_len;
+	if (max_end_i >= 0) {
+	  value = exp(logsum[pos] - logsum[max_end_i]);
+	  if (max_end_i > 0) value *= (channel == 0 ? gamma[max_end_i] : gamma[max_end_i] + beta[max_end_i] - gamma[max_end_i] * beta[max_end_i]);
+	  psum = std::max(psum - value, 0.0);
+	}
+	psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
+      }
+    }
+    
+    // M step
+    double dc, cc; // dc: drop-off count; cc: covering count
+    
+    start2[0] += start[0];
+    end2[0] += end[0];
+    for (int i = 1; i <= len; ++i) {
+      start2[i] += start[i] + start2[i - 1];
+      end2[i] += end[i] + end2[i - 1];
+      
+      dc = std::max(0.0, end2[i] - end2[i - 1]); // drop-off count
+      cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
+      
+      switch(getState()) {
+      case 0: 
+	// learn separately, (-) channel 
+	if (isMAP) {
+	  gamma[i] = (dgamma + dc) / (dgamma + dc + cgamma + cc);
+	}
+	else {
+	  gamma[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+	}
+	break;
+      case 1:
+	// learn separately, (+) channel
+	if (isMAP) {
+	  solveQuadratic1(beta[i], gamma[i], dc, cc);
+	}
+	else {
+	  beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+	  beta[i] = ((beta[i] > gamma[i]) && (gamma[i] < 1.0) ? (beta[i] - gamma[i]) / (1.0 - gamma[i]) : 0.0);
+	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
+	}
+	break;
+      case 2:
+	dcm[i] = dc;
+	ccm[i] = cc;
+	break;
+      case 3:
+	if (isMAP) {
+	  solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
+	}
+	else {
+	  gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
+	  beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+	  if (beta[i] > gamma[i]) { 
+	    assert(gamma[i] < 1.0);
+	    beta[i] = (beta[i] - gamma[i]) / (1.0 - gamma[i]);
+	  }
+	  else {
+	    gamma[i] = (dcm[i] + dc > 0.0 ? (dcm[i] + dc) / (dcm[i] + ccm[i] + dc + cc) : 0.0);
+	    beta[i] = 0.0;
+	  }
+	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
+	}
+	break;
+      default: assert(false);
+      }
+    }
+  }
+
   // Prepare for the next round
   calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }
@@ -381,10 +418,10 @@ void DMSTransModel::read(std::ifstream& fin) {
   }
 }
 
-void DMSTransModel::write(std::ofstream& fout) {
+void DMSTransModel::write(std::ofstream& fout, int channel) {
   fout<< name<< '\t'<< len;
 
-  if (beta == NULL) {
+  if (channel == 0) {
     for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
   }
   else {
@@ -432,6 +469,7 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
   random_value = sampler->random() * margin_prob[pos];
   value = sum = 1.0; 
   cpos = pos + min_frag_len;
+  // [ ) intervals
   for (fragment_length = min_frag_len; (fragment_length < upper_bound) && (sum <= random_value); ++fragment_length) {
     ++cpos;
     value *= (getChannel() == 0 ? (1.0 - gamma[cpos]) : (1.0 - gamma[cpos]) * (1.0 - beta[cpos])); 
@@ -450,22 +488,19 @@ void DMSTransModel::finishSimulation() {
 void DMSTransModel::calcAuxiliaryArrays(int channel) {
   double value;
   int max_pos;
-  
-  // If no reads, do not calculate
-  if (efflen <= 0 || alignmentsArr[channel].size() == 0) return;
 
   // Calculate logsum
   logsum[0] = 0.0;
   for (int i = 1; i <= len; ++i) {
     if (gamma[i] >= 1.0 || (channel == 1 && beta[i] >= 1.0)) value = -INF;
-    else value = (channel == 0 ? log(1.0 - gamma[i]) : log((1.0 - gamma[i]) * (1.0 - beta[i])));
+    else value = (channel == 0 ? log(1.0 - gamma[i]) : log(1.0 - gamma[i]) + log(1.0 - beta[i]));
     logsum[i] = logsum[i - 1] + value;
   }
 
   // Calculate margin_prob
   margin_prob[efflen - 1] = 1.0;
   for (int i = efflen - 2, pos = len; i >= 0; --i, --pos) {
-    max_pos = i + max_frag_len + 1;
+    max_pos = (i + 1) + max_frag_len;
     assert(max_pos > len || margin_prob[i + 1] - exp(logsum[max_pos] - logsum[pos]) >= 0.0);
     margin_prob[i] = 1.0 + (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
       (max_pos > len ? margin_prob[i + 1] : margin_prob[i + 1] - exp(logsum[max_pos] - logsum[pos]));

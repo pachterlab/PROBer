@@ -39,13 +39,14 @@ DMSWholeModel::DMSWholeModel(const char* config_file, int init_state, const Tran
   N_tot = 0.0;
   threads.clear();
 
+  paramsVecEM.clear();
+
   for (int i = 0; i < 2; ++i) {
     counts[i].clear();
     unobserved[i].clear();
     prob_noise[i][0] = prob_noise[i][1] = 0.0;
     prob_pass[i] = 0.0;
     paramsVecUp[i].clear();
-    paramsVecEM[i].clear();
   }
 
   cdf = NULL;
@@ -66,19 +67,13 @@ DMSWholeModel::DMSWholeModel(const char* config_file, int init_state, const Tran
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     threads.assign(num_threads, pthread_t());
     
-    for (int i = 1; i <= M; ++i) theta[i] = 1.0 / M;
-
     int channel = DMSTransModel::getChannel();
     counts[channel].assign(M + 1, 0.0);
     unobserved[channel].assign(M + 1, 0.0);
-    prob_noise[channel][0] = 1.0 / (M + 1);
-    prob_noise[channel][1] = M * 1.0 / (M + 1);
 
     if (DMSTransModel::isJoint()) {
       counts[channel ^ 1].assign(M + 1, 0.0);
       unobserved[channel ^ 1].assign(M + 1, 0.0);
-      prob_noise[channel ^ 1][0] = 1.0 / (M + 1);
-      prob_noise[channel ^ 1][1] = M * 1.0 / (M + 1);
     }
   }
 }
@@ -89,27 +84,44 @@ DMSWholeModel::~DMSWholeModel() {
 
   if (DMSTransModel::isLearning()) pthread_attr_destroy(&attr);
 
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 2; ++i)
     for (int j = 0; j < (int)paramsVecUp[i].size(); ++j) delete paramsVecUp[i][j];
-    for (int j = 0; j < (int)paramsVecEM[i].size(); ++j) delete paramsVecEM[i][j];
-  }
+
+  for (int i = 0; i < (int)paramsVecEM.size(); ++i) delete paramsVecEM[i];
 }
 
 void DMSWholeModel::init() {
+  int state = DMSTransModel::getState();
   int channel = DMSTransModel::getChannel();
-  allocateTranscriptsToThreads(channel);
+
+  allocateTranscriptsToThreads(state, channel);
+
+  // Initialize theta and prob_noise
+  if (state < 3) {
+    int total = 1; // noise transcript always counts
+    for (int i = 1; i <= M; ++i) 
+      if (!transcripts[i]->isExcluded()) ++total;
+    prob_noise[channel][0] = 1.0 / total;
+    prob_noise[channel][1] = (total - 1.0) / total;
+    if (state == 2) 
+      memcpy(prob_noise[channel ^ 1], prob_noise[channel], sizeof(double) * 2);
+    --total;
+    general_assert(total > 0, "No reads aligned to the reference!");
+    for (int i = 1; i <= M; ++i) 
+      if (!transcripts[i]->isExcluded()) theta[i] = 1.0 / total;
+  }
 
   // run init for each transcript
-  std::vector<Params*> &paramsVecE = paramsVecEM[channel];
+  int size = paramsVecEM.size();
   // create threads
-  for (int i = 0; i < num_threads; ++i) {
-    rc = pthread_create(&threads[i], &attr, run_init_per_thread, (void*)paramsVecE[i]);
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_init_per_thread!");
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_init_per_thread, (void*)paramsVecEM[i]);
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_init_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
   // join threads
-  for (int i = 0; i < num_threads; ++i) {
+  for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_init_per_thread!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_init_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }  
 
   calcProbPass(channel);
@@ -118,16 +130,17 @@ void DMSWholeModel::init() {
 void DMSWholeModel::update(double count0) {
   int channel = DMSTransModel::getChannel();
   std::vector<Params*> &paramsVecU = paramsVecUp[channel];
+  int size = paramsVecU.size();
 
   // create threads
-  for (int i = 0; i < (int)paramsVecU.size(); ++i) {
+  for (int i = 0; i < size; ++i) {
     rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVecU[i]));
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread!");
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
   // join threads
-  for (int i = 0; i < (int)paramsVecU.size(); ++i) {
+  for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }    
 
   // Set counts
@@ -139,7 +152,7 @@ void DMSWholeModel::update(double count0) {
 void DMSWholeModel::EM_step(double count0) {
   int state = DMSTransModel::getState();
   int channel = DMSTransModel::getChannel();
-  std::vector<Params*> &paramsVecE = paramsVecEM[channel];
+  int size = paramsVecEM.size();
   double N_obs, sum, sum2, value;
 
   // Update counts
@@ -148,10 +161,7 @@ void DMSWholeModel::EM_step(double count0) {
   // Calculate total number of observed reads
   N_obs = 0.0;
   for (int i = 0; i <= M; ++i) 
-    if (isZero(counts[channel][i])) counts[channel][i] = 0.0;
-    else {
-      N_obs += counts[channel][i];
-    }
+    if (!isZero(counts[channel][i])) N_obs += counts[channel][i];
   N_tot = N_obs / prob_pass[channel];
 
   // Calculate expected hidden reads to each transcript
@@ -163,14 +173,14 @@ void DMSWholeModel::EM_step(double count0) {
   
   // Estimate new gamma/beta parameters
   // create threads
-  for (int i = 0; i < num_threads; ++i) {
-    rc = pthread_create(&threads[i], &attr, run_EM_step_per_thread, (void*)(paramsVecE[i]));
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread!");
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_EM_step_per_thread, (void*)(paramsVecEM[i]));
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
   // join threads
-  for (int i = 0; i < num_threads; ++i) {
+  for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
 
   // Estimate new theta and prob_noise
@@ -191,7 +201,7 @@ void DMSWholeModel::EM_step(double count0) {
     for (int i = 1; i <= M; ++i) theta[i] /= sum2;
 
   // calculate the probability of a read passing size selection step for next call
-  calcProbPass(DMSTransModel::isJoint() ? channel ^ 1 : channel);
+  calcProbPass(state >= 2 ? channel ^ 1 : channel);
 }
 
 void DMSWholeModel::read(const char* input_name) {
@@ -252,7 +262,7 @@ void DMSWholeModel::read(const char* input_name) {
     fin.close();
   }
 
-  if (verbose) printf("DMSWHoleModel::read is finished!\n");
+  if (verbose) printf("DMSWholeModel::read is finished!\n");
 }
 
 void DMSWholeModel::writeExprRes(int state, const char* output_name) {
@@ -299,7 +309,7 @@ void DMSWholeModel::writeExprRes(int state, const char* output_name) {
 void DMSWholeModel::write(const char* output_name) {
   char output_param[STRLEN];
   char output_theta[STRLEN];
-  char output_rate[STRLEN];
+  //  char output_rate[STRLEN];
 
   std::ofstream fout;
 
@@ -316,7 +326,7 @@ void DMSWholeModel::write(const char* output_name) {
     fout.unsetf(std::ios::floatfield);
 
     fout<< M<< std::endl;
-    for (int i = 1; i <= M; ++i) transcripts[i]->write(fout);
+    for (int i = 1; i <= M; ++i) transcripts[i]->write(fout, 0);
 
     fout.close();
 
@@ -344,7 +354,7 @@ void DMSWholeModel::write(const char* output_name) {
     fout.unsetf(std::ios::floatfield);
 
     fout<< M<< std::endl;
-    for (int i = 1; i <= M; ++i) transcripts[i]->write(fout);
+    for (int i = 1; i <= M; ++i) transcripts[i]->write(fout, 1);
 
     fout.close();
 
@@ -362,6 +372,7 @@ void DMSWholeModel::write(const char* output_name) {
     
     fout.close();
 
+    /*
     sprintf(output_rate, "%s.rate", output_name);
     sprintf(output_param, "%s.freq", output_name);
     std::ofstream fc(output_rate);
@@ -384,6 +395,7 @@ void DMSWholeModel::write(const char* output_name) {
     
     fc.close();
     fout.close();
+    */
   }
 
   // write out expression results
@@ -412,7 +424,7 @@ void DMSWholeModel::finishSimulation() {
   delete[] cdf;
 }
 
-void DMSWholeModel::allocateTranscriptsToThreads(int channel) {
+void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
   int id;
   MyHeap my_heap;
   std::vector<int> max_lens; // record maximum len in each thread
@@ -424,7 +436,7 @@ void DMSWholeModel::allocateTranscriptsToThreads(int channel) {
   for (int i = 0; i < num_threads; ++i) paramsVecU[i] = new Params(i, this);
 
   for (int i = 1; i <= M; ++i) {
-    HIT_INT_TYPE numAlign = transcripts[i]->getNumAlignments();
+    HIT_INT_TYPE numAlign = transcripts[i]->getNumAlignments(channel);
     if (numAlign > 0) {
       id = my_heap.getTop();
       paramsVecU[id]->trans.push_back(transcripts[i]);
@@ -446,41 +458,43 @@ void DMSWholeModel::allocateTranscriptsToThreads(int channel) {
     paramsVecU.resize(id, NULL);
   }
 
+  if (state == 3) return;
+
   // Allocate transcripts for EM  
   my_heap.init(num_threads);
-  std::vector<Params*> &paramsVecE = paramsVecEM[channel];
-  paramsVecE.assign(num_threads, NULL);
-  for (int i = 0; i < num_threads; ++i) paramsVecE[i] = new Params(i, this);
+  paramsVecEM.assign(num_threads, NULL);
+  for (int i = 0; i < num_threads; ++i) paramsVecEM[i] = new Params(i, this);
   max_lens.assign(num_threads, 0);
 
   // allocate transcripts
   for (int i = 1; i <= M; ++i) 
-    if (transcripts[i]->getNumAlignments() > 0) {
+    // If this transcript is not excluded 
+    if (!transcripts[i]->isExcluded()) {
       id = my_heap.getTop();
-      paramsVecE[id]->trans.push_back(transcripts[i]);
+      paramsVecEM[id]->trans.push_back(transcripts[i]);
       if (max_lens[id] < transcripts[i]->getLen()) max_lens[id] = transcripts[i]->getLen();
       my_heap.updateTop(transcripts[i]->getLen());
     }
 
   // set number of transcripts per threads and delete extra paramsVec
   for (id = 0; id < num_threads; ++id) {
-    paramsVecE[id]->num_trans = my_heap.getNum(id);
-    if (paramsVecE[id]->num_trans == 0) break;
+    paramsVecEM[id]->num_trans = my_heap.getNum(id);
+    if (paramsVecEM[id]->num_trans == 0) break;
   }
   assert(id > 0);
   if (id < num_threads) {
     for (int i = id; i < num_threads; ++i) { 
-      delete paramsVecE[i];
-      paramsVecE[i] = NULL; 
+      delete paramsVecEM[i];
+      paramsVecEM[i] = NULL; 
     }
-    paramsVecE.resize(id, NULL);
+    paramsVecEM.resize(id, NULL);
   }
 
   // allocate start2 and end2 for each thread
-  for (int i = 0; i < num_threads; ++i) {
-    paramsVecE[i]->start2 = new double[max_lens[i] + 1];
-    paramsVecE[i]->end2 = new double[max_lens[i] + 1];
-    for (int j = 0; j < paramsVecE[i]->num_trans; ++j)
-      paramsVecE[i]->trans[j]->setStart2andEnd2(paramsVecE[i]->start2, paramsVecE[i]->end2);
+  for (int i = 0; i < (int)paramsVecEM.size(); ++i) {
+    paramsVecEM[i]->start2 = new double[max_lens[i] + 1];
+    paramsVecEM[i]->end2 = new double[max_lens[i] + 1];
+    for (int j = 0; j < paramsVecEM[i]->num_trans; ++j)
+      paramsVecEM[i]->trans[j]->setStart2andEnd2(paramsVecEM[i]->start2, paramsVecEM[i]->end2);
   }
 }

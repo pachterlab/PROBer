@@ -15,6 +15,8 @@ const double EPSILON = 1e-300;
 
 const int MASK_LEN = 24; // the last MASK_LEN bp of a sequence cannot be aligned if poly(A) tail is added
 
+const char channelStr[2][STRLEN] = {"minus", "plus"};
+
 static bool verbose = true; // show detail intermediate outputs
 
 //inline bool isZero(double a) { return fabs(a) < 1e-8; }
