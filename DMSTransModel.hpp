@@ -216,9 +216,10 @@ public:
 
   /*
     @param   fin   input stream
+    @param   channel   which channel
     @format:  name len [beta/gamma] ... 
    */
-  void read(std::ifstream& fin);
+  void read(std::ifstream& fin, int channel);
 
   /*
     @param   fout     output stream

@@ -214,7 +214,8 @@ void DMSWholeModel::read(const char* input_name) {
 
   int tmp_M;
 
-  if ((state == 0 && !learning) || (state == 1 && learning)) {
+  // load gamma
+  if (!learning || (learning && state == 1)) {
     sprintf(input_param, "%s.gamma", input_name);
     fin.open(input_param);
     assert(fin.is_open());
@@ -228,35 +229,29 @@ void DMSWholeModel::read(const char* input_name) {
     }
     else assert(M == tmp_M);
 
-    for (int i = 1; i <= M; ++i) transcripts[i]->read(fin);
+    for (int i = 1; i <= M; ++i) transcripts[i]->read(fin, 0);
 
     fin.close();
-
-    if (!learning) {
-      // Loading expression of minus chanel for the sake of simulation 
-      sprintf(input_theta, "%s_minus.theta", input_name);
-      fin.open(input_theta);
-      assert(fin.is_open());
-      
-      assert((fin>> tmp_M) && (tmp_M == M));
-      for (int i = 0; i <= M; ++i) assert(fin>> theta[i]);
-      fin.close();
-    }
   }
-  else {
+
+  // load beta
+  if (!learning && state == 1) {
     sprintf(input_param, "%s.beta", input_name);
     fin.open(input_param);
     assert(fin.is_open());
     
     assert((fin>> tmp_M) && (tmp_M == M));
-    for (int i = 1; i <= M; ++i) transcripts[i]->read(fin);
+    for (int i = 1; i <= M; ++i) transcripts[i]->read(fin, 1);
 
     fin.close();
+  }
 
-    sprintf(input_theta, "%s_plus.theta", input_name);
+  // load theta
+  if (!learning) {
+    sprintf(input_theta, "%s_%s.theta", input_name, channelStr[state & 1]);
     fin.open(input_theta);
     assert(fin.is_open());
-
+      
     assert((fin>> tmp_M) && (tmp_M == M));
     for (int i = 0; i <= M; ++i) assert(fin>> theta[i]);
     fin.close();

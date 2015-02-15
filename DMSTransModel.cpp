@@ -388,7 +388,7 @@ void DMSTransModel::EM_step(double N_tot) {
   calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }
 
-void DMSTransModel::read(std::ifstream& fin) {
+void DMSTransModel::read(std::ifstream& fin, int channel) {
   std::string tmp_name;
   int tmp_len;
 
@@ -406,7 +406,7 @@ void DMSTransModel::read(std::ifstream& fin) {
   }
   else assert((tmp_name == name) && (tmp_len == len));
 
-  if (getChannel() == 0) {
+  if (channel == 0) {
     if (gamma == NULL) gamma = new double[len + 1];
     gamma[0] = 0.0;
     for (int i = 1; i <= len; ++i) fin>> gamma[i];

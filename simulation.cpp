@@ -59,7 +59,6 @@ int main(int argc, char* argv[]) {
   
   whole_model = new DMSWholeModel(argv[2], (!strcmp(argv[5], "minus") ? 0 : 1));
   whole_model->read(argv[3]);
-  if (!strcmp(argv[5], "plus")) whole_model->read(argv[3]);
 
   sprintf(refF, "%s.seq", argv[1]);
   refs.loadRefs(refF);
