@@ -284,8 +284,7 @@ void DMSWholeModel::writeExprRes(int state, const char* output_name) {
   switch(state) {
   case 0: sprintf(exprF, "%s_minus.expr", output_name); break;
   case 1: sprintf(exprF, "%s_plus.expr", output_name); break;
-  case 2: assert(false);
-  case 3: sprintf(exprF, "%s.expr", output_name); break;
+  case 2: sprintf(exprF, "%s.expr", output_name); break;
   default: assert(false);
   }
 
@@ -315,9 +314,9 @@ void DMSWholeModel::write(const char* output_name) {
 
   assert(DMSTransModel::isLearning());
   int state = DMSTransModel::getState();
-  assert(state != 2); 
+  assert(state < 3); 
 
-  if (state == 0 || state == 3) {
+  if (state == 0 || state == 2) {
     sprintf(output_param, "%s.gamma", output_name);
     fout.open(output_param);
     assert(fout.is_open());
@@ -345,7 +344,7 @@ void DMSWholeModel::write(const char* output_name) {
     fout.close();
   }
 
-  if (state == 1 || state == 3) {
+  if (state == 1 || state == 2) {
     sprintf(output_param, "%s.beta", output_name);
     fout.open(output_param);
     assert(fout.is_open());
