@@ -113,15 +113,16 @@ void DMSWholeModel::init() {
 
   // run init for each transcript
   int size = paramsVecEM.size();
+
   // create threads
   for (int i = 0; i < size; ++i) {
-    rc = pthread_create(&threads[i], &attr, run_init_per_thread, (void*)paramsVecEM[i]);
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_init_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
   // join threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_init_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }  
 
   calcProbPass(channel);
@@ -434,23 +435,19 @@ void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
     if (numAlign > 0) {
       id = my_heap.getTop();
       paramsVecU[id]->trans.push_back(transcripts[i]);
+      ++paramsVecU[id]->num_trans;
       my_heap.updateTop(numAlign);
     }
   }
 
-  // set number of transcripts per threads and delete extra paramsVec
-  for (id = 0; id < num_threads; ++id) {
-    paramsVecU[id]->num_trans = my_heap.getNum(id);
-    if (paramsVecU[id]->num_trans == 0) break;
+  // delete extra paramsVec
+  for (id = num_threads - 1; id >= 0 && paramsVecU[id]->num_trans == 0; --id) {
+    delete paramsVecU[id];
+    paramsVecU[id] = NULL;
   }
+  ++id;
   assert(id > 0);
-  if (id < num_threads) {
-    for (int i = id; i < num_threads; ++i) { 
-      delete paramsVecU[i];
-      paramsVecU[i] = NULL; 
-    }
-    paramsVecU.resize(id, NULL);
-  }
+  if (id < num_threads) paramsVecU.resize(id, NULL);
 
   if (state == 3) return;
 
@@ -464,25 +461,22 @@ void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
   for (int i = 1; i <= M; ++i) 
     // If this transcript is not excluded 
     if (!transcripts[i]->isExcluded()) {
+      transcripts[i]->init(); // initialize this transcript for learning
       id = my_heap.getTop();
       paramsVecEM[id]->trans.push_back(transcripts[i]);
+      ++paramsVecEM[id]->num_trans;
       if (max_lens[id] < transcripts[i]->getLen()) max_lens[id] = transcripts[i]->getLen();
       my_heap.updateTop(transcripts[i]->getLen());
     }
 
-  // set number of transcripts per threads and delete extra paramsVec
-  for (id = 0; id < num_threads; ++id) {
-    paramsVecEM[id]->num_trans = my_heap.getNum(id);
-    if (paramsVecEM[id]->num_trans == 0) break;
+  // delete extra paramsVec
+  for (id = num_threads - 1; id >= 0 && paramsVecEM[id]->num_trans == 0; --id) {
+    delete paramsVecEM[id];
+    paramsVecEM[id] = NULL;
   }
+  ++id;
   assert(id > 0);
-  if (id < num_threads) {
-    for (int i = id; i < num_threads; ++i) { 
-      delete paramsVecEM[i];
-      paramsVecEM[i] = NULL; 
-    }
-    paramsVecEM.resize(id, NULL);
-  }
+  if (id < num_threads) paramsVecEM.resize(id, NULL);
 
   // allocate start2 and end2 for each thread
   for (int i = 0; i < (int)paramsVecEM.size(); ++i) {

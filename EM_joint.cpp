@@ -187,7 +187,9 @@ void init() {
   
   sprintf(tiF, "%s.ti", refName);
   transcripts.readFrom(tiF);
-  transcripts.buildMappings(imdName);
+  char imd_name[STRLEN];
+  sprintf(imd_name, "%s_minus", imdName);
+  transcripts.buildMappings(imd_name);
 
   // Create DMSWholeModel
   sprintf(configF, "%s.config", imdName);
@@ -398,7 +400,7 @@ void writeResults() {
   // output read model parameters
   char readModelF[STRLEN];
   for (int i = 0; i < 2; ++i) {
-    sprintf(readModelF, "%s_%s.read_model", channelStr[i], statName);
+    sprintf(readModelF, "%s_%s.read_model", statName, channelStr[i]);
     read_models[i]->write(readModelF);
   }
   

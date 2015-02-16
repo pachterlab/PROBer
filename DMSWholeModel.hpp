@@ -191,9 +191,9 @@ private:
    */
   void writeExprRes(int state, const char* output_name);
 
-  void run_init(Params* params) {
+  void run_calcAuxiliaryArrays(Params* params) {
     for (int i = 0; i < params->num_trans; ++i)  
-      params->trans[i]->init();
+      params->trans[i]->calcAuxiliaryArrays(DMSTransModel::getChannel());
   }
 
   void run_makeUpdates(Params* params) {
@@ -207,9 +207,9 @@ private:
       params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()]);
   }
 
-  static void* run_init_per_thread(void* args) {
+  static void* run_calcAuxiliaryArrays_per_thread(void* args) {
     Params *params = (Params*)args;
-    params->pointer->run_init(params);
+    params->pointer->run_calcAuxiliaryArrays(params);
     return NULL;
   }
 

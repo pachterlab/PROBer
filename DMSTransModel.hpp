@@ -205,6 +205,13 @@ public:
    */
   void init();
 
+  /*
+    @param   channel   which channel we should calculate for
+    @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
+    @comment: It should be called before EM or getProb or get ProbPass etc. 
+   */
+  void calcAuxiliaryArrays(int channel);
+
   // Update counts information at each position
   void update();
 
@@ -302,15 +309,6 @@ private:
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 
   std::vector<InMemAlign*> alignmentsArr[2]; // In memory alignments used for update from (-) and (+) channels
-
-
-
-  /*
-    @param   channel   which channel we should calculate for
-    @comment: This function calculate logsum and margin_prob and prob_pass, which are used to speed up the calculation
-    @comment: It should be called before EM or getProb or get ProbPass etc. 
-   */
-  void calcAuxiliaryArrays(int channel);
 
   /*
     @param   beta   beta value at a position, this is the to-be-estimated parameter
