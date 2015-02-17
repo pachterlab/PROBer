@@ -50,7 +50,8 @@ DMSWholeModel::DMSWholeModel(const char* config_file, int init_state, const Tran
   }
 
   cdf = NULL;
-  
+  channel_to_calc = -1;
+
   if (trans != NULL) {
     assert(num_threads >= 1);
     this->num_threads = num_threads;
@@ -113,41 +114,20 @@ void DMSWholeModel::init() {
 
   // run init for each transcript
   int size = paramsVecEM.size();
+  channel_to_calc = channel;
 
   // create threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
   }
   // join threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
   }  
 
-  calcProbPass(channel);
-}
-
-void DMSWholeModel::update(double count0) {
-  int channel = DMSTransModel::getChannel();
-  std::vector<Params*> &paramsVecU = paramsVecUp[channel];
-  int size = paramsVecU.size();
-
-  // create threads
-  for (int i = 0; i < size; ++i) {
-    rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVecU[i]));
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
-  }
-  // join threads
-  for (int i = 0; i < size; ++i) {
-    rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
-  }    
-
-  // Set counts
-  counts[channel][0] = count0;
-  for (int i = 1; i <= M; ++i)
-    counts[channel][i] = transcripts[i]->getNobs(); // Because N_obs for each channel is stored separately, this operation is safe
+  calcProbPass(channel_to_calc);
 }
 
 void DMSWholeModel::EM_step(double count0) {
@@ -202,7 +182,34 @@ void DMSWholeModel::EM_step(double count0) {
     for (int i = 1; i <= M; ++i) theta[i] /= sum2;
 
   // calculate the probability of a read passing size selection step for next call
-  calcProbPass(state >= 2 ? channel ^ 1 : channel);
+  channel_to_calc = (state >= 2 ? (channel ^ 1) : channel); 
+  calcProbPass(channel_to_calc);
+}
+
+void DMSWholeModel::wrapItUp(double count0) {
+  int state = DMSTransModel::getState();
+  int channel = DMSTransModel::getChannel();
+
+  // Update counts
+  update(count0);
+
+  if (state == 2) {
+    // run init for each transcript
+    int size = paramsVecEM.size();
+    channel_to_calc = channel ^ 1;
+
+    // create threads
+    for (int i = 0; i < size; ++i) {
+      rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+    }
+    // join threads
+    for (int i = 0; i < size; ++i) {
+      rc = pthread_join(threads[i], NULL);
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+    }  
+    calcProbPass(channel_to_calc);
+  }
 }
 
 void DMSWholeModel::read(const char* input_name) {
@@ -485,4 +492,26 @@ void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
     for (int j = 0; j < paramsVecEM[i]->num_trans; ++j)
       paramsVecEM[i]->trans[j]->setStart2andEnd2(paramsVecEM[i]->start2, paramsVecEM[i]->end2);
   }
+}
+
+void DMSWholeModel::update(double count0) {
+  int channel = DMSTransModel::getChannel();
+  std::vector<Params*> &paramsVecU = paramsVecUp[channel];
+  int size = paramsVecU.size();
+
+  // create threads
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVecU[i]));
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+  }
+  // join threads
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_join(threads[i], NULL);
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+  }    
+
+  // Set counts
+  counts[channel][0] = count0;
+  for (int i = 1; i <= M; ++i)
+    counts[channel][i] = transcripts[i]->getNobs(); // Because N_obs for each channel is stored separately, this operation is safe
 }

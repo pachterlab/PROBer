@@ -300,7 +300,7 @@ void one_EM_iteration(int channel, int ROUND) {
   }
   loglik[channel] -= N_eff[channel] * log(whole_model->getProbPass());
   
-  if (ROUND > MAX_ROUND) whole_model->update(count0[channel]);
+  if (ROUND > MAX_ROUND) whole_model->wrapItUp(count0[channel]);
   else {
     // Run DMSWholeModel's EM_step procedure
     whole_model->EM_step(count0[channel]);

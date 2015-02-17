@@ -83,15 +83,16 @@ public:
   void init();
 
   /*
-    @param   count0    expected count for backgroud noise
+    @param   count0   expected count for backgroud noise
+    @comment: Run one iteration of EM algorithm on the transcriptome 
    */
-  void update(double count0);
+  void EM_step(double count0);
 
   /*
     @param   count0   expected count for backgroud noise
     @comment: Run one iteration of EM algorithm on the transcriptome 
    */
-  void EM_step(double count0);
+  void wrapItUp(double count0);
 
   /*
     @param   input_name   All input files use input_name as their prefixes
@@ -139,6 +140,10 @@ private:
 
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
+
+  int channel_to_calc; // the channel to calculate auxiliary arrays
+
+
   // Params, used for multi-threading
   struct Params {
     int id;
@@ -185,6 +190,11 @@ private:
   void allocateTranscriptsToThreads(int state, int channel);
 
   /*
+    @param   count0    expected count for backgroud noise
+   */
+  void update(double count0);
+
+  /*
     @param  state   the current state
     @param  output_name   the output name prefix for this data set
     @comment: this procedure write out a table with column names as transcript_id, length, effective_length, expected_count (or expected_count_plus and expected_count_minus), TPM and FPKM
@@ -193,7 +203,7 @@ private:
 
   void run_calcAuxiliaryArrays(Params* params) {
     for (int i = 0; i < params->num_trans; ++i)  
-      params->trans[i]->calcAuxiliaryArrays(DMSTransModel::getChannel());
+      params->trans[i]->calcAuxiliaryArrays(channel_to_calc);
   }
 
   void run_makeUpdates(Params* params) {

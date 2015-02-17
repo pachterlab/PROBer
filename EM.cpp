@@ -295,7 +295,7 @@ void EM() {
     if (verbose) printf("E step is done. Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik);
 
     if (ROUND > MAX_ROUND) {
-      whole_model->update(count0);
+      whole_model->wrapItUp(count0);
       continue;
     }
 
