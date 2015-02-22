@@ -130,9 +130,10 @@ public:
   double getNobs() const { return N_obs[getChannel()]; }
 
   /*
+    @param   channel   which channel to return
     @return the probability of passing the size selection step
    */
-  double getProbPass() const { return prob_pass[getChannel()]; }
+  double getProbPass(int channel) const { return prob_pass[channel]; }
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  

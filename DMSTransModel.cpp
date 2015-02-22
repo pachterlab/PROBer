@@ -234,7 +234,6 @@ inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc
   double c = (-dbeta * gamma) / a;
   double sqt_delta = sqrt(b * b - 4.0 * c);
 
-  if (!(sqt_delta > fabs(b))) printf("a=%.10g b=%.10g c=%.10g sqt_delta=%.10g gamma=%.10g dc=%.10g cc=%.10g\n", a, b, c, sqt_delta, gamma, dc, cc);
   assert(sqt_delta > fabs(b));
   beta = (-b + sqt_delta) / 2.0;
   assert(beta > 0.0 && beta < 1.0);
@@ -362,7 +361,7 @@ void DMSTransModel::EM_step(double N_tot) {
 	psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
       }
     }
-    
+
     // M step
     double dc, cc; // dc: drop-off count; cc: covering count
     
@@ -388,7 +387,6 @@ void DMSTransModel::EM_step(double N_tot) {
       case 1:
 	// learn separately, (+) channel
 	if (isMAP) {
-	  if (gamma[i] < 1e-10) { printf("tid = %d, i = %d, gamma = %.10g, dc = %.10g, cc = %.10g\n", tid, i, gamma[i], dc, cc); }
 	  solveQuadratic1(beta[i], gamma[i], dc, cc);
 	}
 	else {
@@ -403,7 +401,7 @@ void DMSTransModel::EM_step(double N_tot) {
 	break;
       case 3:
 	if (isMAP) {
-	  solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
+     	  solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
 	}
 	else {
 	  gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);

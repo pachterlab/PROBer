@@ -4,6 +4,7 @@
 #include<cstdlib>
 #include<cassert>
 #include<fstream>
+#include<string>
 
 #include "utils.h"
 #include "my_assert.h"
@@ -24,15 +25,17 @@ DMSReadModel *read_model;
 seedType seed;
 Sampler *sampler;
 
-int N;
+int M, N;
 int model_type;
+
+int sim_tid; // tid used for simulation
 
 char refF[STRLEN], outF1[STRLEN], outF2[STRLEN];
 ofstream out1, out2;
 
 int main(int argc, char* argv[]) {
-  if (argc < 8 || argc > 9) {
-    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_file channel('minus' or 'plus') number_of_reads output_name [seed]\n\n");
+  if (argc < 8) {
+    printf("Usage: dms-seq-simulate-reads reference_name config_file whole_model_input_name read_model_file channel('minus' or 'plus') number_of_reads output_name [--seed seed] [--transcript name]\n\n");
     printf("Description:\n");
     printf("  This program simulate reads using parameters learned from data by 'dms-seq-estimate-parameters'.\n\n");
     printf("Arguments:\n");
@@ -43,25 +46,41 @@ int main(int argc, char* argv[]) {
     printf("  channel: 'minus' for minus channel and 'plus' for plus channel, no quotation.\n");
     printf("  number_of_reads: Number of reads to simulate.\n");
     printf("  output_name: Output file prefix. Simulated single-end reads will be written into 'output_name_[minus/plus].[fa/fq]'. Simulated paired-end reads will be written into 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].\n");
-    printf("  [seed]: Optional argument, the seed used for simulation.\n");
+    printf("  [--seed seed]: Optional argument, the seed used for simulation.\n");
+    printf("  [--transcript name]: Optional argument, if set, only simulate reads from one transcript, the transcript name is 'name'.\n");
+    
     return 0;
   }
 
+  sprintf(refF, "%s.seq", argv[1]);
+  refs.loadRefs(refF);
+  M = refs.getM();
+  
   N = atoi(argv[6]);
-  if (argc == 9) { 
-    int len = strlen(argv[8]);
-    seed = 0;
-    for (int i = 0; i < len; ++i) seed = seed * 10 + (argv[8][i] - '0');
+  seed = time(NULL);
+  sim_tid = -1;
+  for (int i = 8; i < argc; ++i) {
+    if (!strcmp(argv[i], "--seed")) {
+      seed = 0;
+      char *seedstr = argv[i + 1];
+      int len = strlen(seedstr);
+      for (int j = 0; j < len; ++j) seed = seed * 10 + (seedstr[j] - '0');
+    }
+    if (!strcmp(argv[i], "--transcript")) {
+      string name = string(argv[i + 1]);
+      for (int j = 1; j <= M; ++j) 
+	if (refs.getRef(j).getName() == name) { sim_tid = j; break; }
+      if (sim_tid < 0) {
+	fprintf(stderr, "Error: Cannot find transcript name %s from the reference!\n", argv[i + 1]);
+	exit(-1);
+      }
+    }
   }
-  else seed = time(NULL);
-
+  
   sampler = new Sampler(seed);
   
   whole_model = new DMSWholeModel(argv[2], (!strcmp(argv[5], "minus") ? 0 : 1));
   whole_model->read(argv[3]);
-
-  sprintf(refF, "%s.seq", argv[1]);
-  refs.loadRefs(refF);
 
   read_model = new DMSReadModel(&refs, sampler);
   read_model->read(argv[4]);
@@ -80,7 +99,7 @@ int main(int argc, char* argv[]) {
   }
 
   int tid, pos, frag_len;
-  whole_model->startSimulation();
+  whole_model->startSimulation(sim_tid);
   read_model->startSimulation();
   for (int i = 0; i < N; ++i) {
     whole_model->simulate(sampler, tid, pos, frag_len);
@@ -97,6 +116,6 @@ int main(int argc, char* argv[]) {
   delete whole_model;
   delete read_model;
   delete sampler;
-  
+
   return 0;
 }

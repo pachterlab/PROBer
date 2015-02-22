@@ -105,9 +105,10 @@ public:
   void write(const char* output_name);
 
   /*
+    @param   sim_tid   if only simulate reads from sim_tid, default is not (-1)
     @comment: prepare for simulation
    */
-  void startSimulation();
+  void startSimulation(int sim_tid = -1);
 
   /*
     @param   sampler           sampler used for simulation
@@ -116,9 +117,15 @@ public:
     @param   fragment_length   fragment length 
    */
   void simulate(Sampler* sampler, int& tid, int& pos, int& fragment_length) {
-    tid = sampler->sample(cdf, M + 1);
-    if (tid == 0) { pos = fragment_length = 0; }
-    else transcripts[tid]->simulate(sampler, pos, fragment_length);
+    if (sim_tid < 0) {
+      tid = sampler->sample(cdf, M + 1);
+      if (tid == 0) { pos = fragment_length = 0; }
+      else transcripts[tid]->simulate(sampler, pos, fragment_length);
+    }
+    else {
+      tid = sim_tid;
+      transcripts[tid]->simulate(sampler, pos, fragment_length);
+    }
   }
     
   /*
@@ -138,6 +145,7 @@ private:
   double prob_noise[2][2]; // the first dimension represent state, the second dimension: 0, probability of generating a noise read; 1, probability of generating a read from transcripts.
   double prob_pass[2]; // probability of generating a read that pass the size selection step
 
+  int sim_tid; // if sim_tid > 0, only simulate from transcript sim_tid
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
 
@@ -178,7 +186,7 @@ private:
   void calcProbPass(int channel) {
     prob_pass[channel] = prob_noise[channel][0];
     for (int i = 1; i <= M; ++i) 
-      prob_pass[channel] += prob_noise[channel][1] * theta[i] * transcripts[i]->getProbPass();
+      prob_pass[channel] += prob_noise[channel][1] * theta[i] * transcripts[i]->getProbPass(channel);
     assert(!isZero(prob_pass[channel]));
   }
 
