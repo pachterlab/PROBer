@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments dms-seq-run-em dms-seq-run-em-joint dms-seq-simulate-reads
+PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments dms-seq-run-em dms-seq-run-em-joint dms-seq-simulate-reads dms_single_transcript
 
 .PHONY : all clean
 
@@ -72,7 +72,7 @@ BamAlignment.o : BamAlignment.cpp sam/bam.h sam/sam.h my_assert.h CIGARstring.hp
 
 AlignmentGroup.hpp : sam/sam.h SEQstring.hpp QUALstring.hpp BamAlignment.hpp
 
-SamParser.hpp : sam/sam.h BamAlignment.hpp AlignmentGroup.hpp
+SamParser.hpp : sam/sam.h sam/bam.h BamAlignment.hpp AlignmentGroup.hpp
 
 SamParser.cpp : sam/sam.h sam/sam_header.h my_assert.h SamParser.hpp
 
@@ -185,6 +185,26 @@ simulation.o : simulation.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_as
 
 dms-seq-simulate-reads : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o simulation.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
+
+
+
+
+DMSTransModelS.hpp : utils.h sampling.hpp InMemoryStructs.hpp
+
+DMSTransModelS.cpp : utils.h sampling.hpp DMSTransModelS.hpp
+
+DMSTransModelS.o : DMSTransModelS.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp DMSTransModelS.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_single_transcript.o : dms_single_transcript.cpp sam/bam.h sam/sam.h utils.h InMemoryStructs.hpp DMSTransModelS.hpp
+	$(CC) $(COFLAGS) $<
+
+dms_single_transcript : DMSTransModelS.o dms_single_transcript.o sam/libbam.a
+	$(CC) -O3 -o $@ $^ -lz -lpthread
+
+
+
+
 
 clean :
 	rm -rf $(PROGRAMS) *.o *~ *.pyc

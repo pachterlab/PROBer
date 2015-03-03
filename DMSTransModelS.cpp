@@ -7,45 +7,45 @@
 
 #include "utils.h"
 #include "sampling.hpp"
-#include "DMSTransModel.hpp"
+#include "DMSTransModelS.hpp"
 
-const double DMSTransModel::INF = 1000.0;
+const double DMSTransModelS::INF = 1000.0;
 
-int DMSTransModel::primer_length = 6; // default, 6bp
-int DMSTransModel::min_frag_len;
-int DMSTransModel::max_frag_len;
+int DMSTransModelS::primer_length = 6; // default, 6bp
+int DMSTransModelS::min_frag_len;
+int DMSTransModelS::max_frag_len;
 
-double DMSTransModel::gamma_init;
-double DMSTransModel::beta_init;
+double DMSTransModelS::gamma_init;
+double DMSTransModelS::beta_init;
 
-double DMSTransModel::base;
-double DMSTransModel::cgamma;
-double DMSTransModel::dgamma;
-double DMSTransModel::cbeta;
-double DMSTransModel::dbeta;
+double DMSTransModelS::base;
+double DMSTransModelS::cgamma;
+double DMSTransModelS::dgamma;
+double DMSTransModelS::cbeta;
+double DMSTransModelS::dbeta;
 
-int DMSTransModel::min_alloc_len;
-bool DMSTransModel::isMAP = true; // default is true
+int DMSTransModelS::min_alloc_len;
+bool DMSTransModelS::isMAP = true; // default is true
 
-bool DMSTransModel::learning = false; // default is simulation
-int DMSTransModel::state = 0;
+bool DMSTransModelS::learning = false; // default is simulation
+int DMSTransModelS::state = 0;
 
-void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
+void DMSTransModelS::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
-  DMSTransModel::primer_length = primer_length;
-  DMSTransModel::min_frag_len = min_frag_len - primer_length;
-  DMSTransModel::max_frag_len = max_frag_len - primer_length;
+  DMSTransModelS::primer_length = primer_length;
+  DMSTransModelS::min_frag_len = min_frag_len - primer_length;
+  DMSTransModelS::max_frag_len = max_frag_len - primer_length;
   state = init_state;
 }
 
-void DMSTransModel::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
+void DMSTransModelS::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
   learning = true;
 
-  DMSTransModel::gamma_init = gamma_init;
-  DMSTransModel::beta_init = beta_init;
-  DMSTransModel::base = base;
-  DMSTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
-  DMSTransModel::isMAP = isMAP;
+  DMSTransModelS::gamma_init = gamma_init;
+  DMSTransModelS::beta_init = beta_init;
+  DMSTransModelS::base = base;
+  DMSTransModelS::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
+  DMSTransModelS::isMAP = isMAP;
 
   if (isMAP) {
     dgamma = gamma_init * base;
@@ -57,7 +57,7 @@ void DMSTransModel::setLearningRelatedParams(double gamma_init, double beta_init
 
 
 
-DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_length) : tid(tid), name(name) {  
+DMSTransModelS::DMSTransModelS(int tid, const std::string& name, int transcript_length) : tid(tid), name(name) {  
   gamma = beta = NULL;
   start = end = NULL;
   dcm = ccm = NULL;
@@ -67,7 +67,6 @@ DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_le
   margin_prob2 = NULL;
 
   start2 = end2 = NULL;
-  for (int i = 0; i < 2; ++i) alignmentsArr[i].clear();
 
   len = efflen = -1; 
   efflen2 = -1;
@@ -77,7 +76,13 @@ DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_le
   delta = 0.0;
 
   hasSE = false;
-  N_se = 0.0;
+
+  N_se[0] = N_se[1] = 0.0;
+  for (int i = 0; i < 2; ++i) {
+    starts[i] = NULL;
+    ends[i] = NULL;
+    ends_se[i] = NULL;
+  }
 
   cdf_end = NULL;
 
@@ -95,9 +100,18 @@ DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_le
     beta = new double[len + 1];
     memset(beta, 0, sizeof(double) * (len + 1));
   }
+
+  for (int i = 0; i < 2; ++i) {
+    starts[i] = new double[len + 1];
+    ends[i] = new double[len + 1];
+    ends_se[i] = new double[len + 1];
+    memset(starts[i], 0, sizeof(double) * (len + 1));
+    memset(ends[i], 0, sizeof(double) * (len + 1));
+    memset(ends_se[i], 0, sizeof(double) * (len + 1));
+  }  
 }
 
-DMSTransModel::~DMSTransModel() {
+DMSTransModelS::~DMSTransModelS() {
   if (gamma != NULL) delete[] gamma;
   if (beta != NULL) delete[] beta;
 
@@ -116,9 +130,18 @@ DMSTransModel::~DMSTransModel() {
   if (ccm != NULL) delete[] ccm;
 
   if (end_se != NULL) delete[] end_se;
+
+  if (start2 != NULL) delete[] start2;
+  if (end2 != NULL) delete[] end2;
+
+  for (int i = 0; i < 2; ++i) {
+    if (starts[i] != NULL) delete[] starts[i];
+    if (ends[i] != NULL) delete[] ends[i];
+    if (ends_se[i] != NULL) delete[] ends_se[i];
+  }
 }
 
-void DMSTransModel::init() {
+void DMSTransModelS::init() {
   int state = getState();
 
   assert(state < 3);
@@ -133,8 +156,15 @@ void DMSTransModel::init() {
   memset(start, 0, sizeof(double) * (len + 1));
   memset(end, 0, sizeof(double) * (len + 1));
 
+  // start2 and end2
+  start2 = new double[len + 1];
+  end2 = new double[len + 1];
+  memset(start2, 0, sizeof(double) * (len + 1));
+  memset(end2, 0, sizeof(double) * (len + 1));
+
   // Auxiliary arrays
   logsum = new double[len + 1];
+  assert(efflen > 0);
   margin_prob = new double[efflen];
   memset(logsum, 0, sizeof(double) * (len + 1));
   memset(margin_prob, 0, sizeof(double) * efflen);
@@ -161,7 +191,7 @@ void DMSTransModel::init() {
   }
 }
 
-void DMSTransModel::calcAuxiliaryArrays(int channel) {
+void DMSTransModelS::calcAuxiliaryArrays(int channel) {
   double value;
   int max_pos;
 
@@ -202,36 +232,7 @@ void DMSTransModel::calcAuxiliaryArrays(int channel) {
   }
 }
 
-void DMSTransModel::update() {
-  int channel = getChannel();
-  std::vector<InMemAlign*> &alignments = alignmentsArr[channel];
-
-  HIT_INT_TYPE size = alignments.size();
-
-  // initialize
-  N_obs[channel] = 0.0;
-  memset(start, 0, sizeof(double) * (len + 1));
-  memset(end, 0, sizeof(double) * (len + 1));
-
-  N_se = 0.0;
-  if (hasSE) memset(end_se, 0, sizeof(double) * (len + 1));
-
-  for (HIT_INT_TYPE i = 0; i < size; ++i) {
-    end[alignments[i]->pos] += alignments[i]->frac;
-    if (alignments[i]->fragment_length > 0) {
-      start[alignments[i]->pos + alignments[i]->fragment_length - primer_length] += alignments[i]->frac; 
-    }
-    else {
-      end_se[alignments[i]->pos] += alignments[i]->frac;
-      N_se += alignments[i]->frac;
-    }
-    N_obs[channel] += alignments[i]->frac;
-  }
-
-  if (isZero(N_obs[channel])) N_obs[channel] = 0.0; // if N_obs is small, directly set it to 0
-}
-
-inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
+inline void DMSTransModelS::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
   double a = (1.0 - gamma) * (cbeta + cc + dbeta + dc);
   double b = ((cbeta + cc + 2.0 * dbeta + dc) * gamma - (dc + dbeta)) / a;
   double c = (-dbeta * gamma) / a;
@@ -244,7 +245,7 @@ inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc
   assert(beta > 0.0 && beta < 1.0);
 }
 
-inline void DMSTransModel::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
+inline void DMSTransModelS::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
   double common_factor = cgamma + ccm - cbeta- dbeta;
   double a = (cbeta + ccp + dbeta + dcp) * common_factor;
   double b = (cbeta + ccp + dbeta) * (dbeta + dgamma + dcm) - common_factor * (dcp + dbeta) + dbeta * dcp;
@@ -270,13 +271,11 @@ inline void DMSTransModel::solveQuadratic2(double& gamma, double& beta, double d
   assert(gamma > 0.0 && gamma < 1.0);
 }
 
-void DMSTransModel::EM_step(double N_tot) {
+void DMSTransModelS::EM_step(double N_tot) {
   int channel = getChannel();
 
   int max_end_i;
   double psum, value;
-
-  assert(start2 != NULL && end2 != NULL);
 
   // What to do if no observed reads
   if (isZero(N_obs[channel])) {
@@ -313,8 +312,13 @@ void DMSTransModel::EM_step(double N_tot) {
     }
   }
   else {
+    // copy vectors
+    memcpy(start, starts[channel], sizeof(double) * (len + 1));
+    memcpy(end, ends[channel], sizeof(double) * (len + 1));
+    if (!isZero(N_se[channel])) memcpy(end_se, ends_se[channel], sizeof(double) * (len + 1));
+
     //E step, if we have reads that do not know their start positions, infer start from end
-    if (!isZero(N_se)) {
+    if (!isZero(N_se[channel])) {
       double prev, curr;
       double *mp = NULL;
       int effl;
@@ -434,7 +438,7 @@ void DMSTransModel::EM_step(double N_tot) {
   calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }
 
-void DMSTransModel::read(std::ifstream& fin, int channel) {
+void DMSTransModelS::read(std::ifstream& fin, int channel) {
   std::string tmp_name;
   int tmp_len;
 
@@ -464,16 +468,10 @@ void DMSTransModel::read(std::ifstream& fin, int channel) {
   }
 }
 
-void DMSTransModel::write(std::ofstream& fout, int channel) {
+void DMSTransModelS::write(std::ofstream& fout, int channel) {
   fout<< name<< '\t'<< len;
 
   if (channel == 0) {
-
-    // If MAP estimate, separately learn and the transcript is excluded, set the gammas to gamma_init 
-    if (isMAP && getState() == 0 && isExcluded()) {
-      for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
-    }
-
     for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
   }
   else {
@@ -483,7 +481,7 @@ void DMSTransModel::write(std::ofstream& fout, int channel) {
   fout<< std::endl;
 }
 
-void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
+void DMSTransModelS::writeFreq(std::ofstream& fc, std::ofstream& fout) {
   double c = 0.0;
   for (int i = 1; i <= len; ++i) c += -log(1.0 - beta[i]);
 
@@ -496,7 +494,7 @@ void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
   fout<< std::endl;
 }
 
-void DMSTransModel::startSimulation() {
+void DMSTransModelS::startSimulation() {
   if (efflen <= 0) return;
   cdf_end = new double[efflen];
 
@@ -509,7 +507,7 @@ void DMSTransModel::startSimulation() {
   }
 }
 
-void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
+void DMSTransModelS::simulate(Sampler* sampler, int& pos, int& fragment_length) {
   int upper_bound, cpos;
   double random_value, value, sum;
 
@@ -531,7 +529,7 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
   fragment_length += primer_length;
 }
 
-void DMSTransModel::finishSimulation() {
+void DMSTransModelS::finishSimulation() {
   if (cdf_end != NULL) delete[] cdf_end;
   cdf_end = NULL;
 }

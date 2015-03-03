@@ -106,9 +106,8 @@ if args.quiet:
 runProg(command)
 
 # Build aligner indices
-command = []
-
 if args.bowtie:
+    command = []
     command.extend(["{}bowtie-build".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-f"])
     if args.quiet:
         command.append("-q")
@@ -116,6 +115,7 @@ if args.bowtie:
     runProg(command)
 
 if args.bowtie2:
+    command = []
     command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
     if args.quiet:
         command.append("-q")
@@ -123,5 +123,6 @@ if args.bowtie2:
     runProg(command)
 
 if args.hobbes2:
+    command = []
     command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
     runProg(command)

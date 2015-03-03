@@ -31,7 +31,7 @@ def nargs_range(list_of_range):
     class _StoreConstraintAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string = None):
             if not (len(values) in list_of_range):
-                raise argparse.ArgumentTypeError("{} needs {} ~ {} arguments".format(self.dest, n_min, n_max))
+                raise argparse.ArgumentTypeError("{} needs {} arguments".format(self.dest, list_of_range))
             setattr(namespace, self.dest, values)
     return _StoreConstraintAction
         

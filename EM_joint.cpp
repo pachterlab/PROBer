@@ -25,7 +25,7 @@
 
 using namespace std;
 
-const int MAX_ROUND = 400;
+const int MAX_ROUND = 200; //400;
 
 // Parameter struct to pass parameters to each subprocess
 struct InMemParams {

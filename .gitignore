@@ -9,3 +9,5 @@ dms-seq-run-em
 dms-seq-run-em-joint
 dms-seq-simulate-reads
 utils.pyc
+
+dms_single_transcript

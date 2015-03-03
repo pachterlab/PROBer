@@ -1,6 +1,7 @@
 #ifndef SAMPARSER_H_
 #define SAMPARSER_H_
 
+#include "sam/bam.h"
 #include "sam/sam.h"
 
 #include "BamAlignment.hpp"

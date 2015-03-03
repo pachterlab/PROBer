@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+
+import utils
+from utils import MyFormatter, MyParser, runProg
+
+#Parse options and arguments
+
+program_name = os.path.basename(utils.expand(sys.argv[0]))
+
+parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name {{--bam input_minus.bam input_plus.bam | --reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}}".format(program_name), 
+                  description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", 
+                  epilog = "L:OUTPUTS:\n"
+                  "  sample_name.gamma\n"
+                  "    Estimated gamma parameters for the transcript. The first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
+                       "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"                  
+                  "  sample_name.beta\n"
+                  "    Estimated beta parameters for the transcript. The first field gives the transcript name, the second field provides the number of estimated beta parameters, "
+                       "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n")
+                  
+parser.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-single-prepare' with this name before running this program.", type = utils.expand, metavar = "reference_name")
+parser.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = utils.expand, metavar = "sample_name")
+
+group = parser.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
+
+group.add_argument("--bam", help = "Input are BAM files containing alignment results.", nargs = '+', action = utils.nargs_range([2]), type = utils.expandAll,
+                   metavar = "input.bam")
+group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of FASTQ files containing single-end reads or first mates of paired-end reads\nminus_mate2_read_file(s) and plus_mate2_read_file(s), presented only if '--paired-end' is enabled, are comma-separated lists of FASTQ files containing second mates of paired-end reads\n", nargs = '+', action = utils.nargs_range([2, 4]), type = utils.expandAll, metavar = "mate_read_file(s)")
+
+group = parser.add_argument_group(title = "Basic options")
+group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
+group.add_argument("-p", "--number-of-threads", help = "Number of threads that Bowtie or Bowtie2 can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
+
+group = parser.add_argument_group(title = "Structure-seq related", description = "Set necessary parameters for generating a config file.")
+group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
+group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, default = 21, metavar = "<int>")
+group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, default = 526, metavar = "<int>")
+group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.01, metavar = "<float>")
+group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.01, metavar = "<float>")
+
+group = parser.add_argument_group(title = "Estimation related", description = "Parameters needed for estimating structure parameters.")
+group.add_argument("--read-length", help = "Read length before trimming adaptors, only required for single-end reads.", type = int, default = 37, metavar = "<int>")
+group.add_argument("--MAP", help = "Use MAP estimates.", action = "store_true", dest = "map_est")
+group.add_argument("--sep", help = "Estimate (-) and (+) channels separately.", action = "store_true")
+group.add_argument("--rounds", help = "Rounds of EM iterations to run.", type = int, default = 400, metavar = "<int>")
+
+group = parser.add_argument_group(title = "Alignment options", description = "If --paired-end is specified, Bowtie2 will be used. Otherwise, Bowtie will be used and reads with more than 200 alignments will be filtered out.")
+group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = utils.expand, metavar = "<path>")
+group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = utils.expand, metavar = "<path>")
+
+parser.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
+
+args = parser.parse_args()
+
+value = (1 if args.bam != None else 0) + (1 if args.reads != None else 0)
+
+if value == 0:
+    parser.error("There must be at least one input option (--bam, and --reads) enabled")
+elif value > 1:
+    parser.error("Input options (--bam, and --reads) are mutually exclusive")
+
+if args.reads != None:
+    if (args.paired_end and len(args.reads) != 4) or (not args.paired_end and len(args.reads) != 2):
+        parser.error("Number of Read/Mate files does not match!")
+
+#Set executable directory
+
+mydir = os.path.dirname(utils.expand(sys.argv[0]))
+os.environ["PATH"] = mydir + os.pathsep + "{}/sam".format(mydir) + os.pathsep + os.getenv("PATH", ".")
+os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
+
+#Run programs
+
+#utils.demo = True
+       
+dir_ = os.path.dirname(args.sample_name)
+if not os.path.exists(dir_):
+    os.makedirs(dir_)
+
+
+if args.reads != None:
+    command = command2 = []
+    pos = pos2 = 0
+    if not args.paired_end:
+        # Use Bowtie
+        command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "--norc", "-p", str(args.num_threads)])
+        command.extend("-v 3 -a -m 200 -S".split())
+#       command.extend("-n 2 -e 99999999 -l 25 -a -m 200 -S".split())
+        command.extend([args.ref_name, args.reads[0]])
+        pos = len(command) - 1
+    else:
+        # Use Bowtie2
+        command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "--norc", "-p", str(args.num_threads), "-a"])
+        command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+        command.extend(["-x", args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
+        pos = len(command) - 3
+
+    command2 = ["samtools", "view", "-b", "-S", "-o", "{}_minus.bam".format(args.sample_name), "-"]
+    pos2 = len(command2) - 2
+
+
+    # Run aligner for (-) channel
+    runProg(command, command2)
+
+    # Run aligner for (+) channel
+    if not args.paired_end:
+        command[pos] = args.reads[1]
+    else:
+        command[pos] = args.reads[2]
+        command[pos + 2] = args.reads[3]
+
+    command2[pos2] = "{}_plus.bam".format(args.sample_name)
+
+    runProg(command, command2)
+
+    args.bam = "{0}_minus.bam {0}_plus.bam".format(args.sample_name).split()
+
+# Generate config file
+fh = open("{}.config".format(args.sample_name), 'w')
+fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_selection_min, args.size_selection_max, args.gamma_init, args.beta_init))
+fh.close()
+
+# Run EM    
+command = ["dms_single_transcript", "{}.config".format(args.sample_name), args.bam[0], args.bam[1], args.sample_name]
+if args.map_est:
+    command.append("--MAP")
+command.extend(["--rounds", str(args.rounds)])
+if not args.paired_end:
+    command.extend(["--read-length", str(args.read_length)])
+else:
+    command.append("--paired-end")
+if args.sep:
+    command.append("--sep")
+runProg(command)
