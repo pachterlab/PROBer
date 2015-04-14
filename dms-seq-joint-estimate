@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import argparse
 
 import utils
@@ -12,11 +13,6 @@ from utils import MyFormatter, MyParser, runProg
 program_name = os.path.basename(utils.expand(sys.argv[0]))
 
 parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference_name sample_name {{--bam input_minus.bam input_plus.bam | --sam input_minus.sam input_plus.sam | --reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}}".format(program_name), description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.", epilog = "L:OUTPUTS:\n"
-                  "  sample_name.gamma\n"
-                  "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
-                       "Then each line describes estimated parameters for a different transcript. "
-                       "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
-                       "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"                  
                   "  sample_name.expr\n"
                   "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
                   "    \n"
@@ -26,35 +22,37 @@ parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference
                        "It is equal to length - primer_length + 1. expected_count_minus is the sum of posterior probabilities of reads coming from this transcript in the (-) channel. "
                        "expected_count_plus is the counts from (+) channel. TPM is transcript per million. FPKM is fragment per kilobase per millon reads.\n\n"
                   "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
-                  "  sample_name_minus.theta\n"
-                  "    Estimated probability of generating a fragment (before size selection step) from each transcript in the '-' channel. The first line gives the total number of transcripts, M. "
-                       "Then M + 1 values follows in the second line, giving the probability of each transcript. "
-                       "Please note that the first value represents the probability of generating a read from background noise.\n\n"
-                  "  sample_name_minus.transcripts.bam\n"
-                  "    Only generated when '--output-bam' option is set.\n\n"
-                  "    It is a BAM-formatted file that contains all '-' channel read alignments in transcript coordinates. "
-                       "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), where w is the posterior probability of that alignment being the true "
-                       "mapping of a read."
-                       "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
-                       "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
-                       "Because this file contains all alignment lines produced by the aligner, it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
                   "  sample_name.beta\n"
                   "    Estimated beta parameters for each transcript. The first line contains the total number of transcripts. "
                        "Then each line describes estimated parameters for a different transcript. "
                        "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
                        "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
-                  "  sample_name.rate\n"
-                  "    Estimated 'c' rates for each transcript. The first line gives the number of transcripts and the second line gives estimated 'c' rate for each transcript. "
-                       "Some transcripts will have their 'c' rate as nan or -nan because that some estimated beta values from these transcripts are 1. "
-                       "This phenomenon might be due to insufficient data for those transcripts and our use of ML estimates. "
-                       "We may design some MAP estimates to remedy this problem in the future.\n\n" 
-                  "  sample_name.freq\n"
-                  "    Estimated theta values for each transcript as described in Sharon's paper. "
-                       "The format is same as 'sample_name.beta' except that if a transcript's c is 0, no estimated theta values will be shown.\n\n"
+                  "  sample_name.gamma\n"
+                  "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
+                       "Then each line describes estimated parameters for a different transcript. "
+                       "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
+                       "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"                  
+                  "  sample_name_minus.transcripts.bam\n"
+                  "    Only generated when '--output-bam' option is set.\n\n"
+                  "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
+                       "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), where w is the posterior probability of that alignment being the true "
+                       "mapping of a read. "
+                       "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
+                       "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
+                       "Because this file contains all alignment lines produced by the aligner, it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
+                  "  sample_name_plus.transcripts.bam\n"
+                  "    Only generated when '--output-bam' option is set.\n\n"
+                  "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
+                       "The annotation format is exactly the same as the one used in 'sample_name_minus.transcripts.bam'.\n\n"
                   "  sample_name.stat\n"
-                  "    Folder contains learned parameters from data. sample_name.stat/sample_name_minus.read_model and sample_name.stat/sample_name_plus.read_model can be used for simulaiton.\n\n"
+                  "    This folder contains learned model parameters from data."
+                       "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
+                       "'sample_name_minus.read_model' contains the estimated sequencing error model from '-' channel. "
+                       "'sample_name_plus.theta' contains the estimated read generating probabilities from '+' channel. "
+                       "'sample_name_plus.read_model' contains the estimated sequencing error model from '+' channel. "
+                       "The files contained in this folder can be used for simulation.\n\n"
                   "  sample_name.temp\n"
-                  "    Temp folder contains intermediate files.\n\n")
+                  "    This is a temporary folder contains intermediate files.\n\n")
                   
 parser.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", type = utils.expand, metavar = "reference_name")
 parser.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = utils.expand, metavar = "sample_name")
@@ -81,11 +79,11 @@ group = parser.add_argument_group(title = "Structure-seq related", description =
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
 group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
 group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.01, metavar = "<float>")
-group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.01, metavar = "<float>")
+group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.001, metavar = "<float>")
+group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.001, metavar = "<float>")
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
-group.add_argument("--MAP", help = "Use MAP estimates.", action = "store_true", dest = "map_est")
+group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
 
 
 group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie, Bowtie2, and Hobbes2. All reads with more than 200 alignments will be filtered by this script.")
@@ -102,6 +100,7 @@ group.add_argument("--hobbes2-hamming", help = "Use hamming distance for Hobbes2
 group.add_argument("--hobbes2-indel", help = "Use indel distance for Hobbes2.", action = "store_true")
 group.add_argument("--hobbes2-v", help = "Hobbes2's distance threshold.", type = int, metavar = "<int>")
 
+parser.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
 parser.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 args = parser.parse_args()
@@ -150,7 +149,11 @@ else:
     else:
         model_type = 1
 
-        
+t1 = t2 = t3 = 0.00
+
+if args.time:
+    t1 = time.clock()
+
 # Parse alignments
 command = []
 posChannel = 4
@@ -230,6 +233,9 @@ else:
 
     runProg(command, command2)  # Run aligner and then parse for (+) channel data
 
+if args.time:
+    t2 = time.clock()
+
 # Generate config file
 fh = open("{}.config".format(imdName), 'w')
 fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_selection_min, args.size_selection_max, args.gamma_init, args.beta_init))
@@ -239,10 +245,17 @@ fh.close()
 command = ["dms-seq-run-em-joint", args.ref_name, str(model_type), args.sample_name, imdName, statName, str(args.num_threads)]
 if args.read_length != None:
     command.extend(["--read-length", str(args.read_length)])
-if args.map_est:
-    command.append("--MAP")
+if args.ml_est:
+    command.append("--maximum-likelihood")
 if args.output_bam:
     command.append("--output-bam")
 if args.quiet:
     command.append("-q")
 runProg(command)
+
+if args.time:
+    t3 = time.clock()
+    fo = open("{}.time".format(args.sample_name), "w")
+    fo.write("Alignment/Parsing: {:.0f}s or {:.2f}m or {:.2f}h\n".format((t2 - t1), (t2 - t1) / 60.0, (t2 - t1) / 3600.0))
+    fo.write("EM: {:.0f}s or {:.2f}m or {:.2f}h\n".format((t3 - t2), (t3 - t2) / 60.0, (t3 - t2) / 3600.0))
+    fo.close()

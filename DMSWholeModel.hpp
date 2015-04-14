@@ -95,14 +95,16 @@ public:
   void wrapItUp(double count0);
 
   /*
-    @param   input_name   All input files use input_name as their prefixes
+    @param   input_name   the prefix for input files, e.g. gamma and beta files
+    @param   statName     the prefix for learned model parameter files, e.g. theta files
    */
-  void read(const char* input_name);
+  void read(const char* input_name, const char* statName = NULL);
 
   /*
-    @param   output_name   All output files use output_name as their prefixes
+    @param   output_name   the prefix for output files, e.g. gamma and beta files
+    @param   statName      the prefix for learned model parameter files, e.g. theta files
    */
-  void write(const char* output_name);
+  void write(const char* output_name, const char* statName);
 
   /*
     @param   sim_tid   if only simulate reads from sim_tid, default is not (-1)

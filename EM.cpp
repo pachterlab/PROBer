@@ -322,7 +322,7 @@ void writeResults() {
   read_model->write(readModelF);
   
   // output whole model parameters
-  whole_model->write(sampleName);
+  whole_model->write(sampleName, statName);
 
   // output BAM files
   if (output_bam) {

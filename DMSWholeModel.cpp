@@ -214,7 +214,7 @@ void DMSWholeModel::wrapItUp(double count0) {
   }
 }
 
-void DMSWholeModel::read(const char* input_name) {
+void DMSWholeModel::read(const char* input_name, const char* statName) {
   char input_param[STRLEN];
   char input_theta[STRLEN];
   std::ifstream fin;
@@ -258,7 +258,8 @@ void DMSWholeModel::read(const char* input_name) {
 
   // load theta
   if (!learning) {
-    sprintf(input_theta, "%s_%s.theta", input_name, channelStr[state & 1]);
+    assert(statName != NULL);
+    sprintf(input_theta, "%s_%s.theta", statName, channelStr[state & 1]);
     fin.open(input_theta);
     assert(fin.is_open());
       
@@ -310,7 +311,7 @@ void DMSWholeModel::writeExprRes(int state, const char* output_name) {
   fout.close();
 }
 
-void DMSWholeModel::write(const char* output_name) {
+void DMSWholeModel::write(const char* output_name, const char* statName) {
   char output_param[STRLEN];
   char output_theta[STRLEN];
   //  char output_rate[STRLEN];
@@ -334,7 +335,7 @@ void DMSWholeModel::write(const char* output_name) {
 
     fout.close();
 
-    sprintf(output_theta, "%s_minus.theta", output_name);
+    sprintf(output_theta, "%s_minus.theta", statName);
     fout.open(output_theta);
     assert(fout.is_open());
 
@@ -362,7 +363,7 @@ void DMSWholeModel::write(const char* output_name) {
 
     fout.close();
 
-    sprintf(output_theta, "%s_plus.theta", output_name);
+    sprintf(output_theta, "%s_plus.theta", statName);
     fout.open(output_theta);
     assert(fout.is_open());
 
@@ -375,31 +376,6 @@ void DMSWholeModel::write(const char* output_name) {
     fout<< std::endl;
     
     fout.close();
-
-    /*
-    sprintf(output_rate, "%s.rate", output_name);
-    sprintf(output_param, "%s.freq", output_name);
-    std::ofstream fc(output_rate);
-    fout.open(output_param);
-    assert(fc.is_open() && fout.is_open());
-
-    fc.precision(10);
-    fc.unsetf(std::ios::floatfield);
-    fout.precision(10);
-    fout.unsetf(std::ios::floatfield);
-    
-    fc<< M<< std::endl;
-    fout<< M<< std::endl;
-
-    for (int i = 1; i <= M; ++i) {
-      transcripts[i]->writeFreq(fc, fout);
-      if (i < M) fc<< '\t';
-      else fc<< std::endl;
-    }
-    
-    fc.close();
-    fout.close();
-    */
   }
 
   // write out expression results
