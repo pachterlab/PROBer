@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
   assert(strpos < tmpStr.length());
   sprintf(statName, "%s.stat/%s", argv[3], tmpStr.substr(strpos).c_str());
   if (readModelF[0] == 0) {
-    sprintf(readModelF, "%s_%s.read_model", argv[3], argv[4]);
+    sprintf(readModelF, "%s_%s.read_model", statName, argv[4]);
   }
 
 

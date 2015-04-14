@@ -1,4 +1,5 @@
 #include<cmath>
+#include<ctime>
 #include<cstdio>
 #include<cstring>
 #include<cstdlib>
@@ -409,10 +410,18 @@ void writeResults() {
 
   // output BAM files
   if (output_bam) {
+    time_t a = time(NULL);
     // Bam files for (-) channel
     outputBamFiles(0);
     // Bam files for (+) channel
     outputBamFiles(1);
+    time_t b = time(NULL);
+
+    char timeF[STRLEN];
+    sprintf(timeF, "%s.bam.time", sampleName);
+    FILE *fo = fopen(timeF, "w");
+    fprintf(fo, "%ds or %.2fm or %.2fh.\n", int(b - a), (b - a) / 60.0, (b - a) / 3600.0);
+    fclose(fo);
   }
 
   if (verbose) printf("WriteResults is finished!\n");
