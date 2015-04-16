@@ -137,7 +137,7 @@ void writeResults(int option, char* refName) {
 
 int main(int argc, char* argv[]) {
   if (argc < 5 || ((hasMappingFile = atoi(argv[3])) && argc < 6)) {
-		printf("Usage: synthesisRef refName quiet hasMappingFile<0,no;1,yes;2,allele-specific> [mappingFile] reference_file_1 [reference_file_2 ...]\n");
+		printf("Usage: PROBer-synthesis-reference-transcripts refName quiet hasMappingFile<0,no;1,yes;2,allele-specific> [mappingFile] reference_file_1 [reference_file_2 ...]\n");
 		exit(-1);
 	}
 

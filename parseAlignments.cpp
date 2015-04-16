@@ -97,7 +97,7 @@ void writeStat(const char* statName) {
 
 int main(int argc, char* argv[]) {
   if (argc < 8) { 
-    printf("dms-seq-parse-alignments refName imdName statName channel number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [-m max_hit_allowed][--shorter-than min_len] [-q]\n");
+    printf("PROBer-parse-alignments refName imdName statName channel number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [-m max_hit_allowed][--shorter-than min_len] [-q]\n");
     exit(-1);
   }
 
@@ -133,13 +133,13 @@ int main(int argc, char* argv[]) {
   writer0 = writer2 = NULL;
 
   sprintf(bamOutF, "%s_N0.bam", imdName);
-  writer0 = new BamWriter(bamOutF, header, "DMS-Seq intermediate"); // only imdName_N0.bam contains a good header
+  writer0 = new BamWriter(bamOutF, header, "PROBer intermediate"); // only imdName_N0.bam contains a good header
   for (int i = 0; i < num_threads; i++) {
     sprintf(bamOutF, "%s_%d.bam", imdName, i);
-    writers[i] = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
+    writers[i] = new BamWriter(bamOutF, NULL, "PROBer intermediate");
   }
   sprintf(bamOutF, "%s_N2.bam", imdName);
-  writer2 = new BamWriter(bamOutF, NULL, "DMS-Seq intermediate");
+  writer2 = new BamWriter(bamOutF, NULL, "PROBer intermediate");
 
   memset(N, 0, sizeof(N));
   counts.clear();

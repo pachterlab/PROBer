@@ -1,5 +1,5 @@
-#ifndef DMSREADMODEL_H_
-#define DMSREADMODEL_H_
+#ifndef PROBERREADMODEL_H_
+#define PROBERREADMODEL_H_
 
 #include<cassert>
 #include<string>
@@ -26,7 +26,7 @@
 
 #include "InMemoryStructs.hpp"
 
-class DMSReadModel {
+class PROBerReadModel {
 public:
 
   /*
@@ -35,22 +35,22 @@ public:
     @param   read_length  if set, assume all read length are the same, in addition, all reads whose lengths < read_length are due to adaptor trimming
     @comment: Master thread for learning model parameters
    */
-  DMSReadModel(int model_type, Refs* refs, int read_length = -1);
+  PROBerReadModel(int model_type, Refs* refs, int read_length = -1);
 
   /*
     @param   master_model   The master model for learning parameters
     @comment: Constructor function for slave threads
    */
-  DMSReadModel(DMSReadModel* master_model);
+  PROBerReadModel(PROBerReadModel* master_model);
 
   /*
     @param     refs     a pointer to the reference sequences
     @param     sampler  a pointer to a sampler for simulation
     @comment:  Used for simulation only, read learned parameters from files 
    */
-  DMSReadModel(Refs* refs, Sampler* sampler);
+  PROBerReadModel(Refs* refs, Sampler* sampler);
   
-  ~DMSReadModel();
+  ~PROBerReadModel();
 
   /*
     @func   get model type
@@ -85,7 +85,7 @@ public:
   }
 
   void init();
-  void collect(DMSReadModel* o);
+  void collect(PROBerReadModel* o);
   void finish();
 
   void read(const char* modelF);
@@ -113,7 +113,7 @@ private:
   int read_length; // the minimum read length, if read_length is set (not -1), all mates have a same length. 
 };
 
-inline void DMSReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) {
+inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) {
   // Update MLDs
   int len = read_length < 0 ? ag.getSeqLength(1) : read_length;
   mld1->update(len, !isAligned);
@@ -141,7 +141,7 @@ inline void DMSReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) 
   }
 }
 
-inline void DMSReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
+inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
   int seqlen;
   SEQstring seq;
   QUALstring qual;
@@ -177,7 +177,7 @@ inline void DMSReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns
   }
 }
 
-inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
+inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
   SEQstring seq;
   QUALstring qual;
   CIGARstring cigar;
@@ -209,7 +209,7 @@ inline void DMSReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, Ali
   }
 } 
 
-inline void DMSReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int fragment_length, std::ofstream* out1, std::ofstream* out2) {
+inline void PROBerReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int fragment_length, std::ofstream* out1, std::ofstream* out2) {
   int m2pos;
   int mateL1, mateL2;
   std::string qual1, qual2, cigar1, cigar2, readseq1, readseq2;

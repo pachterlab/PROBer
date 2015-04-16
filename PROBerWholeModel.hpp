@@ -1,5 +1,5 @@
-#ifndef DMSWHOLEMODEL_H_
-#define DMSWHOLEMODEL_H_
+#ifndef PROBERWHOLEMODEL_H_
+#define PROBERWHOLEMODEL_H_
 
 #include<cmath>
 #include<cassert>
@@ -10,35 +10,35 @@
 #include "sampling.hpp"
 #include "Transcripts.hpp"
 #include "InMemoryStructs.hpp"
-#include "DMSTransModel.hpp"
+#include "PROBerTransModel.hpp"
 
-class DMSWholeModel {
+class PROBerWholeModel {
 public:
   /*
     @function   constructor function
-    @param   config_file   Configuration file for DMSTransModel static members
+    @param   config_file   Configuration file for PROBerTransModel static members
     @param   init_state    the initial state (if (-) or (+) channel, if learn jointly or not)
     @param   trans         We obtain transcript names and lengths from trans
     @param   num_threads   Number of threads allowed to use
     @param   read_length   If set, assuming all reads < read_length are due to adaptor trimming
     @param   isMAP         Use MAP estimates if true
    */
-  DMSWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
+  PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
 
   /*
     @function   destructor function, release contents of treads and transcripts
    */
-  ~DMSWholeModel();
+  ~PROBerWholeModel();
 
   /*
     @comment: change channel
    */
-  void flipState() { DMSTransModel::flipState(); }
+  void flipState() { PROBerTransModel::flipState(); }
 
   /*
-    @comment: get channel information from DMSTransModel
+    @comment: get channel information from PROBerTransModel
    */
-  int getChannel() const { return DMSTransModel::getChannel(); }
+  int getChannel() const { return PROBerTransModel::getChannel(); }
 
   /*
     @param   alignG   An alignment group, representing a single read's all alignments
@@ -56,15 +56,15 @@ public:
    */
   double getProb(int tid, int pos = 0, int fragment_length = 0) const {
     assert(tid >= 0 && tid <= M);
-    if (tid == 0) return prob_noise[DMSTransModel::getChannel()][0];
-    return prob_noise[DMSTransModel::getChannel()][1] * theta[tid] * (fragment_length > 0 ? transcripts[tid]->getProb(pos, fragment_length) : transcripts[tid]->getProb(pos)); 
+    if (tid == 0) return prob_noise[PROBerTransModel::getChannel()][0];
+    return prob_noise[PROBerTransModel::getChannel()][1] * theta[tid] * (fragment_length > 0 ? transcripts[tid]->getProb(pos, fragment_length) : transcripts[tid]->getProb(pos)); 
   }
 
   /*
     @return   the probability of a read passing the size selection step
    */
   double getProbPass() const {
-    return prob_pass[DMSTransModel::getChannel()];
+    return prob_pass[PROBerTransModel::getChannel()];
   }
 
   /*
@@ -73,12 +73,12 @@ public:
    */
   double getTheta(int tid) {
     assert(tid >= 0 && tid <= M);
-    if (tid == 0) return prob_noise[DMSTransModel::getChannel()][0];
-    return prob_noise[DMSTransModel::getChannel()][1] * theta[tid];
+    if (tid == 0) return prob_noise[PROBerTransModel::getChannel()][0];
+    return prob_noise[PROBerTransModel::getChannel()][1] * theta[tid];
   }
 
   /*
-    @comment: Allocate transcripts to threads, calculate auxiliary arrays by calling DMSTransModel::init() for each transcript and initialize theta
+    @comment: Allocate transcripts to threads, calculate auxiliary arrays by calling PROBerTransModel::init() for each transcript and initialize theta
    */
   void init();
 
@@ -139,7 +139,7 @@ private:
   int num_threads; // number of threads we can use
   int M; // Number of transcripts
   std::vector<double> theta; // M + 1 elements. If we learn parameters, theta[0] = 0 and sum_{i=1}^{M} theta[i] = 1, the actual fraction of i is prob_noise[channel][i] * theta[i]; However, if we simulate, theta[0] > 0, theta[i] represents the actual fraction of reads coming from transcript i and sum_{i=0}^{M} theta[i] = 1.
-  std::vector<DMSTransModel*> transcripts; // DMS models for individual transcripts
+  std::vector<PROBerTransModel*> transcripts; // PROBer models for individual transcripts
 
   double N_tot; // expected total read counts
   std::vector<double> counts[2], unobserved[2]; // number of observed/unobserved reads fall into each transcript for two channels
@@ -157,14 +157,14 @@ private:
   // Params, used for multi-threading
   struct Params {
     int id;
-    DMSWholeModel *pointer;
+    PROBerWholeModel *pointer;
 
     int num_trans;
-    std::vector<DMSTransModel*> trans;
+    std::vector<PROBerTransModel*> trans;
 
     double *start2, *end2;
 
-    Params(int id, DMSWholeModel *pointer) : id(id), pointer(pointer) {
+    Params(int id, PROBerWholeModel *pointer) : id(id), pointer(pointer) {
       num_trans = 0;
       trans.clear();
       start2 = end2 = NULL;
@@ -222,7 +222,7 @@ private:
   }
 
   void run_EM_step(Params* params) {
-    int channel = DMSTransModel::getChannel();
+    int channel = PROBerTransModel::getChannel();
     for (int i = 0; i < params->num_trans; ++i) 
       params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()]);
   }

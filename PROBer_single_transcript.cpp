@@ -12,11 +12,11 @@
 
 #include "utils.h"
 #include "InMemoryStructs.hpp"
-#include "DMSTransModelS.hpp"
+#include "PROBerTransModelS.hpp"
 
 using namespace std;
 
-DMSTransModelS *model;
+PROBerTransModelS *model;
 
 char inF[STRLEN], outF[STRLEN];
 
@@ -38,7 +38,7 @@ double N_obs[2];
 
 bool paired_end;
 
-inline void addAlignments(DMSTransModelS *model, int channel, string& readname, vector<InMemAlign*>& imas) {
+inline void addAlignments(PROBerTransModelS *model, int channel, string& readname, vector<InMemAlign*>& imas) {
   int size;
   size = imas.size();
   if (size > 1) {
@@ -64,7 +64,7 @@ void loadAlignments(char *inpF, int channel) {
   header = in->header;
   assert(header->n_targets == 1);
   if (model == NULL) {
-    model = new DMSTransModelS(0, header->target_name[0], header->target_len[0]);
+    model = new PROBerTransModelS(0, header->target_name[0], header->target_len[0]);
   }
   
   b = bam_init1();
@@ -110,7 +110,7 @@ void loadAlignments(char *inpF, int channel) {
 
 int main(int argc, char* argv[]) {
   if (argc < 5) {
-    printf("Usage: dms_single_transcript config_file minus_channel.bam plus_channel.bam output_name [--MAP] [--rounds number_of_rounds] [--read-length read_length] [--sep] [--paired-end]\n");
+    printf("Usage: PROBer_single_transcript config_file minus_channel.bam plus_channel.bam output_name [--MAP] [--rounds number_of_rounds] [--read-length read_length] [--sep] [--paired-end]\n");
     exit(-1);
   }
 
@@ -140,32 +140,32 @@ int main(int argc, char* argv[]) {
   assert(fscanf(fi, "%d %d %d %lf %lf", &primer_length, &min_frag_len, &max_frag_len, &gamma_init, &beta_init) == 5);
   fclose(fi);
 
-  DMSTransModelS::setGlobalParams(primer_length, min_frag_len, max_frag_len, (isJoint ? 2 : 0));
-  DMSTransModelS::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
+  PROBerTransModelS::setGlobalParams(primer_length, min_frag_len, max_frag_len, (isJoint ? 2 : 0));
+  PROBerTransModelS::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
 
   model = NULL;
   N_obs[0] = N_obs[1] = 0.0;
 
   if (isJoint) {
     // load alignments
-    loadAlignments(argv[2], DMSTransModelS::getChannel());
-    DMSTransModelS::flipState();
-    loadAlignments(argv[3], DMSTransModelS::getChannel());
-    DMSTransModelS::flipState();
+    loadAlignments(argv[2], PROBerTransModelS::getChannel());
+    PROBerTransModelS::flipState();
+    loadAlignments(argv[3], PROBerTransModelS::getChannel());
+    PROBerTransModelS::flipState();
 
     // initialize
     model->init();
     
     // joint mode, EM
-    channel = DMSTransModelS::getChannel();
+    channel = PROBerTransModelS::getChannel();
     model->calcAuxiliaryArrays(channel);
     for (int i = 0; i < rounds; ++i) {
       model->EM_step(N_obs[channel] / model->getProbPass(channel));
-      DMSTransModelS::flipState();
-      channel = DMSTransModelS::getChannel();
+      PROBerTransModelS::flipState();
+      channel = PROBerTransModelS::getChannel();
       model->EM_step(N_obs[channel] / model->getProbPass(channel));
-      DMSTransModelS::flipState();
-      channel = DMSTransModelS::getChannel();
+      PROBerTransModelS::flipState();
+      channel = PROBerTransModelS::getChannel();
       if ((i + 1) % 100 == 0) printf("FIN %d iterations.\n", i + 1);
     }
 
@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
   }
   else {
     // load alignments from minus channel
-    channel = DMSTransModelS::getChannel();
+    channel = PROBerTransModelS::getChannel();
     assert(channel == 0);
     loadAlignments(argv[2], channel);
 
@@ -216,8 +216,8 @@ int main(int argc, char* argv[]) {
     model = NULL;
 
     // switch to plus channel
-    DMSTransModelS::flipState();
-    channel = DMSTransModelS::getChannel();
+    PROBerTransModelS::flipState();
+    channel = PROBerTransModelS::getChannel();
     assert(channel == 1);
 
     // load alignments from plus channel and new model

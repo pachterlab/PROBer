@@ -1,5 +1,5 @@
-#ifndef DMSTRANSMODEL_H_
-#define DMSTRANSMODEL_H_
+#ifndef PROBERTRANSMODEL_H_
+#define PROBERTRANSMODEL_H_
 
 #include<cmath>
 #include<cassert>
@@ -19,23 +19,23 @@
      0 - 1 2 ... n - n+1
    n = transcript length - primer length
  */
-class DMSTransModel {
+class PROBerTransModel {
 public:
   /*
     @param   tid     transcript id (internal use)
     @param   name    transcript name
     @param   transcript_length  the length of this transcript
    */
-  DMSTransModel(int tid, const std::string& name = "", int transcript_length = -1);
+  PROBerTransModel(int tid, const std::string& name = "", int transcript_length = -1);
 
-  ~DMSTransModel();
+  ~PROBerTransModel();
 
   /*
     @param   primer_length   the length of random primer
     @param   min_frag_len    minimum fragment length
     @param   max_frag_len    maximum fragment length
     @param   init_state      the initial state ((-) or (+) channel, if learning jointly or not)
-    @comment: This function sets parameters shared by all transcripts for both simulation and learning, should be called before any DMSTransModel object is created.
+    @comment: This function sets parameters shared by all transcripts for both simulation and learning, should be called before any PROBerTransModel object is created.
    */
   static void setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state);
   

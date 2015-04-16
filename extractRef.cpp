@@ -257,7 +257,7 @@ void writeResults(char* refName) {
 
 int main(int argc, char* argv[]) {
   if (argc < 6 || ((hasMappingFile = atoi(argv[4])) && argc < 7)) {
-		printf("Usage: rsem-extract-reference-transcripts refName quiet gtfF hasMappingFile [mappingFile] chromosome_file_1 [chromosome_file_2 ...]\n");
+		printf("Usage: PROBer-extract-reference-transcripts refName quiet gtfF hasMappingFile [mappingFile] chromosome_file_1 [chromosome_file_2 ...]\n");
 		exit(-1);
 	}
 

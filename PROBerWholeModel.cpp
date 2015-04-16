@@ -12,20 +12,20 @@
 #include "Transcript.hpp"
 #include "Transcripts.hpp"
 #include "MyHeap.hpp"
-#include "DMSWholeModel.hpp"
+#include "PROBerWholeModel.hpp"
 
-DMSWholeModel::DMSWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
-  // set DMSTransModel static member values
+PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
+  // set PROBerTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
 
   FILE *fi = fopen(config_file, "r");
   assert(fi != NULL);
   assert(fscanf(fi, "%d %d %d", &primer_length, &min_frag_len, &max_frag_len) == 3);
-  DMSTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, init_state);
+  PROBerTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, init_state);
   if (trans != NULL) {
     assert(fscanf(fi, "%lf %lf", &gamma_init, &beta_init) == 2);
-    DMSTransModel::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
+    PROBerTransModel::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
   }
   fclose(fi);
 
@@ -63,29 +63,29 @@ DMSWholeModel::DMSWholeModel(const char* config_file, int init_state, const Tran
     transcripts.assign(M + 1, NULL);
     for (int i = 1; i <= M; ++i) {
       const Transcript& tran = trans->getTranscriptAt(i);
-      transcripts[i] = new DMSTransModel(i, tran.getTranscriptID(), tran.getLength());
+      transcripts[i] = new PROBerTransModel(i, tran.getTranscriptID(), tran.getLength());
     }
 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     threads.assign(num_threads, pthread_t());
     
-    int channel = DMSTransModel::getChannel();
+    int channel = PROBerTransModel::getChannel();
     counts[channel].assign(M + 1, 0.0);
     unobserved[channel].assign(M + 1, 0.0);
 
-    if (DMSTransModel::isJoint()) {
+    if (PROBerTransModel::isJoint()) {
       counts[channel ^ 1].assign(M + 1, 0.0);
       unobserved[channel ^ 1].assign(M + 1, 0.0);
     }
   }
 }
 
-DMSWholeModel::~DMSWholeModel() {
+PROBerWholeModel::~PROBerWholeModel() {
   assert(transcripts[0] == NULL);
   for (int i = 1; i <= M; ++i) delete transcripts[i];
 
-  if (DMSTransModel::isLearning()) pthread_attr_destroy(&attr);
+  if (PROBerTransModel::isLearning()) pthread_attr_destroy(&attr);
 
   for (int i = 0; i < 2; ++i)
     for (int j = 0; j < (int)paramsVecUp[i].size(); ++j) delete paramsVecUp[i][j];
@@ -93,9 +93,9 @@ DMSWholeModel::~DMSWholeModel() {
   for (int i = 0; i < (int)paramsVecEM.size(); ++i) delete paramsVecEM[i];
 }
 
-void DMSWholeModel::init() {
-  int state = DMSTransModel::getState();
-  int channel = DMSTransModel::getChannel();
+void PROBerWholeModel::init() {
+  int state = PROBerTransModel::getState();
+  int channel = PROBerTransModel::getChannel();
 
   allocateTranscriptsToThreads(state, channel);
 
@@ -132,9 +132,9 @@ void DMSWholeModel::init() {
   }
 }
 
-void DMSWholeModel::EM_step(double count0) {
-  int state = DMSTransModel::getState();
-  int channel = DMSTransModel::getChannel();
+void PROBerWholeModel::EM_step(double count0) {
+  int state = PROBerTransModel::getState();
+  int channel = PROBerTransModel::getChannel();
   int size = paramsVecEM.size();
   double N_obs, sum, sum2, value;
 
@@ -189,9 +189,9 @@ void DMSWholeModel::EM_step(double count0) {
   calcProbPass(channel_to_calc);
 }
 
-void DMSWholeModel::wrapItUp(double count0) {
-  int state = DMSTransModel::getState();
-  int channel = DMSTransModel::getChannel();
+void PROBerWholeModel::wrapItUp(double count0) {
+  int state = PROBerTransModel::getState();
+  int channel = PROBerTransModel::getChannel();
 
   // Update counts
   update(count0);
@@ -214,13 +214,13 @@ void DMSWholeModel::wrapItUp(double count0) {
   }
 }
 
-void DMSWholeModel::read(const char* input_name, const char* statName) {
+void PROBerWholeModel::read(const char* input_name, const char* statName) {
   char input_param[STRLEN];
   char input_theta[STRLEN];
   std::ifstream fin;
 
-  int state = DMSTransModel::getState();
-  bool learning = DMSTransModel::isLearning();
+  int state = PROBerTransModel::getState();
+  bool learning = PROBerTransModel::isLearning();
 
   int tmp_M;
 
@@ -235,7 +235,7 @@ void DMSWholeModel::read(const char* input_name, const char* statName) {
       M = tmp_M;
       theta.assign(M + 1, 0.0);
       transcripts.assign(M + 1, NULL);
-      for (int i = 1; i <= M; ++i) transcripts[i] = new DMSTransModel(i);
+      for (int i = 1; i <= M; ++i) transcripts[i] = new PROBerTransModel(i);
     }
     else assert(M == tmp_M);
 
@@ -268,10 +268,10 @@ void DMSWholeModel::read(const char* input_name, const char* statName) {
     fin.close();
   }
 
-  if (verbose) printf("DMSWholeModel::read is finished!\n");
+  if (verbose) printf("PROBerWholeModel::read is finished!\n");
 }
 
-void DMSWholeModel::writeExprRes(int state, const char* output_name) {
+void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
   char exprF[STRLEN];
   double tpm[M + 1], fpkm[M + 1], l_bar;
   
@@ -311,15 +311,15 @@ void DMSWholeModel::writeExprRes(int state, const char* output_name) {
   fout.close();
 }
 
-void DMSWholeModel::write(const char* output_name, const char* statName) {
+void PROBerWholeModel::write(const char* output_name, const char* statName) {
   char output_param[STRLEN];
   char output_theta[STRLEN];
   //  char output_rate[STRLEN];
 
   std::ofstream fout;
 
-  assert(DMSTransModel::isLearning());
-  int state = DMSTransModel::getState();
+  assert(PROBerTransModel::isLearning());
+  int state = PROBerTransModel::getState();
   assert(state < 3); 
 
   if (state == 0 || state == 2) {
@@ -381,11 +381,11 @@ void DMSWholeModel::write(const char* output_name, const char* statName) {
   // write out expression results
   writeExprRes(state, output_name);
 
-  if (verbose) printf("DMSWholeModel::write is finished!\n");
+  if (verbose) printf("PROBerWholeModel::write is finished!\n");
 }
 
-void DMSWholeModel::startSimulation(int sim_tid) {
-  int channel = DMSTransModel::getChannel();
+void PROBerWholeModel::startSimulation(int sim_tid) {
+  int channel = PROBerTransModel::getChannel();
 
   this->sim_tid = sim_tid;
 
@@ -408,7 +408,7 @@ void DMSWholeModel::startSimulation(int sim_tid) {
   }
 }
 
-void DMSWholeModel::finishSimulation() {
+void PROBerWholeModel::finishSimulation() {
   if (sim_tid < 0) {
     for (int i = 1; i <= M; ++i) 
       if (theta[i] > 0.0) transcripts[i]->finishSimulation();
@@ -419,7 +419,7 @@ void DMSWholeModel::finishSimulation() {
   }
 }
 
-void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
+void PROBerWholeModel::allocateTranscriptsToThreads(int state, int channel) {
   int id;
   MyHeap my_heap;
   std::vector<int> max_lens; // record maximum len in each thread
@@ -487,8 +487,8 @@ void DMSWholeModel::allocateTranscriptsToThreads(int state, int channel) {
   }
 }
 
-void DMSWholeModel::update(double count0) {
-  int channel = DMSTransModel::getChannel();
+void PROBerWholeModel::update(double count0) {
+  int channel = PROBerTransModel::getChannel();
   std::vector<Params*> &paramsVecU = paramsVecUp[channel];
   int size = paramsVecU.size();
 

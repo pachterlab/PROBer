@@ -33,7 +33,7 @@ bool quiet; // verbose = !quiet;
 int main(int argc, char* argv[]) {
 
 	if (argc < 4) {
-		printf("USAGE : rsem-preref refFastaF polyAChoice refName [-l polyALen] [-f exceptionF] [-q]\n\n");
+		printf("USAGE : PROBer-preref refFastaF polyAChoice refName [-l polyALen] [-f exceptionF] [-q]\n\n");
 		printf("  refFastaF: a FASTA format file contains all reference transcripts\n");
 		printf("  polyAChoice: choice for polyA tail padding.It is a number from {0,1,2}\n");
 		printf("    0: pad polyA tail\n");

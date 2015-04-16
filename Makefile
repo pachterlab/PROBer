@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = dms-seq-extract-reference-transcripts dms-seq-synthesis-reference-transcripts dms-seq-preref dms-seq-parse-alignments dms-seq-run-em dms-seq-run-em-joint dms-seq-simulate-reads dms_single_transcript
+PROGRAMS = PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads PROBer-run-em-separate PROBer_single_transcript
 
 .PHONY : all clean
 
@@ -25,13 +25,13 @@ Transcripts.o : Transcripts.cpp utils.h my_assert.h Transcript.hpp Transcripts.h
 extractRef.o : extractRef.cpp utils.h my_assert.h GTFItem.h Transcript.hpp Transcripts.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-extract-reference-transcripts : Transcript.o Transcripts.o extractRef.o
+PROBer-extract-reference-transcripts : Transcript.o Transcripts.o extractRef.o
 	$(CC) -O3 -o $@ $^
 
 synthesisRef.o : synthesisRef.cpp utils.h my_assert.h Transcript.hpp Transcripts.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-synthesis-reference-transcripts : Transcript.o Transcripts.o synthesisRef.o
+PROBer-synthesis-reference-transcripts : Transcript.o Transcripts.o synthesisRef.o
 	$(CC) -O3 -o $@ $^
 
 RefSeq.hpp : utils.h 
@@ -51,7 +51,7 @@ Refs.o : Refs.cpp utils.h my_assert.h RefSeqPolicy.h PolyARules.h RefSeq.hpp Ref
 preRef.o : preRef.cpp utils.h my_assert.h PolyARules.h RefSeqPolicy.h AlignerRefSeqPolicy.h RefSeq.hpp Refs.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-preref : RefSeq.o Refs.o preRef.o
+PROBer-preref : RefSeq.o Refs.o preRef.o
 	$(CC) -O3 -o $@ $^
 
 CIGARstring.hpp : sam/bam.h
@@ -91,7 +91,7 @@ MyHeap.hpp : utils.h
 parseAlignments.o : parseAlignments.cpp sam/bam.h sam/sam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp CIGARstring.hpp SEQstring.hpp QUALstring.hpp BamAlignment.hpp AlignmentGroup.hpp SamParser.hpp BamWriter.hpp MyHeap.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-parse-alignments : Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o parseAlignments.o sam/libbam.a
+PROBer-parse-alignments : Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o parseAlignments.o sam/libbam.a
 	$(CC) -O3 -ffast-math -o $@ $^ -lz -lpthread
 
 sampling.hpp : boost/random.hpp
@@ -147,59 +147,62 @@ SequencingModel.o : SequencingModel.cpp sam/bam.h boost/random.hpp sampling.hpp 
 
 InMemoryStructs.hpp : utils.h
 
-DMSReadModel.hpp : utils.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp 
+PROBerReadModel.hpp : utils.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp 
 
-DMSReadModel.cpp : utils.h sampling.hpp Refs.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp DMSReadModel.hpp 
+PROBerReadModel.cpp : utils.h sampling.hpp Refs.hpp MateLenDist.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp PROBerReadModel.hpp 
 
-DMSReadModel.o : DMSReadModel.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp DMSReadModel.hpp
+PROBerReadModel.o : PROBerReadModel.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp PROBerReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-DMSTransModel.hpp : utils.h sampling.hpp InMemoryStructs.hpp
+PROBerTransModel.hpp : utils.h sampling.hpp InMemoryStructs.hpp
 
-DMSTransModel.cpp : utils.h sampling.hpp DMSTransModel.hpp
+PROBerTransModel.cpp : utils.h sampling.hpp PROBerTransModel.hpp
 
-DMSTransModel.o : DMSTransModel.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp DMSTransModel.hpp
+PROBerTransModel.o : PROBerTransModel.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp PROBerTransModel.hpp
 	$(CC) $(COFLAGS) $<
 
-DMSWholeModel.hpp : sam/bam.h sampling.hpp Transcripts.hpp InMemoryStructs.hpp DMSTransModel.hpp
+PROBerWholeModel.hpp : sam/bam.h sampling.hpp Transcripts.hpp InMemoryStructs.hpp PROBerTransModel.hpp
 
-DMSWholeModel.cpp : sam/bam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp MyHeap.hpp DMSWholeModel.hpp
+PROBerWholeModel.cpp : sam/bam.h utils.h my_assert.h Transcript.hpp Transcripts.hpp MyHeap.hpp PROBerWholeModel.hpp
 
-DMSWholeModel.o : DMSWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp InMemoryStructs.hpp DMSTransModel.hpp DMSWholeModel.hpp
+PROBerWholeModel.o : PROBerWholeModel.cpp sam/bam.h boost/random.hpp utils.h my_assert.h sampling.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp InMemoryStructs.hpp PROBerTransModel.hpp PROBerWholeModel.hpp
 	$(CC) $(COFLAGS) $<
 
-EM.o : EM.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp DMSTransModel.hpp DMSWholeModel.hpp DMSReadModel.hpp
+EM.o : EM.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp PROBerTransModel.hpp PROBerWholeModel.hpp PROBerReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-run-em : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o EM.o sam/libbam.a
+PROBer-run-em : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o PROBerTransModel.o PROBerWholeModel.o PROBerReadModel.o EM.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
-EM_joint.o : EM_joint.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp DMSTransModel.hpp DMSWholeModel.hpp DMSReadModel.hpp
+simulation.o : simulation.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp PROBerTransModel.hpp PROBerWholeModel.hpp PROBerReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-dms-seq-run-em-joint : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o EM_joint.o sam/libbam.a
-	$(CC) -O3 -o $@ $^ -lz -lpthread
-
-simulation.o : simulation.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp DMSTransModel.hpp DMSWholeModel.hpp DMSReadModel.hpp
-	$(CC) $(COFLAGS) $<
-
-dms-seq-simulate-reads : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o DMSTransModel.o DMSWholeModel.o DMSReadModel.o simulation.o sam/libbam.a
+PROBer-simulate-reads : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o PROBerTransModel.o PROBerWholeModel.o PROBerReadModel.o simulation.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 
 
 
-DMSTransModelS.hpp : utils.h sampling.hpp InMemoryStructs.hpp
-
-DMSTransModelS.cpp : utils.h sampling.hpp DMSTransModelS.hpp
-
-DMSTransModelS.o : DMSTransModelS.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp DMSTransModelS.hpp
+EM_separate.o : EM_separate.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp PROBerTransModel.hpp PROBerWholeModel.hpp PROBerReadModel.hpp
 	$(CC) $(COFLAGS) $<
 
-dms_single_transcript.o : dms_single_transcript.cpp sam/bam.h sam/sam.h utils.h InMemoryStructs.hpp DMSTransModelS.hpp
+PROBer-run-em-separate : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o PROBerTransModel.o PROBerWholeModel.o PROBerReadModel.o EM_separate.o sam/libbam.a
+	$(CC) -O3 -o $@ $^ -lz -lpthread
+
+
+
+
+PROBerTransModelS.hpp : utils.h sampling.hpp InMemoryStructs.hpp
+
+PROBerTransModelS.cpp : utils.h sampling.hpp PROBerTransModelS.hpp
+
+PROBerTransModelS.o : PROBerTransModelS.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp PROBerTransModelS.hpp
 	$(CC) $(COFLAGS) $<
 
-dms_single_transcript : DMSTransModelS.o dms_single_transcript.o sam/libbam.a
+PROBer_single_transcript.o : PROBer_single_transcript.cpp sam/bam.h sam/sam.h utils.h InMemoryStructs.hpp PROBerTransModelS.hpp
+	$(CC) $(COFLAGS) $<
+
+PROBer_single_transcript : PROBerTransModelS.o PROBer_single_transcript.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 

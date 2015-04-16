@@ -12,9 +12,9 @@
 #include "NoiseProfile.hpp"
 #include "QualDist.hpp"
 
-#include "DMSReadModel.hpp"
+#include "PROBerReadModel.hpp"
 
-DMSReadModel::DMSReadModel(int model_type, Refs* refs, int read_length) : model_type(model_type), refs(refs), read_length(read_length) {
+PROBerReadModel::PROBerReadModel(int model_type, Refs* refs, int read_length) : model_type(model_type), refs(refs), read_length(read_length) {
   mld1 = mld2 = NULL;
   qd = NULL; npro = NULL; seqmodel = NULL;
 
@@ -28,7 +28,7 @@ DMSReadModel::DMSReadModel(int model_type, Refs* refs, int read_length) : model_
   sampler = NULL;
 }
 
-DMSReadModel::DMSReadModel(DMSReadModel* master_model) {
+PROBerReadModel::PROBerReadModel(PROBerReadModel* master_model) {
   mld1 = mld2 = NULL;
   qd = NULL; npro = NULL; seqmodel = NULL;
 
@@ -45,7 +45,7 @@ DMSReadModel::DMSReadModel(DMSReadModel* master_model) {
   read_length = -1;
 }
 
-DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(sampler) {
+PROBerReadModel::PROBerReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(sampler) {
   model_type = -1; // not initilaized yet
 
   mld1 = mld2 = NULL;
@@ -57,7 +57,7 @@ DMSReadModel::DMSReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(s
   read_length = -1;
 }
 
-DMSReadModel::~DMSReadModel() {
+PROBerReadModel::~PROBerReadModel() {
   if (mld1 != NULL) delete mld1;
   if (mld2 != NULL) delete mld2;
   if (qd != NULL) delete qd;
@@ -68,7 +68,7 @@ DMSReadModel::~DMSReadModel() {
   sampler = NULL;
 }
 
-void DMSReadModel::finish_preprocess() {
+void PROBerReadModel::finish_preprocess() {
   loglik = 0.0;
   mld1->finish();
   loglik += mld1->getLogP();
@@ -84,22 +84,22 @@ void DMSReadModel::finish_preprocess() {
   seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
 }
 
-void DMSReadModel::init() {
+void PROBerReadModel::init() {
   seqmodel->init();
   npro->init();
 }
 
-void DMSReadModel::collect(DMSReadModel* o) {
+void PROBerReadModel::collect(PROBerReadModel* o) {
   seqmodel->collect(o->seqmodel);
   npro->collect(o->npro);
 }
 
-void DMSReadModel::finish() {
+void PROBerReadModel::finish() {
   seqmodel->finish();
   npro->finish();
 }
 
-void DMSReadModel::read(const char* modelF) {
+void PROBerReadModel::read(const char* modelF) {
   std::string line;
   std::ifstream fin(modelF);
   assert(fin.is_open());
@@ -138,10 +138,10 @@ void DMSReadModel::read(const char* modelF) {
 
   fin.close();
 
-  if (verbose) printf("DMSReadModel::read finished!\n");
+  if (verbose) printf("PROBerReadModel::read finished!\n");
 }
 
-void DMSReadModel::write(const char* modelF) {
+void PROBerReadModel::write(const char* modelF) {
   std::ofstream fout(modelF);
   assert(fout.is_open());
 
@@ -173,16 +173,16 @@ void DMSReadModel::write(const char* modelF) {
 
   fout.close();
 
-  if (verbose) printf("DMSReadModel::write finished!\n");
+  if (verbose) printf("PROBerReadModel::write finished!\n");
 }
 
-void DMSReadModel::startSimulation() {
+void PROBerReadModel::startSimulation() {
   if (model_type & 1) qd->startSimulation();
   seqmodel->startSimulation();
   npro->startSimulation();
 }
 
-void DMSReadModel::finishSimulation() {
+void PROBerReadModel::finishSimulation() {
   if (model_type & 1) qd->finishSimulation();
   seqmodel->finishSimulation();
   npro->finishSimulation();

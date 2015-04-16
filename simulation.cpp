@@ -12,15 +12,15 @@
 
 #include "Refs.hpp"
 
-#include "DMSWholeModel.hpp"
-#include "DMSReadModel.hpp"
+#include "PROBerWholeModel.hpp"
+#include "PROBerReadModel.hpp"
 
 using namespace std;
 
 Refs refs;
 
-DMSWholeModel *whole_model;
-DMSReadModel *read_model;
+PROBerWholeModel *whole_model;
+PROBerReadModel *read_model;
 
 seedType seed;
 Sampler *sampler;
@@ -36,13 +36,13 @@ ofstream out1, out2;
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: dms-seq-simulate-reads reference_name config_file sample_name channel('minus' or 'plus') number_of_reads output_name [--seed seed] [--transcript name] [--read-model-file read_model_file]\n\n");
+    printf("Usage: PROBer-simulate-reads reference_name config_file sample_name channel('minus' or 'plus') number_of_reads output_name [--seed seed] [--transcript name] [--read-model-file read_model_file]\n\n");
     printf("Description:\n");
-    printf("  This program simulate reads using parameters learned from data by 'dms-seq-estimate-parameters'.\n\n");
+    printf("  This program simulate reads using parameters learned from data by 'PROBer-estimate-parameters'.\n\n");
     printf("Arguments:\n");
-    printf("  reference_name: The reference's name, should be same as the ones used in 'dms-seq-prepare-reference' and 'dms-seq-estimate-parameters'.\n");
+    printf("  reference_name: The reference's name, should be same as the ones used in 'PROBer-prepare-reference' and 'PROBer-estimate-parameters'.\n");
     printf("  config_file: Contains primer length, size selection min and max fragment size etc. 'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.\n");
-    printf("  sample_name: This should be the 'sample_name' used in 'dms-seq-estimate-parameters'. No slash should be in the end of this string.\n");
+    printf("  sample_name: This should be the 'sample_name' used in 'PROBer-estimate-parameters'. No slash should be in the end of this string.\n");
     printf("  channel: 'minus' for minus channel and 'plus' for plus channel, no quotation.\n");
     printf("  number_of_reads: Number of reads to simulate.\n");
     printf("  output_name: Output file prefix. Simulated single-end reads will be written into 'output_name_[minus/plus].[fa/fq]'. Simulated paired-end reads will be written into 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].\n");
@@ -96,10 +96,10 @@ int main(int argc, char* argv[]) {
 
   sampler = new Sampler(seed);
   
-  whole_model = new DMSWholeModel(argv[2], (!strcmp(argv[4], "minus") ? 0 : 1));
+  whole_model = new PROBerWholeModel(argv[2], (!strcmp(argv[4], "minus") ? 0 : 1));
   whole_model->read(argv[3], statName);
 
-  read_model = new DMSReadModel(&refs, sampler);
+  read_model = new PROBerReadModel(&refs, sampler);
   read_model->read(readModelF);
 
   model_type = read_model->getModelType();

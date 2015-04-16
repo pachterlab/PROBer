@@ -7,45 +7,45 @@
 
 #include "utils.h"
 #include "sampling.hpp"
-#include "DMSTransModel.hpp"
+#include "PROBerTransModel.hpp"
 
-const double DMSTransModel::INF = 1000.0;
+const double PROBerTransModel::INF = 1000.0;
 
-int DMSTransModel::primer_length = 6; // default, 6bp
-int DMSTransModel::min_frag_len;
-int DMSTransModel::max_frag_len;
+int PROBerTransModel::primer_length = 6; // default, 6bp
+int PROBerTransModel::min_frag_len;
+int PROBerTransModel::max_frag_len;
 
-double DMSTransModel::gamma_init;
-double DMSTransModel::beta_init;
+double PROBerTransModel::gamma_init;
+double PROBerTransModel::beta_init;
 
-double DMSTransModel::base;
-double DMSTransModel::cgamma;
-double DMSTransModel::dgamma;
-double DMSTransModel::cbeta;
-double DMSTransModel::dbeta;
+double PROBerTransModel::base;
+double PROBerTransModel::cgamma;
+double PROBerTransModel::dgamma;
+double PROBerTransModel::cbeta;
+double PROBerTransModel::dbeta;
 
-int DMSTransModel::min_alloc_len;
-bool DMSTransModel::isMAP = true; // default is true
+int PROBerTransModel::min_alloc_len;
+bool PROBerTransModel::isMAP = true; // default is true
 
-bool DMSTransModel::learning = false; // default is simulation
-int DMSTransModel::state = 0;
+bool PROBerTransModel::learning = false; // default is simulation
+int PROBerTransModel::state = 0;
 
-void DMSTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
+void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
-  DMSTransModel::primer_length = primer_length;
-  DMSTransModel::min_frag_len = min_frag_len - primer_length;
-  DMSTransModel::max_frag_len = max_frag_len - primer_length;
+  PROBerTransModel::primer_length = primer_length;
+  PROBerTransModel::min_frag_len = min_frag_len - primer_length;
+  PROBerTransModel::max_frag_len = max_frag_len - primer_length;
   state = init_state;
 }
 
-void DMSTransModel::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
+void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
   learning = true;
 
-  DMSTransModel::gamma_init = gamma_init;
-  DMSTransModel::beta_init = beta_init;
-  DMSTransModel::base = base;
-  DMSTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
-  DMSTransModel::isMAP = isMAP;
+  PROBerTransModel::gamma_init = gamma_init;
+  PROBerTransModel::beta_init = beta_init;
+  PROBerTransModel::base = base;
+  PROBerTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
+  PROBerTransModel::isMAP = isMAP;
 
   if (isMAP) {
     dgamma = gamma_init * base;
@@ -57,7 +57,7 @@ void DMSTransModel::setLearningRelatedParams(double gamma_init, double beta_init
 
 
 
-DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_length) : tid(tid), name(name) {  
+PROBerTransModel::PROBerTransModel(int tid, const std::string& name, int transcript_length) : tid(tid), name(name) {  
   gamma = beta = NULL;
   start = end = NULL;
   dcm = ccm = NULL;
@@ -97,7 +97,7 @@ DMSTransModel::DMSTransModel(int tid, const std::string& name, int transcript_le
   }
 }
 
-DMSTransModel::~DMSTransModel() {
+PROBerTransModel::~PROBerTransModel() {
   if (gamma != NULL) delete[] gamma;
   if (beta != NULL) delete[] beta;
 
@@ -118,7 +118,7 @@ DMSTransModel::~DMSTransModel() {
   if (end_se != NULL) delete[] end_se;
 }
 
-void DMSTransModel::init() {
+void PROBerTransModel::init() {
   int state = getState();
 
   assert(state < 3);
@@ -161,7 +161,7 @@ void DMSTransModel::init() {
   }
 }
 
-void DMSTransModel::calcAuxiliaryArrays(int channel) {
+void PROBerTransModel::calcAuxiliaryArrays(int channel) {
   double value;
   int max_pos;
 
@@ -202,7 +202,7 @@ void DMSTransModel::calcAuxiliaryArrays(int channel) {
   }
 }
 
-void DMSTransModel::update() {
+void PROBerTransModel::update() {
   int channel = getChannel();
   std::vector<InMemAlign*> &alignments = alignmentsArr[channel];
 
@@ -231,7 +231,7 @@ void DMSTransModel::update() {
   if (isZero(N_obs[channel])) N_obs[channel] = 0.0; // if N_obs is small, directly set it to 0
 }
 
-inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
+inline void PROBerTransModel::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
   double a = (1.0 - gamma) * (cbeta + cc + dbeta + dc);
   double b = ((cbeta + cc + 2.0 * dbeta + dc) * gamma - (dc + dbeta)) / a;
   double c = (-dbeta * gamma) / a;
@@ -244,7 +244,7 @@ inline void DMSTransModel::solveQuadratic1(double& beta, double gamma, double dc
   assert(beta > 0.0 && beta < 1.0);
 }
 
-inline void DMSTransModel::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
+inline void PROBerTransModel::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
   double common_factor = cgamma + ccm - cbeta- dbeta;
   double a = (cbeta + ccp + dbeta + dcp) * common_factor;
   double b = (cbeta + ccp + dbeta) * (dbeta + dgamma + dcm) - common_factor * (dcp + dbeta) + dbeta * dcp;
@@ -270,7 +270,7 @@ inline void DMSTransModel::solveQuadratic2(double& gamma, double& beta, double d
   assert(gamma > 0.0 && gamma < 1.0);
 }
 
-void DMSTransModel::EM_step(double N_tot) {
+void PROBerTransModel::EM_step(double N_tot) {
   int channel = getChannel();
 
   int max_end_i;
@@ -434,7 +434,7 @@ void DMSTransModel::EM_step(double N_tot) {
   calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }
 
-void DMSTransModel::read(std::ifstream& fin, int channel) {
+void PROBerTransModel::read(std::ifstream& fin, int channel) {
   std::string tmp_name;
   int tmp_len;
 
@@ -464,7 +464,7 @@ void DMSTransModel::read(std::ifstream& fin, int channel) {
   }
 }
 
-void DMSTransModel::write(std::ofstream& fout, int channel) {
+void PROBerTransModel::write(std::ofstream& fout, int channel) {
   fout<< name<< '\t'<< len;
 
   if (channel == 0) {
@@ -483,7 +483,7 @@ void DMSTransModel::write(std::ofstream& fout, int channel) {
   fout<< std::endl;
 }
 
-void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
+void PROBerTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
   double c = 0.0;
   for (int i = 1; i <= len; ++i) c += -log(1.0 - beta[i]);
 
@@ -496,7 +496,7 @@ void DMSTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
   fout<< std::endl;
 }
 
-void DMSTransModel::startSimulation() {
+void PROBerTransModel::startSimulation() {
   if (efflen <= 0) return;
   cdf_end = new double[efflen];
 
@@ -509,7 +509,7 @@ void DMSTransModel::startSimulation() {
   }
 }
 
-void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
+void PROBerTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
   int upper_bound, cpos;
   double random_value, value, sum;
 
@@ -531,7 +531,7 @@ void DMSTransModel::simulate(Sampler* sampler, int& pos, int& fragment_length) {
   fragment_length += primer_length;
 }
 
-void DMSTransModel::finishSimulation() {
+void PROBerTransModel::finishSimulation() {
   if (cdf_end != NULL) delete[] cdf_end;
   cdf_end = NULL;
 }

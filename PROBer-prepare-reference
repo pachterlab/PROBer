@@ -83,14 +83,14 @@ if len(fasta_files) <= 0:
 command = []
 
 if gtf_file != None:
-    command.extend(["dms-seq-extract-reference-transcripts", args.ref_name, ("1" if args.quiet else "0"), gtf_file])
+    command.extend(["PROBer-extract-reference-transcripts", args.ref_name, ("1" if args.quiet else "0"), gtf_file])
     if args.tran2gene != None:
         command.extend(["1", args.tran2gene])
     else:
         command.append("0")
     command.extend(fasta_files)
 else:
-    command.extend(["dms-seq-synthesis-reference-transcripts", args.ref_name, ("1" if args.quiet else "0")])
+    command.extend(["PROBer-synthesis-reference-transcripts", args.ref_name, ("1" if args.quiet else "0")])
     if args.tran2gene != None:
         command.extend(["1", args.tran2gene])
     else:
@@ -100,7 +100,7 @@ else:
 runProg(command)
 
 # Prepare references
-command = ["dms-seq-preref", "{}.transcripts.fa".format(args.ref_name), "1", args.ref_name]
+command = ["PROBer-preref", "{}.transcripts.fa".format(args.ref_name), "1", args.ref_name]
 if args.quiet:
     command.append("-q")
 runProg(command)
