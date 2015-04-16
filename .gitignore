@@ -1,13 +1,14 @@
 sam
 *.o
 *~
-dms-seq-extract-reference-transcripts
-dms-seq-parse-alignments
-dms-seq-preref
-dms-seq-synthesis-reference-transcripts
-dms-seq-run-em
-dms-seq-run-em-joint
-dms-seq-simulate-reads
+PROBer-extract-reference-transcripts
+PROBer-parse-alignments
+PROBer-preref
+PROBer-synthesis-reference-transcripts
+PROBer-run-em
+PROBer-simulate-reads
 utils.pyc
 
-dms_single_transcript
+PROBer-run-em-separate
+
+PROBer_single_transcript
