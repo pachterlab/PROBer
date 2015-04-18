@@ -203,7 +203,7 @@ else:
         command2.extend(["--shorter-than", str(args.size_selection_min)])
     if args.quiet:
         command2.append("-q")
-    runProg(command, command2)
+    runProg(command, command2, "{}_{}.err".format(statName, args.channel))
 
 # Generate config file
 fh = open("{}_{}.config".format(imdName, args.channel), 'w')

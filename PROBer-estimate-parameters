@@ -222,7 +222,7 @@ else:
         command2.extend(["--shorter-than", str(args.size_selection_min)])
     if args.quiet:
         command2.append("-q")
-    runProg(command, command2)  # Run aligner and then parse for (-) channel data
+    runProg(command, command2, "{}_minus.err".format(statName))  # Run aligner and then parse for (-) channel data
 
     pos = len(command) - 1
     if not args.paired_end:
@@ -232,7 +232,7 @@ else:
         command[pos] = args.reads[3]
     command2[posChannel] = "plus"
 
-    runProg(command, command2)  # Run aligner and then parse for (+) channel data
+    runProg(command, command2, "{}_plus.err".format(statName))  # Run aligner and then parse for (+) channel data
 
 if args.time:
     t2 = time.time()

@@ -49,10 +49,10 @@ def expandAll(input):
 
 demo = False
         
-def runProg(command, command2 = None):
+def runProg(command, command2 = None, catch_stderr = None):
     """ Run command using a subprocess, if command2 != None, use Pipe """
 
-    commandStr = " ".join(command) + (" | " + " ".join(command2) if command2 != None else "")
+    commandStr = " ".join(command) + (" 2> {}".format(catch_stderr) if catch_stderr != None else "") + (" | " + " ".join(command2) if command2 != None else "")
     print(commandStr)
 
     if demo:     
@@ -62,9 +62,13 @@ def runProg(command, command2 = None):
         if command2 == None:
             subprocess.check_call(command)
         else:
-            p1 = subprocess.Popen(command, stdout = subprocess.PIPE)
+            fd = open(catch_stderr, "w") if catch_stderr != None else None
+            p1 = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = fd)
             subprocess.check_call(command2, stdin = p1.stdout)
             p1.stdout.close()
+            if fd != None:
+                fd.close()
+
     except subprocess.CalledProcessError as error:
         print("Command \"{}\" failed!".format(commandStr))
         sys.exit(-1)
