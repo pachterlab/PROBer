@@ -69,25 +69,26 @@ public:
    */
   static bool isLearning() { return learning; }
 
+  // In single transcript Model, state is not static anymore
   /*
     @return   current state
   */
-  static int getState() { return state; }
+  int getState() { return state; }
 
   /*
     @comment: change channel
    */
-  static void flipState() { state = state ^ 1; }
+  void flipState() { state = state ^ 1; }
 
   /*
     @return   which channel we are dealing with (0, -; 1, +)
    */
-  static int getChannel() { return state & 1; }
+  int getChannel() const { return state & 1; }
 
   /*
     @return   if joint learning, true; otherwise, false
   */
-  static bool isJoint() { return state >= 2; }
+  bool isJoint() const { return state >= 2; }
 
   /*
     @return   transcript id
@@ -241,7 +242,8 @@ private:
 
   static int primer_length; // primer_length, the length of primers
   static int min_frag_len, max_frag_len; // min_frag_len and max_frag_len, the min and max fragment length (primer length excluded)
-  static int state; // 0, learn/simulate gamma; 1, learn/simulate beta; 2, joint learning, gamma; 3, joint learning, beta
+
+  static int init_state; // init state 
 
   static double gamma_init, beta_init;
 
@@ -253,6 +255,8 @@ private:
 
   int tid; // transcript id
   std::string name; // transcript name
+
+  int state; // 0, learn/simulate gamma; 1, learn/simulate beta; 2, joint learning, gamma; 3, joint learning, beta
 
   int len; // len, number of position can learn parameters, transcript_length - primer_length
   int efflen; // efflen, number of positions can generate a valid fragment, len - min_frag_len + 1

@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads PROBer-run-em-separate PROBer_single_transcript
+PROGRAMS = PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads PROBer-run-em-separate PROBer_single_transcript PROBer_single_transcript_batch
 
 .PHONY : all clean
 
@@ -206,6 +206,12 @@ PROBer_single_transcript : PROBerTransModelS.o PROBer_single_transcript.o sam/li
 	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 
+
+PROBer_single_transcript_batch.o : PROBer_single_transcript_batch.cpp sam/bam.h sam/sam.h utils.h my_assert.h MyHeap.hpp InMemoryStructs.hpp PROBerTransModelS.hpp 
+	$(CC) $(COFLAGS) $<
+
+PROBer_single_transcript_batch : PROBerTransModelS.o PROBer_single_transcript_batch.o sam/libbam.a
+	$(CC) -O3 -o $@ $^ -lz -lpthread
 
 
 

@@ -28,14 +28,14 @@ int PROBerTransModelS::min_alloc_len;
 bool PROBerTransModelS::isMAP = true; // default is true
 
 bool PROBerTransModelS::learning = false; // default is simulation
-int PROBerTransModelS::state = 0;
+int PROBerTransModelS::init_state = 0;
 
 void PROBerTransModelS::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   PROBerTransModelS::primer_length = primer_length;
   PROBerTransModelS::min_frag_len = min_frag_len - primer_length;
   PROBerTransModelS::max_frag_len = max_frag_len - primer_length;
-  state = init_state;
+  PROBerTransModelS::init_state = init_state;
 }
 
 void PROBerTransModelS::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
@@ -56,8 +56,9 @@ void PROBerTransModelS::setLearningRelatedParams(double gamma_init, double beta_
 }
 
 
-
 PROBerTransModelS::PROBerTransModelS(int tid, const std::string& name, int transcript_length) : tid(tid), name(name) {  
+  state = PROBerTransModelS::init_state; // initialize the state of this transcript
+
   gamma = beta = NULL;
   start = end = NULL;
   dcm = ccm = NULL;

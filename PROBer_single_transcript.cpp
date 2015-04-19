@@ -65,6 +65,7 @@ void loadAlignments(char *inpF, int channel) {
   assert(header->n_targets == 1);
   if (model == NULL) {
     model = new PROBerTransModelS(0, header->target_name[0], header->target_len[0]);
+    if (channel == 1) model->flipState(); // If '+', update the state from 0 to 1
   }
   
   b = bam_init1();
@@ -148,24 +149,24 @@ int main(int argc, char* argv[]) {
 
   if (isJoint) {
     // load alignments
-    loadAlignments(argv[2], PROBerTransModelS::getChannel());
-    PROBerTransModelS::flipState();
-    loadAlignments(argv[3], PROBerTransModelS::getChannel());
-    PROBerTransModelS::flipState();
+    loadAlignments(argv[2], 0);
+    model->flipState();
+    loadAlignments(argv[3], 1);
+    model->flipState();
 
     // initialize
     model->init();
     
     // joint mode, EM
-    channel = PROBerTransModelS::getChannel();
+    channel = model->getChannel();
     model->calcAuxiliaryArrays(channel);
     for (int i = 0; i < rounds; ++i) {
       model->EM_step(N_obs[channel] / model->getProbPass(channel));
-      PROBerTransModelS::flipState();
-      channel = PROBerTransModelS::getChannel();
+      model->flipState();
+      channel = model->getChannel();
       model->EM_step(N_obs[channel] / model->getProbPass(channel));
-      PROBerTransModelS::flipState();
-      channel = PROBerTransModelS::getChannel();
+      model->flipState();
+      channel = model->getChannel();
       if ((i + 1) % 100 == 0) printf("FIN %d iterations.\n", i + 1);
     }
 
@@ -189,9 +190,7 @@ int main(int argc, char* argv[]) {
   }
   else {
     // load alignments from minus channel
-    channel = PROBerTransModelS::getChannel();
-    assert(channel == 0);
-    loadAlignments(argv[2], channel);
+    loadAlignments(argv[2], 0);
 
     // initialize
     model->init();
@@ -215,13 +214,8 @@ int main(int argc, char* argv[]) {
     delete model;
     model = NULL;
 
-    // switch to plus channel
-    PROBerTransModelS::flipState();
-    channel = PROBerTransModelS::getChannel();
-    assert(channel == 1);
-
     // load alignments from plus channel and new model
-    loadAlignments(argv[3], channel);
+    loadAlignments(argv[3], 1);
    
     // load estimated gamma values
     sprintf(inF, "%s.gamma", argv[4]);
