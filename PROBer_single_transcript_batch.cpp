@@ -95,7 +95,7 @@ void assignTranscripts(char* inpBamF, char* listF) {
     }
     fin.close();
   }
-  
+
   in = samopen(inpBamF, "rb", NULL);
   header = in->header;
 
@@ -115,11 +115,11 @@ void assignTranscripts(char* inpBamF, char* listF) {
       atran->model = new PROBerTransModelS(i, header->target_name[i], header->target_len[i]);
       trans[i] = atran;
       pid = aheap.getTop();
-      aheap.updateTop(header->target_len[i]);
+      aheap.updateTop(atran->model->getLen());
       transvec[pid].trans.push_back(atran);
       ++transvec[pid].s;
     }
-  
+
   samclose(in);
 }
 
@@ -275,27 +275,32 @@ int main(int argc, char* argv[]) {
 
   // set up global parameters
   setupConfig(argv[1]);
+  printf("Set up config is done!\n");
 
   // assign transcripts to different threads
   assignTranscripts(argv[2], inputList);
+  printf("Assign transcripts is done!\n");
 
   // parse alignments
   parseAlignments(argv[2], 0);
+  printf("parseAlignments for '-' is done!\n");
   parseAlignments(argv[3], 1);
+  printf("parseAlignments for '+' is done!\n");
 
   // Run EM
   for (int i = 0; i < nthreads; ++i) {
     rc = pthread_create(&threads[i], &attr, runEM, (void*)(&transvec[i]));
     pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0)!");
   }
-
   for (int i = 0; i < nthreads; ++i) {
     rc = pthread_join(threads[i], NULL);
     pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0)!");
   }
+  printf("Run EM is done!\n");
 
   // output
   writeItOut(argv[4]);
+  printf("Results are written!\n");
 
   // release resource
   release();

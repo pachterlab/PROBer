@@ -78,7 +78,7 @@ if not os.path.exists(dir_):
 command = []
 pos = 0
 
-command.extend(["rsem-calculate-expression", "--strand-specific", "-p", str(args.num_threads)])
+command.extend(["rsem-calculate-expression", "--strand-specific", "-p", str(args.num_threads), "--seed-length", "20"]) # seed length = 20 < 21 to make sure all reads are considered
 
 if not args.paired_end:
     # Use Bowtie for RSEM
