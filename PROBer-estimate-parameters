@@ -74,6 +74,7 @@ group.add_argument("--no-quality-scores", help = "Input reads do not contain qua
 group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
 group.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
 group.add_argument("--output-bam", help = "Output transcript BAM file.", action = "store_true")
+group.add_argument("--rounds", help = "Number of EM iterations run.", type = int, metavar = "<int>")
 
 group = parser.add_argument_group(title = "Structure-seq related", description = "Set necessary parameters for generating a config file.")
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
@@ -250,6 +251,8 @@ if args.ml_est:
     command.append("--maximum-likelihood")
 if args.output_bam:
     command.append("--output-bam")
+if args.rounds != None:
+    command.extend(["--rounds", str(args.rounds)])
 if args.quiet:
     command.append("-q")
 runProg(command)

@@ -26,8 +26,6 @@
 
 using namespace std;
 
-const int MAX_ROUND = 400;
-
 // Parameter struct to pass parameters to each subprocess
 struct InMemParams {
   int no; // thread number
@@ -55,6 +53,8 @@ struct InMemParams {
     if (estimator != NULL) delete estimator;
   }
 };
+
+int MAX_ROUND;
 
 int M; // Number of transcripts
 int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
@@ -442,7 +442,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [-q]\n");
+    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--rounds rounds] [-q]\n");
     exit(-1);
   }
 
@@ -457,10 +457,12 @@ int main(int argc, char* argv[]) {
   output_bam = false;
   read_length = -1;
   isMAP = true;
+  MAX_ROUND = 400;
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
+    if (!strcmp(argv[i], "--rounds")) MAX_ROUND = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "-q")) verbose = false;
   }
 
