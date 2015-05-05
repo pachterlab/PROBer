@@ -45,7 +45,7 @@ void loadMappingInfo(int file_type, char* mappingF) {
       line = cleanStr(line);
       if (line[0] == '#') continue;
       istringstream strin(line);
-      strin>>value>>key;
+      strin>> key>> value; // transcript_id gene_id
       mi_table[key] = value;
     }
     break;
@@ -56,6 +56,7 @@ void loadMappingInfo(int file_type, char* mappingF) {
       line = cleanStr(line);
       if (line[0] == '#') continue;
       istringstream strin(line);
+      strin>> key>> value2 >> value; // allele_id transcript_id gene_id
       strin>> value>> value2>> key;
       mi_table[key] = value;
       mi_table2[key] = value2;

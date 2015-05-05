@@ -21,7 +21,7 @@ group.add_argument("--gff3", help = "<file> is in GFF3 format. This program will
 
 parser.add_argument("--gff3-RNA-pattern", help = "<pattern> is a comma-separated list of transcript categories, e.g. 'mRNA,rRNA'. Only transcripts that match the <pattern> will be extracted.", default = "mRNA", metavar = "<pattern>")
 
-parser.add_argument("--transcript-to-gene-map", help = "L:Use information from <file> to map from transcript (isoform) ids to gene ids.\nEach line of <file> should be of the form:\n\ngene_id\ttranscript_id\n\nwith the two fields separated by a tab character.", type = utils.expand, metavar = "<file>", dest = "tran2gene")
+parser.add_argument("--transcript-to-gene-map", help = "L:Use information from <file> to map from transcript (isoform) ids to gene ids.\nEach line of <file> should be of the form:\n\ntranscript_id\tgene_id\n\nwith the two fields separated by a tab character.", type = utils.expand, metavar = "<file>", dest = "tran2gene")
 
 parser.add_argument("--bowtie", help = "Build Bowtie indices.", action = "store_true")
 parser.add_argument("--bowtie-path", help = "The path to the Bowtie executables.", type = utils.expand, metavar = "<path>")

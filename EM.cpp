@@ -316,9 +316,11 @@ void one_EM_iteration(int channel, int ROUND) {
 
 void EM() {
   int ROUND;
+  double prev_loglik, curr_loglik;
 
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
+  prev_loglik = curr_loglik = -1e300;
 
   do {
     ++ROUND;
@@ -334,7 +336,12 @@ void EM() {
     one_EM_iteration(1, ROUND);
     whole_model->flipState();
 
-    if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik[0] + loglik[1]);
+    prev_loglik = curr_loglik;
+    curr_loglik = loglik[0] + loglik[1];
+
+    //if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik[0] + loglik[1]);
+    if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, curr_loglik);
+    if (ROUND > 1) printf("delta_loglik = %.10g, avg_delta_loglik = %.10g\n", (curr_loglik - prev_loglik), (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]));
 
   } while (ROUND <= MAX_ROUND);
   
