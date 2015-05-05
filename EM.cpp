@@ -54,7 +54,8 @@ struct InMemParams {
   }
 };
 
-int MAX_ROUND;
+const double deltaChange = 5e-6;
+int MAX_ROUND = 1000; // default maximum iterations
 
 int M; // Number of transcripts
 int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
@@ -339,9 +340,9 @@ void EM() {
     prev_loglik = curr_loglik;
     curr_loglik = loglik[0] + loglik[1];
 
-    //if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik[0] + loglik[1]);
     if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, curr_loglik);
-    if (ROUND > 1) printf("delta_loglik = %.10g, avg_delta_loglik = %.10g\n", (curr_loglik - prev_loglik), (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]));
+
+    if (ROUND > 1 && (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]) < deltaChange) MAX_ROUND = ROUND;
 
   } while (ROUND <= MAX_ROUND);
   
@@ -449,7 +450,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--rounds rounds] [-q]\n");
+    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [-q]\n");
     exit(-1);
   }
 
@@ -464,12 +465,10 @@ int main(int argc, char* argv[]) {
   output_bam = false;
   read_length = -1;
   isMAP = true;
-  MAX_ROUND = 400;
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
-    if (!strcmp(argv[i], "--rounds")) MAX_ROUND = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "-q")) verbose = false;
   }
 
