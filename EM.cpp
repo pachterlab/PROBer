@@ -26,6 +26,9 @@
 
 using namespace std;
 
+const int MAX_ROUND = 1000; // default maximum iterations
+const double deltaChange = 5e-6; // default log-likelihood change per read
+
 // Parameter struct to pass parameters to each subprocess
 struct InMemParams {
   int no; // thread number
@@ -54,8 +57,7 @@ struct InMemParams {
   }
 };
 
-const double deltaChange = 5e-6;
-int MAX_ROUND = 1000; // default maximum iterations
+bool keepGoing;
 
 int M; // Number of transcripts
 int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
@@ -302,7 +304,7 @@ void one_EM_iteration(int channel, int ROUND) {
   }
   loglik[channel] -= N_eff[channel] * log(whole_model->getProbPass());
   
-  if (ROUND > MAX_ROUND) whole_model->wrapItUp(count0[channel]);
+  if (!keepGoing) whole_model->wrapItUp(count0[channel]);
   else {
     // Run PROBerWholeModel's EM_step procedure
     whole_model->EM_step(count0[channel]);
@@ -322,12 +324,15 @@ void EM() {
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
   prev_loglik = curr_loglik = -1e300;
+  keepGoing = true;
 
   do {
     ++ROUND;
 
     needCalcConPrb = updateReadModel;
     updateReadModel = needUpdateReadModel(ROUND);
+
+    keepGoing = (ROUND <= MAX_ROUND) && (ROUND <= 2 || (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]) > deltaChange);
 
     // (-) channel
     one_EM_iteration(0, ROUND);
@@ -340,11 +345,9 @@ void EM() {
     prev_loglik = curr_loglik;
     curr_loglik = loglik[0] + loglik[1];
 
-    if (verbose) printf("Loglik of ROUND %d is: %.2f\n", ROUND - 1, curr_loglik);
+    if (verbose) printf("Loglik of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_loglik, (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]));
 
-    if (ROUND > 1 && (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]) < deltaChange) MAX_ROUND = ROUND;
-
-  } while (ROUND <= MAX_ROUND);
+  } while (keepGoing);
   
   if (verbose) printf("EM is finished!\n");
 }
