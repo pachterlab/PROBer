@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
   while (parser->next(ag)) {
     bool isAligned = ag.isAligned();
 
-    if (ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len) || \
+    if (ag.isFiltered() || ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len) || \
 	(isAligned && ag.size() > max_hit_allowed) || (!isAligned && bowtie_filter && is_filtered_bowtie(ag))) {
 	++N[2];
 	writer2->write(ag, 1);

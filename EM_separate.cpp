@@ -328,7 +328,7 @@ void writeResults() {
   if (output_bam) {
     char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
     sprintf(inp0F, "%s_N0.bam", imdName);
-    sprintf(outF, "%s_%s.transcripts.bam", sampleName, channel);
+    sprintf(outF, "%s_%s.bam", sampleName, channel);
     
     SamParser* parser0 = new SamParser('b', inp0F, NULL);
     BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "PROBer");

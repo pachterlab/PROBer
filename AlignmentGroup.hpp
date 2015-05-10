@@ -36,6 +36,8 @@ public:
     s = max_size = 0;
   }
 
+  bool isFiltered() const { return (s > 0) && alignments[0]->isFiltered(); }
+
   void markAsFiltered() {
     for (int i = 0; i < s; ++i) alignments[i]->markAsFiltered();
   }

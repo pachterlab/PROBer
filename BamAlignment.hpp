@@ -165,6 +165,13 @@ public:
   }
 
   /*
+    @func   return true if ZF tag is detected!
+   */
+  bool isFiltered() const {
+    return bam_aux_get(b, "ZF") != NULL;
+  }
+
+  /*
     @func   this function append a ZF:A:! field to indicate this alignment is filtered out if it is not marked before
    */
   void markAsFiltered() {

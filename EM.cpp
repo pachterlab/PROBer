@@ -279,13 +279,17 @@ inline bool needUpdateReadModel(int ROUND) {
   return ROUND <= 10;
 }
 
+double log_a, log_b;
+
 void one_EM_iteration(int channel, int ROUND) {
   assert(whole_model->getChannel() == channel);
 
   // init
   if (ROUND == 1) whole_model->init();
 
-  logprob[channel] = whole_model->getLogPrior();
+  logprob[channel] = (isMAP ? whole_model->getLogPrior() : 0.0);
+  if (channel == 0) log_a = logprob[channel];
+  else log_b = logprob[channel];
 
   // E step
   for (int i = 0; i < num_threads; ++i) {
@@ -347,7 +351,7 @@ void EM() {
     prev_logprob = curr_logprob;
     curr_logprob = logprob[0] + logprob[1];
 
-    if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
+    if (verbose) printf("Log probability of ROUND %d = %.2f, loglik = %.2f, a = %.2f, b = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, curr_logprob - log_a - log_b, log_a, log_b, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
 
   } while (keepGoing);
   
@@ -358,7 +362,7 @@ void outputBamFiles(int channel) {
   char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
 
   sprintf(inp0F, "%s_%s_N0.bam", imdName, channelStr[channel]);
-  sprintf(outF, "%s_%s.transcripts.bam", sampleName, channelStr[channel]);
+  sprintf(outF, "%s_%s.bam", sampleName, channelStr[channel]);
   
   SamParser* parser0 = new SamParser('b', inp0F, NULL);
   BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "PROBer");
