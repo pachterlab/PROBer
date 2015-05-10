@@ -52,7 +52,7 @@ public:
     @param   tid   transcript id
     @param   pos   leftmost position from 5' end, 0-based
     @param   fragment_length  fragment length, 0 means SE read 
-    @return   probability of generating such a read (not condition on that read passes the size selection step
+    @return   probability of generating such a read (not condition on that read passes the size selection step)
    */
   double getProb(int tid, int pos = 0, int fragment_length = 0) const {
     assert(tid >= 0 && tid <= M);
@@ -65,6 +65,13 @@ public:
    */
   double getProbPass() const {
     return prob_pass[PROBerTransModel::getChannel()];
+  }
+
+  /*
+    @return   the log prior probability for the current channel
+  */
+  double getLogPrior() const {
+    return logprior[PROBerTransModel::getChannel()];
   }
 
   /*
@@ -147,6 +154,8 @@ private:
   double prob_noise[2][2]; // the first dimension represent state, the second dimension: 0, probability of generating a noise read; 1, probability of generating a read from transcripts.
   double prob_pass[2]; // probability of generating a read that pass the size selection step
 
+  double logprior[2], consts[2]; // logprior: log prior probabilities for each channel; consts: the unchanged part of log prior
+
   int sim_tid; // if sim_tid > 0, only simulate from transcript sim_tid
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
@@ -183,13 +192,19 @@ private:
 
   /*
     @param   channel   (+) or (-), which channel we are working on
-    @comment:  Calculate the probability that any read passes the size selection step
+    @comment:  Calculate the probability that any read passes the size selection step, also the log prior probability
    */
   void calcProbPass(int channel) {
     prob_pass[channel] = prob_noise[channel][0];
-    for (int i = 1; i <= M; ++i) 
+    for (int i = 1; i <= M; ++i) {
       prob_pass[channel] += prob_noise[channel][1] * theta[i] * transcripts[i]->getProbPass(channel);
     assert(!isZero(prob_pass[channel]));
+
+    if (PROBerTransModel::useMAP()) {
+      logprior[channel] = consts[channel];
+      for (int i = 1; i <= M; ++i) 
+	logprior[channel] += transcripts[i]->getLogPrior(channel);
+    }
   }
 
   /*

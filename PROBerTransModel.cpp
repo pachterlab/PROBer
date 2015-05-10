@@ -24,6 +24,9 @@ double PROBerTransModel::dgamma;
 double PROBerTransModel::cbeta;
 double PROBerTransModel::dbeta;
 
+double PROBerTransModel::lgammas[2];
+double PROBerTransModel::defaults[2];
+
 int PROBerTransModel::min_alloc_len;
 bool PROBerTransModel::isMAP = true; // default is true
 
@@ -52,6 +55,11 @@ void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_i
     cgamma = base - dgamma;
     dbeta = beta_init * base;
     cbeta = base - dbeta;
+
+    lgammas[0] = lgamma(base + 2.0) - lgamma(dgamma + 1.0) - lgamma(cgamma + 1.0);
+    lgammas[1] = lgamma(base + 2.0) - lgamma(dbeta + 1.0) - lgamma(cbeta + 1.0);
+    defaults[0] = dgamma * log(gamma_init) + cgamma * log(1.0 - gamma_init);
+    defaults[1] = dbeta * log(beta_init) + cbeta * log(1.0 - beta_init);
   }
 }
 
@@ -78,6 +86,8 @@ PROBerTransModel::PROBerTransModel(int tid, const std::string& name, int transcr
 
   hasSE = false;
   N_se = 0.0;
+
+  log_prior[0] = log_prior[1] = 0.0;
 
   cdf_end = NULL;
 
@@ -199,6 +209,14 @@ void PROBerTransModel::calcAuxiliaryArrays(int channel) {
       margin_prob2[i] = 1.0 + (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
 	(max_pos > len ? margin_prob2[i + 1] : margin_prob2[i + 1] - exp(logsum[max_pos] - logsum[pos]));
     }
+  }
+
+  if (isMAP) {
+    log_prior[channel] = 0.0;
+    if (channel == 0)
+      for (int i = 1; i <= len; ++i) log_prior[channel] += dgamma * log(gamma[i]) + cgamma * log (1.0 - gamma[i]);
+    else 
+      for (int i = 1; i <= len; ++i) log_prior[channel] += dbeta * log(beta[i]) + cbeta * log(1.0 - beta[i]);
   }
 }
 

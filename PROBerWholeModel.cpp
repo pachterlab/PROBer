@@ -49,6 +49,9 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
     paramsVecUp[i].clear();
   }
 
+  consts[0] = consts[1] = 0.0;
+  logprior[0] = logprior[1] = 0.0;
+
   sim_tid = -1;
   cdf = NULL;
 
@@ -58,12 +61,27 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
     assert(num_threads >= 1);
     this->num_threads = num_threads;
 
+    double totlen = 0.0;
+
     M = trans->getM();
     theta.assign(M + 1, 0.0);
     transcripts.assign(M + 1, NULL);
     for (int i = 1; i <= M; ++i) {
       const Transcript& tran = trans->getTranscriptAt(i);
       transcripts[i] = new PROBerTransModel(i, tran.getTranscriptID(), tran.getLength());
+      totlen += transcripts[i]->getLen();
+    }
+
+    if (isMAP) {
+      switch(init_state) {
+      case 0: consts[0] = totlen * PROBerTransModel::getLGamma(0); break;
+      case 1: consts[1] = totlen * PROBerTransModel::getLGamma(1); break;
+      case 2: 
+	consts[0] = totlen * PROBerTransModel::getLGamma(0);
+	consts[1] = totlen * PROBerTransModel::getLGamma(1);
+	break;
+      case default: assert(false);
+      }
     }
 
     pthread_attr_init(&attr);
@@ -101,6 +119,22 @@ void PROBerWholeModel::init() {
 
   // Initialize theta, prob_noise and auxiliary arrays
   if (state < 3) {
+
+    if (PROBerTransModel::useMAP()) {
+      double totlen = 0.0;
+      for (int i = 1; i <= M; ++i) 
+	if (transcripts[i]->isExcluded()) totlen += transcripts[i]->getLen();
+      switch(state) {
+      case 0: consts[0] += totlen * PROBerTransModel::getDefault(0); break;
+      case 1: consts[1] += totlen * PROBerTransModel::getDefault(1); break;
+      case 2: 
+	consts[0] += totlen * PROBerTransModel::getDefault(0); 
+	consts[1] += totlen * PROBerTransModel::getDefault(1);
+	break;
+      default: assert(false);
+      }
+    }
+
     int total = 1; // noise transcript always counts
     for (int i = 1; i <= M; ++i) 
       if (!transcripts[i]->isExcluded()) ++total;

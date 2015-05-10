@@ -50,6 +50,18 @@ public:
   static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP);
 
   /*
+    @param   channel   which channel
+    @return   the log gamma function part of the beta distribution for that channel
+   */
+  static double getLGamma(int channel) { return lgammas[channel]; }
+
+  /*
+    @param   channel   which channel
+    @return   the log other than gamma function part of the beta distribution with initial parameters
+   */
+  static double getDefault(int channel) { return defaults[channel]; }
+
+  /*
     @return   primer length
    */
   static int get_primer_length() { return primer_length; }
@@ -68,6 +80,11 @@ public:
     @return   if learning or simulation
    */
   static bool isLearning() { return learning; }
+
+  /*
+    @return   if MAP estimate or ML estimate
+  */
+  static bool useMAP() { return isMAP; }
 
   /*
     @return   current state
@@ -134,6 +151,12 @@ public:
     @return the probability of passing the size selection step
    */
   double getProbPass(int channel) const { return prob_pass[channel]; }
+
+  /*
+    @param   channel   which channel to return
+    @return  the log prior part of this transcript, 0 if this transcript is excluded
+  */
+  double getLogPrior(int channel) const { return log_prior[channel]; }
 
   /*
     @param   pos     leftmost position in 5' end, 0-based  
@@ -277,6 +300,7 @@ private:
   static int min_alloc_len; // minimum fragment length (primer length excluded) for allocating single end reads
   static bool isMAP; // if we should use MAP estimates instead of ML estimates
   static double base, dgamma, cgamma, dbeta, cbeta; // if MAP, gamma ~ Beta(dgamma + 1, cgamma + 1), beta ~ Beta(dbeta + 1, cbeta + 1); base = dgamma + cgamma = dbeta + cbeta
+  static double lgammas[2], defaults[2]; // auxiliary arrays for calculating log priors
 
   static bool learning; // true if learning parameters, false if simulation
 
@@ -306,6 +330,8 @@ private:
   double *margin_prob2; // not NULL only if min_alloc_len > min_frag_len, margin_prob2[i] = \sigma_{j = i + min_alloc_len} ^ {i + max_frag_len} \prod_{k = i + min_alloc_len + 1} ^ {j} (1 - gamma[k]) * (beta == NULL ? 1.0 : (1 - beta[k]))
 
   double *start2, *end2; // including hidden data, can be shared by a whole thread of transcripts
+
+  double log_prior[2]; // log prior of a transcript, lgamma function parts are excldued
 
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 

@@ -61,7 +61,7 @@ bool keepGoing;
 
 int M; // Number of transcripts
 int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
-double count0[2], loglik[2]; // Used in EM algorithm, number of unalignable reads and log likelihood for each channel
+double count0[2], logprob[2]; // Used in EM algorithm, number of unalignable reads and log probability for each channel
 
 int model_type; 
 int num_threads;
@@ -285,6 +285,8 @@ void one_EM_iteration(int channel, int ROUND) {
   // init
   if (ROUND == 1) whole_model->init();
 
+  logprob[channel] = whole_model->getLogPrior();
+
   // E step
   for (int i = 0; i < num_threads; ++i) {
     rc = pthread_create(&threads[i], &attr, E_STEP, (void*)paramsVecs[channel][i]);
@@ -297,12 +299,12 @@ void one_EM_iteration(int channel, int ROUND) {
   }
 
   count0[channel] = N0[channel];
-  loglik[channel] = N0[channel] * log(whole_model->getTheta(0)) + read_models[channel]->calcLogP();
+  logprob[channel] += N0[channel] * log(whole_model->getTheta(0)) + read_models[channel]->calcLogP();
   for (int i = 0; i < num_threads; ++i) {
     count0[channel] += paramsVecs[channel][i]->count0;
-    loglik[channel] += paramsVecs[channel][i]->loglik;
+    logprob[channel] += paramsVecs[channel][i]->loglik;
   }
-  loglik[channel] -= N_eff[channel] * log(whole_model->getProbPass());
+  logprob[channel] -= N_eff[channel] * log(whole_model->getProbPass());
   
   if (!keepGoing) whole_model->wrapItUp(count0[channel]);
   else {
@@ -319,11 +321,11 @@ void one_EM_iteration(int channel, int ROUND) {
 
 void EM() {
   int ROUND;
-  double prev_loglik, curr_loglik;
+  double prev_logprob, curr_logprob;
 
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
-  prev_loglik = curr_loglik = -1e300;
+  prev_logprob = curr_logprob = -1e300;
   keepGoing = true;
 
   do {
@@ -332,7 +334,7 @@ void EM() {
     needCalcConPrb = updateReadModel;
     updateReadModel = needUpdateReadModel(ROUND);
 
-    keepGoing = (ROUND <= MAX_ROUND) && (ROUND <= 2 || (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]) > deltaChange);
+    keepGoing = (ROUND <= MAX_ROUND) && (ROUND <= 2 || (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]) > deltaChange);
 
     // (-) channel
     one_EM_iteration(0, ROUND);
@@ -342,10 +344,10 @@ void EM() {
     one_EM_iteration(1, ROUND);
     whole_model->flipState();
 
-    prev_loglik = curr_loglik;
-    curr_loglik = loglik[0] + loglik[1];
+    prev_logprob = curr_logprob;
+    curr_logprob = logprob[0] + logprob[1];
 
-    if (verbose) printf("Loglik of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_loglik, (curr_loglik - prev_loglik) / (N_eff[0] + N_eff[1]));
+    if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
 
   } while (keepGoing);
   
