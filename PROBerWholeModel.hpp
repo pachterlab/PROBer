@@ -53,7 +53,7 @@ public:
     @param   pos   leftmost position from 5' end, 0-based
     @param   fragment_length  fragment length, 0 means SE read 
     @return   probability of generating such a read (not condition on that read passes the size selection step)
-   */
+  */
   double getProb(int tid, int pos = 0, int fragment_length = 0) const {
     assert(tid >= 0 && tid <= M);
     if (tid == 0) return prob_noise[PROBerTransModel::getChannel()][0];
@@ -136,7 +136,7 @@ public:
       transcripts[tid]->simulate(sampler, pos, fragment_length);
     }
   }
-    
+  
   /*
     @comment: release memory used for simulation
    */
@@ -150,10 +150,10 @@ private:
 
   double N_tot; // expected total read counts
   std::vector<double> counts[2], unobserved[2]; // number of observed/unobserved reads fall into each transcript for two channels
-
+  
   double prob_noise[2][2]; // the first dimension represent state, the second dimension: 0, probability of generating a noise read; 1, probability of generating a read from transcripts.
   double prob_pass[2]; // probability of generating a read that pass the size selection step
-
+  
   double logprior[2], consts[2]; // logprior: log prior probabilities for each channel; consts: the unchanged part of log prior
 
   int sim_tid; // if sim_tid > 0, only simulate from transcript sim_tid
@@ -193,20 +193,20 @@ private:
   /*
     @param   channel   (+) or (-), which channel we are working on
     @comment:  Calculate the probability that any read passes the size selection step, also the log prior probability
-   */
+  */
   void calcProbPass(int channel) {
     prob_pass[channel] = prob_noise[channel][0];
-    for (int i = 1; i <= M; ++i) {
+    for (int i = 1; i <= M; ++i) 
       prob_pass[channel] += prob_noise[channel][1] * theta[i] * transcripts[i]->getProbPass(channel);
     assert(!isZero(prob_pass[channel]));
-
+    
     if (PROBerTransModel::useMAP()) {
       logprior[channel] = consts[channel];
       for (int i = 1; i <= M; ++i) 
 	logprior[channel] += transcripts[i]->getLogPrior(channel);
     }
   }
-
+    
   /*
     @param   state     state to deal with
     @param   channel   channel to deal with

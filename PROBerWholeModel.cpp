@@ -80,7 +80,7 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
 	consts[0] = totlen * PROBerTransModel::getLGamma(0);
 	consts[1] = totlen * PROBerTransModel::getLGamma(1);
 	break;
-      case default: assert(false);
+      default: assert(false);
       }
     }
 
