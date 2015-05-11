@@ -81,8 +81,8 @@ group = parser.add_argument_group(title = "Structure-seq related", description =
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
 group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
 group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.001, metavar = "<float>")
-group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.001, metavar = "<float>")
+group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
+group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.0001, metavar = "<float>")
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
 group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
