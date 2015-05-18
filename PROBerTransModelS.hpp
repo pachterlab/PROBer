@@ -121,6 +121,9 @@ public:
    */
   double getProbPass(int channel) const { return prob_pass[channel]; }
 
+  /*                                                                                                                                                                                                         @param   channel   which channel to return                                                                                                                                                               @return  the log prob part of this transcript, 0 if this transcript is excluded                                                                                                                       */
+  double getLogProbT(int channel) const { return log_prob[channel]; }
+
   /*
     @param   pos     leftmost position in 5' end, 0-based  
     @return  the probability of generating a SE read end at pos
@@ -283,6 +286,8 @@ private:
 
   double N_se[2]; // number of reads that we do not know their start positions
   double *starts[2], *ends[2], *ends_se[2];
+
+  double log_prob[2]; // log prior + log lik of a transcript, lgamma function parts are excldued 
 
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 

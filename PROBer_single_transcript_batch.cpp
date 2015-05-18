@@ -20,6 +20,9 @@
 
 using namespace std;
 
+const int MAX_ROUND = 1000; // default maximum iterations                                                                                                                                                
+const double deltaChange = 5e-6; // default log-probability change per read   
+
 struct ATranscript {
   PROBerTransModelS *model;
   double Nobs[2]; // minus and plus channel observed reads
@@ -177,23 +180,40 @@ void* runEM(void* arg) {
   PROBerTransModelS *model;
   int channel;
 
+  double prev_logprob, curr_logprob;
+  double change;
+
   for (int i = 0; i < params->s; ++i) {
     atran = params->trans[i];
     model = atran->model;
+
+    prev_logprob = curr_logprob = -1e300;
 
     // initialize
     model->init();
   
     // joint mode, EM
     channel = model->getChannel();
+    assert(channel == 0);
     model->calcAuxiliaryArrays(channel);
-    for (int ROUND = 0; ROUND < rounds; ++ROUND) {
+
+
+    for (int ROUND = 1; ROUND <= MAX_ROUND; ++ROUND) {
+      curr_logprob = model->getLogProbT(channel);
       model->EM_step(atran->Nobs[channel] / model->getProbPass(channel));
       model->flipState();
       channel = model->getChannel();
+      curr_logprob += model->getLogProbT(channel);
       model->EM_step(atran->Nobs[channel] / model->getProbPass(channel));
       model->flipState();
       channel = model->getChannel();
+
+      change = (curr_logprob - prev_logprob) / (atran->Nobs[0] + atran->Nobs[1]);
+      printf("ROUND %d, logprob = %.10g, deltachange = %.10g\n", ROUND - 1, curr_logprob, change);
+
+      if (change <= deltaChange) break;
+
+      prev_logprob = curr_logprob;
     }
 
     if ((i + 1) % 50 == 0) printf("%d transcripts are processed in thread %d!\n", (i + 1), params->no);
@@ -239,14 +259,13 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 5) {
-    printf("Usage: PROBer_single_transcript_batch config_file minus_channel.bam plus_channel.bam output_name [--read-length read_length] [--rounds number_of_rounds] [--paired-end] [--input input_list.txt] [-p number_of_threads] [--maximum-likelihood]\n");
+    printf("Usage: PROBer_single_transcript_batch config_file minus_channel.bam plus_channel.bam output_name [--read-length read_length] [--paired-end] [--input input_list.txt] [-p number_of_threads] [--maximum-likelihood]\n");
     exit(-1);
   }
 
   isJoint = true;
 
   read_length = -1;
-  rounds = 400;
   paired_end = false;
   inputList[0] = 0;
   nthreads = 1;
@@ -255,9 +274,6 @@ int main(int argc, char* argv[]) {
   for (int i = 5; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) {
       read_length = atoi(argv[i + 1]);
-    }
-    if (!strcmp(argv[i], "--rounds")) {
-      rounds = atoi(argv[i + 1]);
     }
     if (!strcmp(argv[i], "--paired-end")) {
       paired_end = true;

@@ -85,6 +85,7 @@ PROBerTransModelS::PROBerTransModelS(int tid, const std::string& name, int trans
     ends_se[i] = NULL;
   }
 
+  log_prob[0] = log_prob[1] = 0.0;
   cdf_end = NULL;
 
   if (!learning) return;
@@ -230,6 +231,43 @@ void PROBerTransModelS::calcAuxiliaryArrays(int channel) {
       margin_prob2[i] = 1.0 + (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * \
 	(max_pos > len ? margin_prob2[i + 1] : margin_prob2[i + 1] - exp(logsum[max_pos] - logsum[pos]));
     }
+  }
+
+  // Calculate log prob for this channel
+  log_prob[channel] = 0.0;
+  // prior
+  if (isMAP) {
+    if (channel == 0)
+      for (int i = 1; i <= len; ++i) log_prob[channel] += dgamma * log(gamma[i]) + cgamma * log (1.0 - gamma[i]);
+    else
+      for (int i = 1; i <= len; ++i) log_prob[channel] += dbeta * log(beta[i]) + cbeta * log(1.0 - beta[i]);
+  }
+  // SE reads
+  if (N_se[channel] > 0.0) 
+    for (int i = 0; i < efflen2; ++i) 
+      if (ends_se[channel][i] > 0.0) {
+	value = getProb(i);
+	assert(value > 0.0 && value < 1.0);
+	log_prob[channel] += ends_se[channel][i] * log(value);
+      }
+  // PE reads
+  if (N_obs[channel] > N_se[channel]) {
+    log_prob[channel] += (N_obs[channel] - N_se[channel]) * log(delta); // log probability of starting paired-end reads or full fragments
+
+    double ncover = std::max(ends[channel][0] - ends_se[channel][0] - starts[channel][0], 0.0);
+    double ndrop;
+
+    for (int i = 1; i <= len; ++i) {
+      ndrop = std::max(ends[channel][i] - ends_se[channel][i], 0.0);
+      if (ndrop > 0.0) log_prob[channel] += ndrop * log(channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
+      if (ncover > 0.0) log_prob[channel] += ncover * log(channel == 0 ? 1.0 - gamma[i] : (1.0 - gamma[i]) * (1.0 - beta[i]));
+      ncover = std::max(ncover + ndrop - starts[channel][i], 0.0);
+    }
+  }
+  // normalizing factor
+  if (N_obs[channel] > 0.0) {
+    assert(prob_pass[channel] > 0.0 && prob_pass[channel] < 1.0);
+    log_prob[channel] -= N_obs[channel] * log(prob_pass[channel]);
   }
 }
 

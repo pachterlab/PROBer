@@ -40,8 +40,8 @@ group = parser.add_argument_group(title = "Structure-seq related", description =
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
 group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, default = 21, metavar = "<int>")
 group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, default = 526, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.001, metavar = "<float>")
-group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.001, metavar = "<float>")
+group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
+group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.0001, metavar = "<float>")
 
 group = parser.add_argument_group(title = "Estimation related", description = "Parameters needed for estimating structure parameters.")
 group.add_argument("--read-length", help = "Read length before trimming adaptors, only required for single-end reads.", type = int, default = 37, metavar = "<int>")
