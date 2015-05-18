@@ -47,7 +47,6 @@ group = parser.add_argument_group(title = "Estimation related", description = "P
 group.add_argument("--read-length", help = "Read length before trimming adaptors, only required for single-end reads.", type = int, default = 37, metavar = "<int>")
 group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
 group.add_argument("--sep", help = "Estimate (-) and (+) channels separately.", action = "store_true")
-group.add_argument("--rounds", help = "Rounds of EM iterations to run.", type = int, default = 400, metavar = "<int>")
 
 group = parser.add_argument_group(title = "Alignment options", description = "If --paired-end is specified, Bowtie2 will be used. Otherwise, Bowtie will be used and reads with more than 200 alignments will be filtered out.")
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = utils.expand, metavar = "<path>")
@@ -116,7 +115,7 @@ fh.close()
 # Run EM    
 command = ["PROBer_single_transcript_batch", "{}.config".format(args.sample_name), "{}_minus.transcript.bam".format(args.sample_name), "{}_plus.transcript.bam".format(args.sample_name), args.sample_name]
 
-command.extend(["--rounds", str(args.rounds), "-p", str(args.num_threads)])
+command.extend(["-p", str(args.num_threads)])
 if not args.paired_end:
     command.extend(["--read-length", str(args.read_length)])
 else:

@@ -209,7 +209,7 @@ void* runEM(void* arg) {
       channel = model->getChannel();
 
       change = (curr_logprob - prev_logprob) / (atran->Nobs[0] + atran->Nobs[1]);
-      printf("ROUND %d, logprob = %.10g, deltachange = %.10g\n", ROUND - 1, curr_logprob, change);
+      //printf("ROUND %d, logprob = %.10g, deltachange = %.10g\n", ROUND - 1, curr_logprob, change);
 
       if (change <= deltaChange) break;
 

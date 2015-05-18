@@ -285,7 +285,7 @@ inline void PROBerTransModelS::solveQuadratic1(double& beta, double gamma, doubl
 }
 
 inline void PROBerTransModelS::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
-  double common_factor = cgamma + ccm - cbeta- dbeta;
+  double common_factor = cgamma + ccm - cbeta - dbeta;
   double a = (cbeta + ccp + dbeta + dcp) * common_factor;
   double b = (cbeta + ccp + dbeta) * (dbeta + dgamma + dcm) - common_factor * (dcp + dbeta) + dbeta * dcp;
   double c = - dbeta * (dbeta + dcp + dgamma + dcm);
