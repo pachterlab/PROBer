@@ -246,7 +246,8 @@ void PROBerTransModelS::calcAuxiliaryArrays(int channel) {
   if (N_se[channel] > 0.0) 
     for (int i = 0; i < efflen2; ++i) 
       if (ends_se[channel][i] > 0.0) {
-	value = getProb(i);
+	value = delta * (min_alloc_len == min_frag_len ? margin_prob[i] : margin_prob2[i]) * exp(logsum[i + min_alloc_len] - logsum[i]);
+        if (i > 0) value *= (channel == 0 ? gamma[i] : (gamma[i] + beta[i] - gamma[i] * beta[i]));
 	assert(value > 0.0 && value < 1.0);
 	log_prob[channel] += ends_se[channel][i] * log(value);
       }

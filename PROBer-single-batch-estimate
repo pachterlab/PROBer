@@ -29,7 +29,9 @@ parser.add_argument("sample_name", help = "The output name of this run. All outp
 
 group = parser.add_argument_group(title = "Input", description = "Input reads.")
 
-group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of FASTQ files containing single-end reads or first mates of paired-end reads\nminus_mate2_read_file(s) and plus_mate2_read_file(s), presented only if '--paired-end' is enabled, are comma-separated lists of FASTQ files containing second mates of\npaired-end reads\n", nargs = '+', action = utils.nargs_range([2, 4]), type = utils.expandAll, metavar = "mate_read_file(s)", required = True)
+group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of FASTQ files containing single-end reads or first mates of paired-end reads\nminus_mate2_read_file(s) and plus_mate2_read_file(s), presented only if '--paired-end' is enabled, are comma-separated lists of FASTQ files containing second mates of\npaired-end reads\n", nargs = '+', action = utils.nargs_range([2, 4]), type = utils.expandAll, metavar = "mate_read_file(s)")
+group.add_argument("--bam", help = "Input are BAM files containing alignment results.", nargs = '+', action = utils.nargs_range([2]), type = utils.expandAll,
+                   metavar = "input_minus.bam input_plus.bam")
 
 group = parser.add_argument_group(title = "Basic options")
 group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
@@ -56,7 +58,9 @@ parser.add_argument("-q", "--quiet", help = "Suppress the output of logging info
 
 args = parser.parse_args()
 
-if (args.paired_end and len(args.reads) != 4) or (not args.paired_end and len(args.reads) != 2):
+if args.reads != None and args.bam != None or args.reads == None and args.bam == None:
+    parser.error("One of --reads and --bam must be set!")
+if args.reads != None and ((args.paired_end and len(args.reads) != 4) or (not args.paired_end and len(args.reads) != 2)):
     parser.error("Number of Read/Mate files does not match!")
 
 #Set executable directory
@@ -79,7 +83,13 @@ pos = 0
 
 command.extend(["rsem-calculate-expression", "--strand-specific", "-p", str(args.num_threads), "--seed-length", "20"]) # seed length = 20 < 21 to make sure all reads are considered
 
-if not args.paired_end:
+if args.paired_end:
+    command.append("--paired-end")
+    
+if args.bam != None:
+    command.extend(["--bam", args.bam[0]])
+    pos = len(command) - 1
+elif not args.paired_end:
     # Use Bowtie for RSEM
     if args.bowtie_path != None:
         command.extend(["--bowtie-path", args.bowtie_path])
@@ -87,7 +97,7 @@ if not args.paired_end:
     command.extend([args.reads[0]])
 else:
     # Use Bowtie2
-    command.extend(["--paired-end", "--bowtie2"])
+    command.append("--bowtie2")
     if args.bowtie2_path != None:
         command.extend(["--bowtie2-path", args.bowtie2_path])
     pos = len(command)
@@ -97,7 +107,9 @@ command.extend([args.ref_name, "{}_minus".format(args.sample_name)])
 
 runProg(command)
 
-if not args.paired_end:
+if args.bam != None:
+    command[pos] = args.bam[1]
+elif not args.paired_end:
     command[pos] = args.reads[1]
 else:
     command[pos] = args.reads[2]
