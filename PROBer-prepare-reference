@@ -27,10 +27,6 @@ parser.add_argument("--bowtie", help = "Build Bowtie indices.", action = "store_
 parser.add_argument("--bowtie-path", help = "The path to the Bowtie executables.", type = utils.expand, metavar = "<path>")
 parser.add_argument("--bowtie2", help = "Build Bowtie2 indices.", action = "store_true")
 parser.add_argument("--bowtie2-path", help = "The path to the Bowtie2 executables.", type = utils.expand, metavar = "<path>")
-parser.add_argument("--hobbes2", help = "Build Hobbes2 indices.", action = "store_true")
-parser.add_argument("--hobbes2-path", help = "The path to the Hobbes2 executables.", type = utils.expand, metavar = "<path>")
-parser.add_argument("--hobbes2-p", help = "Number of threads to build Hobbes2 indices", type = int, default = 1, metavar = "<int>")
-parser.add_argument("--hobbes2-gram-length", help = "Hobbes2 indices' gram length.", type = int, default = 11, metavar = "<int>")
 
 parser.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
@@ -120,9 +116,4 @@ if args.bowtie2:
     if args.quiet:
         command.append("-q")
     command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name])
-    runProg(command)
-
-if args.hobbes2:
-    command = []
-    command.extend(["{}hobbes-index".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name), "-g", str(args.hobbes2_gram_length), "-p", str(args.hobbes2_p)])
     runProg(command)

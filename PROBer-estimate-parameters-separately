@@ -82,19 +82,13 @@ group.add_argument("--read-length", help = "Read length before trimming adaptors
 group.add_argument("--MAP", help = "Use MAP estimates.", action = "store_true", dest = "map_est")
 
 
-group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie, Bowtie2, and Hobbes2. All reads with more than 200 alignments will be filtered by this script.")
+group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -n 2 -e 99999999 -l 25 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = utils.expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = utils.expand, metavar = "<path>")
-group.add_argument("--hobbes2", help = "Use hobbes2 aligner to align reads, with Hobbes2 parameters \"--norc -p number_threads -k 201\"."
-                   " If \"--paired-end\" is set, use Hobbes2 parameters \"--norc -p number_threads -a --pe --min 1 --max 1000\" instead.", action = "store_true")
-group.add_argument("--hobbes2-path", help = "The path to Hobbes2 executables.", type = utils.expand, metavar = "<path>")
-group.add_argument("--hobbes2-hamming", help = "Use hamming distance for Hobbes2.", action = "store_true")
-group.add_argument("--hobbes2-indel", help = "Use indel distance for Hobbes2.", action = "store_true")
-group.add_argument("--hobbes2-v", help = "Hobbes2's distance threshold.", type = int, metavar = "<int>")
 
 parser.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
@@ -161,9 +155,7 @@ if args.bam != None or args.sam != None:
         command.append("-q")
     runProg(command)
 else:
-    if args.bowtie2 and args.hobbes2:
-        parser.error("--bowtie2 and --hobbes2 are mutually exclusive")
-    if args.bowtie2 or args.hobbes2:
+    if args.bowtie2:
         args.bowtie = False
 
     if args.bowtie:
@@ -182,22 +174,8 @@ else:
             command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
             command.extend(["-x", args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
     else:
-        if not args.hobbes2_hamming and not args.hobbes2_indel:
-            parser.error("One of --hobbes2-hamming and --hobbes2indel must be set")
-        elif args.hobbes2_hamming and args.hobbes2_inde:
-            parser.error("--hobbes2-hamming and --hobbes2-indel are mutually exclusive")
-        if args.hobbes2_v == None:
-            parser.error("--hobbes2-v <int> must be set")
+        assert False
 
-        command.extend(["{}hobbes".format(args.hobbes2_path + os.sep if args.hobbes2_path != None else ""), "--norc", "-p", str(args.num_threads)])
-        command.extend(["--hamming" if args.hobbes2_hamming else "--indel", "-v", str(args.hobbes2_v)])
-        command.extend(["--sref", "{}.idx.fa".format(args.ref_name), "-i", "{}.hix".format(args.ref_name)])
-        
-        if not args.paired_end:
-            command.extend(["-k", "201", "-q", args.reads[0]])
-        else:
-            command.extend("-a --pe --min 1 --max 1000".split())
-            command.extend(["--seqfq1", args.reads[0], "--seqfq2", args.reads[1]])
     command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, args.channel, str(args.num_threads), "s", "-", "-m", "200"]
     if args.read_length != None and args.size_selection_min < args.read_length:
         command2.extend(["--shorter-than", str(args.size_selection_min)])
