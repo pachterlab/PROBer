@@ -1,5 +1,6 @@
-README
-======
+# PROBer
+
+Quantitative modeling of transcriptome-wide RNA structure-probing experiments 
 
 [Bo Li](http://math.berkeley.edu/~bli) \(bli25 at berkeley dot edu\)
 
