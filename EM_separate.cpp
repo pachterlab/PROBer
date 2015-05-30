@@ -25,7 +25,9 @@
 
 using namespace std;
 
-const int MAX_ROUND = 200; //400; //200;
+const int MAX_ROUND = 1000; // default maximum iterations
+const double deltaChange = 5e-6; // default log probability change per read 
+
 
 // Parameter struct to pass parameters to each subprocess
 struct InMemParams {
@@ -57,6 +59,7 @@ struct InMemParams {
 
 int M; // Number of transcripts
 int N0, N_eff; // Number of unalignable reads, number of effective reads (unaligned + aligned)
+
 int model_type; 
 int num_threads;
 int read_length;
@@ -261,18 +264,25 @@ inline bool needUpdateReadModel(int ROUND) {
 void EM() {
   int ROUND;
   double count0;
-  double loglik;
+  double prev_logprob, curr_logprob;
+  bool keepGoing;
 
   ROUND = 0;
   needCalcConPrb = updateReadModel = true;
-  loglik = 0.0;
+  prev_logprob = curr_logprob = -1e300;
+  keepGoing = true;
 
   do {
     ++ROUND;
 
     needCalcConPrb = updateReadModel;
     updateReadModel = needUpdateReadModel(ROUND);
-    
+
+    keepGoing = (ROUND <= MAX_ROUND) && (ROUND <= 2 || (curr_logprob - prev_logprob) / N_eff > deltaChange);    
+
+    prev_logprob = curr_logprob;
+    curr_logprob = (isMAP ? whole_model->getLogPrior() : 0.0);
+
     // E step
     for (int i = 0; i < num_threads; ++i) {
       rc = pthread_create(&threads[i], &attr, E_STEP, (void*)paramsVec[i]);
@@ -285,16 +295,16 @@ void EM() {
     }
 
     count0 = N0;
-    loglik = N0 * log(whole_model->getTheta(0)) + read_model->calcLogP();
+    curr_logprob += N0 * log(whole_model->getTheta(0)) + read_model->calcLogP();
     for (int i = 0; i < num_threads; ++i) {
       count0 += paramsVec[i]->count0;
-      loglik += paramsVec[i]->loglik;
+      curr_logprob += paramsVec[i]->loglik;
     }
-    loglik -= N_eff * log(whole_model->getProbPass());
+    curr_logprob -= N_eff * log(whole_model->getProbPass());
 
-    if (verbose) printf("E step is done. Loglik of ROUND %d is: %.2f\n", ROUND - 1, loglik);
+    if (verbose) printf("E step is done. Log probability of ROUND %d is: %.2f, delta change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / N_eff);
 
-    if (ROUND > MAX_ROUND) {
+    if (!keepGoing) {
       whole_model->wrapItUp(count0);
       continue;
     }
@@ -310,7 +320,7 @@ void EM() {
 
     if (verbose) printf("ROUND %d finished!\n", ROUND);
 
-  } while (ROUND <= MAX_ROUND);
+  } while (keepGoing);
   
   if (verbose) printf("EM is finished!\n");
 }
@@ -393,7 +403,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 8) {
-    printf("Usage: PROBer-run-em-separate refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--MAP] [--output-bam] [-q]\n");
+    printf("Usage: PROBer-run-em-separate refName model_type sampleName imdName statName channel<'minus' or 'plus'> num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [-q]\n");
     exit(-1);
   }
 
@@ -408,10 +418,10 @@ int main(int argc, char* argv[]) {
   verbose = true;
   output_bam = false;
   read_length = -1;
-  isMAP = false;
+  isMAP = true;
   for (int i = 8; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
-    if (!strcmp(argv[i], "--MAP")) isMAP = true;
+    if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }

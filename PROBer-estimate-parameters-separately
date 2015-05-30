@@ -26,7 +26,7 @@ parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference
                        "It is equal to length - primer_length + 1. expected_count is the sum of posterior probabilities of reads coming from this transcript. TPM is transcript per million. "
                        "FPKM is fragment per kilobase per millon reads.\n\n"
                   "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
-                  "  sample_name_minus.transcripts.bam\n"
+                  "  sample_name_minus.bam\n"
                   "    Only generated when '--output-bam' option is set.\n\n"
                   "    It is a BAM-formatted file that contains all '-' channel read alignments in transcript coordinates. "
                        "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), where w is the posterior probability of that alignment being the true "
@@ -39,7 +39,7 @@ parser = MyParser(formatter_class = MyFormatter, usage = "{} [options] reference
                        "Then each line describes estimated parameters for a different transcript. "
                        "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
                        "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
-                  "  sample_name_plus.expr, sample_name_plus.transcripts.bam\n"
+                  "  sample_name_plus.expr, sample_name_plus.bam\n"
                   "    Same format as sample_name_minus.* files, but generated for the experimental data ('+' channel)\n\n"
                   "  sample_name.stat\n"
                   "    This folder contains learned model parameters from data."
@@ -75,11 +75,11 @@ group = parser.add_argument_group(title = "Structure-seq related", description =
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
 group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
 group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.01, metavar = "<float>")
-group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.01, metavar = "<float>")
+group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
+group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.0001, metavar = "<float>")
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
-group.add_argument("--MAP", help = "Use MAP estimates.", action = "store_true", dest = "map_est")
+group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
 
 
 group = parser.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
@@ -192,8 +192,8 @@ fh.close()
 command = ["PROBer-run-em-separate", args.ref_name, str(model_type), args.sample_name, imdName, statName, args.channel, str(args.num_threads)]
 if args.read_length != None:
     command.extend(["--read-length", str(args.read_length)])
-if args.map_est:
-    command.append("--MAP")
+if args.ml_est:
+    command.append("--maximum-likelihood")
 if args.output_bam:
     command.append("--output-bam")
 if args.quiet:

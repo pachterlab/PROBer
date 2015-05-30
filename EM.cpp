@@ -27,7 +27,7 @@
 using namespace std;
 
 const int MAX_ROUND = 1000; // default maximum iterations
-const double deltaChange = 5e-6; // default log-likelihood change per read
+const double deltaChange = 5e-6; // default log probability change per read
 
 // Parameter struct to pass parameters to each subprocess
 struct InMemParams {
@@ -279,8 +279,6 @@ inline bool needUpdateReadModel(int ROUND) {
   return ROUND <= 10;
 }
 
-double log_a, log_b;
-
 void one_EM_iteration(int channel, int ROUND) {
   assert(whole_model->getChannel() == channel);
 
@@ -288,8 +286,6 @@ void one_EM_iteration(int channel, int ROUND) {
   if (ROUND == 1) whole_model->init();
 
   logprob[channel] = (isMAP ? whole_model->getLogPrior() : 0.0);
-  if (channel == 0) log_a = logprob[channel];
-  else log_b = logprob[channel];
 
   // E step
   for (int i = 0; i < num_threads; ++i) {
@@ -351,7 +347,7 @@ void EM() {
     prev_logprob = curr_logprob;
     curr_logprob = logprob[0] + logprob[1];
 
-    if (verbose) printf("Log probability of ROUND %d = %.2f, loglik = %.2f, a = %.2f, b = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, curr_logprob - log_a - log_b, log_a, log_b, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
+    if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
 
   } while (keepGoing);
   
