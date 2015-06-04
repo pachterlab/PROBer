@@ -255,15 +255,19 @@ inline void PROBerTransModel::solveQuadratic1(double& beta, double gamma, double
   double c = (-dbeta * gamma) / a;
   double sqt_delta = sqrt(b * b - 4.0 * c);
 
-  //  if (sqt_delta <= fabs(b)) { printf("gamma = %.10g, dc = %.10g, cc = %.10g, a = %.10g, b = %.10g, c = %.10g, sqt_delta = %.10g\n", gamma, dc, cc, a, b, c, sqt_delta); }
+  if (sqt_delta <= fabs(b)) {
+    assert(b < 0.0);
+    sqt_delta = fabs(b);
+    //printf("dgamma = %.10g, cgamma = %.10g, dbeta = %.10g, cbeta = %.10g\n", dgamma, cgamma, dbeta, cbeta);
+    //printf("gamma = %.10g, dc = %.10g, cc = %.10g, a = %.10g, b = %.10g, c = %.10g, sqt_delta = %.10g\n", gamma, dc, cc, a, b, c, sqt_delta); 
+  }
 
-  assert(sqt_delta > fabs(b));
   beta = (-b + sqt_delta) / 2.0;
   assert(beta > 0.0 && beta < 1.0);
 }
 
 inline void PROBerTransModel::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
-  double common_factor = cgamma + ccm - cbeta- dbeta;
+  double common_factor = cgamma + ccm - cbeta - dbeta;
   double a = (cbeta + ccp + dbeta + dcp) * common_factor;
   double b = (cbeta + ccp + dbeta) * (dbeta + dgamma + dcm) - common_factor * (dcp + dbeta) + dbeta * dcp;
   double c = - dbeta * (dbeta + dcp + dgamma + dcm);
