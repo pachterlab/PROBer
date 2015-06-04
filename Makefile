@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -c -I.
 COFLAGS = -Wall -O3 -ffast-math -c -I.
-PROGRAMS = PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads PROBer-run-em-separate PROBer_single_transcript PROBer_single_transcript_batch
+PROGRAMS = PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads
 
 .PHONY : all clean
 
@@ -179,40 +179,6 @@ simulation.o : simulation.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_as
 
 PROBer-simulate-reads : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o PROBerTransModel.o PROBerWholeModel.o PROBerReadModel.o simulation.o sam/libbam.a
 	$(CC) -O3 -o $@ $^ -lz -lpthread
-
-
-
-
-EM_separate.o : EM_separate.cpp sam/bam.h sam/sam.h boost/random.hpp utils.h my_assert.h sampling.hpp RefSeq.hpp Refs.hpp SEQstring.hpp QUALstring.hpp CIGARstring.hpp BamAlignment.hpp AlignmentGroup.hpp MateLenDist.hpp Markov.hpp Profile.hpp QProfile.hpp SequencingModel.hpp NoiseProfile.hpp QualDist.hpp InMemoryStructs.hpp Transcript.hpp Transcripts.hpp MyHeap.hpp SamParser.hpp BamWriter.hpp PROBerTransModel.hpp PROBerWholeModel.hpp PROBerReadModel.hpp
-	$(CC) $(COFLAGS) $<
-
-PROBer-run-em-separate : RefSeq.o Refs.o Transcript.o Transcripts.o SEQstring.o BamAlignment.o SamParser.o BamWriter.o MateLenDist.o Markov.o Profile.o QProfile.o SequencingModel.o NoiseProfile.o QualDist.o PROBerTransModel.o PROBerWholeModel.o PROBerReadModel.o EM_separate.o sam/libbam.a
-	$(CC) -O3 -o $@ $^ -lz -lpthread
-
-
-
-
-PROBerTransModelS.hpp : utils.h sampling.hpp InMemoryStructs.hpp
-
-PROBerTransModelS.cpp : utils.h sampling.hpp PROBerTransModelS.hpp
-
-PROBerTransModelS.o : PROBerTransModelS.cpp boost/random.hpp utils.h sampling.hpp InMemoryStructs.hpp PROBerTransModelS.hpp
-	$(CC) $(COFLAGS) $<
-
-PROBer_single_transcript.o : PROBer_single_transcript.cpp sam/bam.h sam/sam.h utils.h InMemoryStructs.hpp PROBerTransModelS.hpp
-	$(CC) $(COFLAGS) $<
-
-PROBer_single_transcript : PROBerTransModelS.o PROBer_single_transcript.o sam/libbam.a
-	$(CC) -O3 -o $@ $^ -lz -lpthread
-
-
-
-PROBer_single_transcript_batch.o : PROBer_single_transcript_batch.cpp sam/bam.h sam/sam.h utils.h my_assert.h MyHeap.hpp InMemoryStructs.hpp PROBerTransModelS.hpp 
-	$(CC) $(COFLAGS) $<
-
-PROBer_single_transcript_batch : PROBerTransModelS.o PROBer_single_transcript_batch.o sam/libbam.a
-	$(CC) -O3 -o $@ $^ -lz -lpthread
-
 
 
 clean :
