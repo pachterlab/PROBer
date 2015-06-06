@@ -2,7 +2,7 @@
 
 Quantitative modeling of transcriptome-wide RNA structure-probing experiments 
 
-[Bo Li](http://math.berkeley.edu/~bli) \(bli25 at berkeley dot edu\)
+Bo Li, Akshay Tambe, Sharon Aviran and Lior Pachter.
 
 * * *
 
@@ -10,7 +10,7 @@ Table of Contents
 -----------------
 
 * [Introduction](#introduction)
-* [Compilation](#compilation)
+* [Installation](#install)
 * [Usage](#usage)
 * [Example](#example)
 * [Authors](#authors)
@@ -23,13 +23,9 @@ Table of Contents
 
 PROBer is a software to quantlify RNA structure probing experiments.
 
-## <a name="compilation"></a> Compilation
+## <a name="install"></a> Installation
 
-To compile, run
-
-```
-make
-```
+See INSTALL.md
 
 ## <a name="usage"></a> Usage
 
