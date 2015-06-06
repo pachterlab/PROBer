@@ -85,14 +85,13 @@ PROBer simulate arabidosis/arabidosis test_sample.temp/test_sample_plus.config t
 
 ## <a name="authors"></a> Authors
 
-This package is implemented by Bo Li. 
+Bo Li wrote PROBer, with substaintial technical input from Akshay
+Tambe, Sharon Aviran and Lior Pachter.
 
 ## <a name="acknowledgements"></a> Acknowledgements
 
-Thanks Akshay Tambe, Sharon Aviran, and Lior Pachter for their super
-helpful suggestions and feedbacks on implementing this package. Thanks
-Harold Pimentel and Pall Melsted for their help on CMake, website and
-markdown documents.
+Thanks Harold Pimentel and Pall Melsted for their help on CMake,
+website and markdown documents.
 
 Part of this package's codes are adopted from
 [RSEM](http://deweylab.biostat.wisc.edu/rsem).
