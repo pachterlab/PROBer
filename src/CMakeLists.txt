@@ -26,11 +26,8 @@ target_link_libraries(PROBer-run-em PROBer_core ${SAMTOOLS_DIR}/libbam.a ${ZLIB_
 target_link_libraries(PROBer-simulate-reads PROBer_core ${SAMTOOLS_DIR}/libbam.a ${ZLIB_LIBRARIES} pthread)
 
 
-configure_file(PROBer_utils.py PROBer_utils.py COPYONLY)
-configure_file(PROBer-gff3-to-gtf PROBer-gff3-to-gtf COPYONLY)
-configure_file(PROBer-prepare-reference PROBer-prepare-reference COPYONLY)
-configure_file(PROBer-estimate-parameters PROBer-estimate-parameters COPYONLY)
+configure_file(PROBer PROBer COPYONLY)
+
 
 install(TARGETS PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads DESTINATION bin)
-install(PROGRAMS PROBer-gff3-to-gtf PROBer-prepare-reference PROBer-estimate-parameters DESTINATION bin)
-install(FILES PROBer_utils.py DESTINATION bin)
+install(PROGRAMS PROBer DESTINATION bin)

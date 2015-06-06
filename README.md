@@ -15,6 +15,7 @@ Table of Contents
 * [Example](#example)
 * [Authors](#authors)
 * [Acknowledgements](#acknowledgements)
+* [License](#license)
 
 * * *
 
@@ -24,33 +25,40 @@ Table of Contents
 
 To compile, run
 
+    ```
     make
-
+    ```
 ## <a name="usage"></a> Usage
 
 ### Prepare Reference Sequences
 
 To prepare reference sequence, you should run
-'PROBer-prepare-reference'. Run
+`PROBer prepare`. Run
 
-    PROBer-prepare-reference --help
+    ```
+    PROBer prepare --help
+    ```
 
 to get usage information.
 
 ### Estimate RNA Structure Parameters
 
 To estimate RNA structure parameters, you should run
-'PROBer-estimate-parameters'. Run
+`PROBer estimate`. Run
 
-    PROBer-estimate-parameters --help
+    ```
+    PROBer estimate --help
+    ```
 
 to get usage information.
 
 ### Simulation
 
-To simulate reads, you should run 'PROBer-simulate-reads'. Run
+To simulate reads, you should run `PROBer simulate`. Run
 
-    PROBer-simulate-reads
+    ```
+    PROBer simulate --help
+    ```
 
 to get usage information.
 
@@ -69,10 +77,10 @@ reads with output name 'test_sim'.
 
 The commands are listed below:
 
-PROBer-prepare-reference --gff3 TAIR10_GFF3_genes.gff --gff3-RNA-pattern mRNA,rRNA --bowtie --bowtie-path /sw/bowtie TAIR10_chr_all.fa arabidosis/arabidosis
-PROBer-estimate-parameters -p 40 --primer-length 6 --size-selection-min 21 --size-selection-max 526 --read-length 37 --bowtie-path /sw/bowtie arabidosis/arabidosis test_sample --reads minus.fq plus.fq
-PROBer-simulate-reads arabidosis/arabidosis test_sample.temp/test_sample_minus.config test_sample minus 10000000 test_sim
-PROBer-simulate-reads arabidosis/arabidosis test_sample.temp/test_sample_plus.config test_sample plus 10000000 test_sim
+PROBer prepare --gff3 TAIR10_GFF3_genes.gff --gff3-RNA-pattern mRNA,rRNA --bowtie --bowtie-path /sw/bowtie TAIR10_chr_all.fa arabidosis/arabidosis
+PROBer estimate -p 40 --primer-length 6 --size-selection-min 21 --size-selection-max 526 --read-length 37 --bowtie-path /sw/bowtie arabidosis/arabidosis test_sample --reads minus.fq plus.fq
+PROBer simulate arabidosis/arabidosis test_sample.temp/test_sample_minus.config test_sample minus 10000000 test_sim
+PROBer simulate arabidosis/arabidosis test_sample.temp/test_sample_plus.config test_sample plus 10000000 test_sim
  
 ## <a name="authors"></a> Authors
 
@@ -81,7 +89,9 @@ This package is implemented by Bo Li.
 ## <a name="acknowledgements"></a> Acknowledgements
 
 Thanks Akshay Tambe, Sharon Aviran, and Lior Pachter for their super
-helpful suggestions and feedbacks on implementing this package.
+helpful suggestions and feedbacks on implementing this package. Thanks
+Harold Pimentel and Pall Melsted for their help on CMake, website and
+markdown documents.
 
 Part of this package's codes are adopted from
 [RSEM](http://deweylab.biostat.wisc.edu/rsem).
@@ -89,3 +99,8 @@ Part of this package's codes are adopted from
 This package uses the
 [Boost C++](http://www.boost.org) and
 [samtools](http://samtools.sourceforge.net) libraries.
+
+## <a name="license"></a> License
+
+PROBer is licensed under the [GNU General Public License
+v3](http://www.gnu.org/licenses/gpl-3.0.html).
