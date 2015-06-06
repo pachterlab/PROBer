@@ -21,13 +21,15 @@ Table of Contents
 
 ## <a name="introduction"></a> Introduction
 
+PROBer is a software to quantlify RNA structure probing experiments.
+
 ## <a name="compilation"></a> Compilation
 
 To compile, run
 
-    ```
-    make
-    ```
+```
+make
+```
 
 ## <a name="usage"></a> Usage
 
@@ -36,9 +38,9 @@ To compile, run
 To prepare reference sequence, you should run
 `PROBer prepare`. Run
 
-    ```
-    PROBer prepare --help
-    ```
+```
+PROBer prepare --help
+```
 
 to get usage information.
 
@@ -47,9 +49,9 @@ to get usage information.
 To estimate RNA structure parameters, you should run
 `PROBer estimate`. Run
 
-    ```
-    PROBer estimate --help
-    ```
+```
+PROBer estimate --help
+```
 
 to get usage information.
 
@@ -57,9 +59,9 @@ to get usage information.
 
 To simulate reads, you should run `PROBer simulate`. Run
 
-    ```
-    PROBer simulate --help
-    ```
+```
+PROBer simulate --help
+```
 
 to get usage information.
 
