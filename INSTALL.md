@@ -21,7 +21,7 @@ Installation
     cd PROBer
     ```
 
-3. Make a build directory and move there
+3. Make a build directory and move there:
 
     ```
     mkdir build
@@ -37,7 +37,7 @@ Installation
     ```
 
     This is only required when one of the `CMakeLists.txt` files changes or new
-    source files are introduced. It will make a new set of `Makefile`s
+    source files are introduced. It will make a new set of `Makefile`s.
 
 5. Build the code
 
