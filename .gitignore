@@ -1,15 +1,2 @@
-sam
-*.o
 *~
-PROBer-extract-reference-transcripts
-PROBer-parse-alignments
-PROBer-preref
-PROBer-synthesis-reference-transcripts
-PROBer-run-em
-PROBer-simulate-reads
-utils.pyc
-
-PROBer-run-em-separate
-
-PROBer_single_transcript
-PROBer_single_transcript_batch
+build/*
