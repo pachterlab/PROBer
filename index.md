@@ -7,10 +7,10 @@
 layout: frontpage
 title: "PROBer-Quantitative modeling of transcriptome-wide RNA structure-probing experiments"
 header:
-   image_fullwidth: "campus.jpg"   
+   image_fullwidth: "RNA.jpg"   
 ---
 
 # News
 
-* Jun. 6, 2015 &emsp; PROBer website is under construction!
+* Jun. 6, 2015 &emsp; The PROBer website is under construction!
 
