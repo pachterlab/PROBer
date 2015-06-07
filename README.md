@@ -90,13 +90,14 @@ Tambe, Sharon Aviran and Lior Pachter.
 
 ## <a name="acknowledgements"></a> Acknowledgements
 
-Thanks Harold Pimentel and Pall Melsted for their help on CMake,
-website and markdown documents.
+Thanks [Harold Pimentel](http://www.cs.berkeley.edu/~pimentel/) and
+[P&aacute;ll Melsted](https://notendur.hi.is/pmelsted/) for their help
+on CMake, website and markdown documents.
 
-Part of this package's codes are adopted from
+A small part of this project's codes are adopted from
 [RSEM](http://deweylab.biostat.wisc.edu/rsem).
 
-This package uses the
+This project uses the
 [Boost C++](http://www.boost.org) and
 [samtools](http://samtools.sourceforge.net) libraries.
 
