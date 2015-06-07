@@ -1,0 +1,43 @@
+- title: PROBer
+  url: "/"
+  side: left
+
+- title: About
+  url: "/about/"
+  side: left
+
+- title: Download
+  url: "/download/"
+  side: left
+
+- title: FAQ
+  url: "/faq/"
+  side: left
+
+- title: License
+  url: "/license/"
+  side: left
+
+- title: Manual
+  url: "/manual/"
+  side: left
+
+- title: Source
+  url: "/source/"
+  side: left
+
+- title: Getting Started
+  url: "/getting_started/"
+  side: left
+
+- title: Acknowledgements
+  url: "/acknowledgements/"
+  side: left
+
+- title: "Search"
+  url: "/search/"
+  side: right
+
+- title: "Contact"
+  url: "/contact/"
+  side: right
