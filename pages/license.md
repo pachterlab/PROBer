@@ -3,7 +3,7 @@ layout: page
 show_meta: false
 title: "License"
 header:
-   image_fullwidth: "campus.jpg"
+   image_fullwidth: "RNA.jpg"
 permalink: "/license/"
 ---
 

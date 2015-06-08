@@ -3,7 +3,7 @@ layout: page
 show_meta: false
 title: "Acknowledgements"
 header:
-   image_fullwidth: "campus.jpg"
+   image_fullwidth: "RNA.jpg"
 permalink: "/acknowledgements/"
 ---
 
