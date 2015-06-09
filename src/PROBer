@@ -12,17 +12,16 @@ import re
 ############### Utility classes, functions, and etc. ###############
 
 
-
-VERSION = "0.1.0"
+VERSION = "0.1.2"
 
 demo = False
 
 class MyFormatter(argparse.RawDescriptionHelpFormatter):
     def _format_action(self, action):
         temp = super(argparse.RawDescriptionHelpFormatter, self)._format_action(action)
-	if action.nargs == argparse.PARSER:
-	    temp = "\n".join(temp.split("\n")[1:])
-	return temp
+        if action.nargs == argparse.PARSER:
+            temp = "\n".join(temp.split("\n")[1:])
+        return temp
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -38,7 +37,16 @@ def nargs_range(list_of_range):
                 raise argparse.ArgumentTypeError("{} needs {} arguments".format(self.dest, list_of_range))
             setattr(namespace, self.dest, values)
     return _StoreConstraintAction
-        
+
+def check_seed():
+    """ Check if the seed is an integer """
+    class _StoreConstraintAction(argparse.Action):
+        def __call__(self, parser, namespace, value, option_string = None):
+            if re.match("^[\d]+$", value) == None:
+                raise argparse.ArgumentTypeError("{} must be an unsigned integer".format(self.dest))
+            setattr(namespace, self.dest, value)
+    return _StoreConstraintAction
+
 def expand(input):
     """ Expand input string to remove ~ and resovle symbolic link"""
     return os.path.realpath(os.path.expanduser(input))
@@ -50,7 +58,7 @@ def expandAll(input):
     for afile in inputs:
         res.append(os.path.realpath(os.path.expanduser(afile)))
     return ",".join(res)
-        
+
 def runProg(command, command2 = None, catch_stderr = None):
     """ Run command using a subprocess, if command2 != None, use Pipe """
 
@@ -85,17 +93,18 @@ def runProg(command, command2 = None, catch_stderr = None):
 
 
 
-parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to estimate RNA structure probing parameters.", add_help = False)
+parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to estimate RNA structure probing parameters.", add_help = True)
 subparsers = parser.add_subparsers(title = "commands", dest = "command")
+subparsers.required = True
 
 
 ############    Prepare references   ############
 
 
 parser_prepare = subparsers.add_parser("prepare", help = "This command is used to prepare PROBer references.", formatter_class = MyFormatter,
-	       	 			description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices.",
-					epilog = "OUTPUT:\n"
-					       	 "  Built references in prefixed by 'reference_name'.")
+                                        description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices.",
+                                        epilog = "OUTPUT:\n"
+                                                 "  Built references in prefixed by 'reference_name'.")
 
 parser_prepare.add_argument("ref_fastas", help = "Either a comma-separated list of Multi-FASTA formatted files OR a directory name. If a directory name is specified, This program will read all files with suffix \".fa\" or \".fasta\" in this directory. The files should contain either the sequences of transcripts or an entire genome, depending on whether the --gtf or --gff3  option is used.", metavar = "reference_fasta_file(s)")
 parser_prepare.add_argument("ref_name", help = "The name of the reference used. This program will generate several reference-related files that are prefixed by this name. This name can contain path information (e.g. /ref/mm9).", type = expand, metavar = "reference_name")
@@ -123,56 +132,56 @@ parser_prepare.add_argument("-q", "--quiet", help = "Suppress the output of logg
 
 
 parser_estimate = subparsers.add_parser("estimate", help = "This command is used to estimate RNA structure parameters from probing data.", formatter_class = MyFormatter,
-		  		        usage = "PROBer estimate [options] reference_name sample_name {--bam input_minus.bam input_plus.bam | --sam input_minus.sam input_plus.sam | "
-					      	"--reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}",
-				        description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.",
-					epilog = "OUTPUTS:\n"
-                  			       	 "  sample_name.expr\n"
-                  				 "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
-                  				 "    \n"
-                  				 "    transcript_id length effective_length expected_count_minus expected_count_plus TPM FPKM\n"
-                  				 "    \n"
-                  				 "    transcript_id gives the transcript's name. length is the transcript length. "
-						      "effective_length represents the number of positions that can generate a fragment. "
-                       				      "It is equal to length - primer_length + 1. "
-						      "expected_count_minus is the sum of posterior probabilities of reads coming from this transcript in the (-) channel. "
-                       				      "expected_count_plus is the counts from (+) channel. TPM is transcript per million. FPKM is fragment per kilobase per millon reads.\n\n"
-                  				 "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
-                  				 "  sample_name.beta\n"	 
-                  				 "    Estimated beta parameters for each transcript. The first line contains the total number of transcripts. "
-                       				      "Then each line describes estimated parameters for a different transcript. "
-                       				      "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
-                       				      "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
-                  				 "  sample_name.gamma\n"
-                  				 "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
-                       				      "Then each line describes estimated parameters for a different transcript. "
-                       				      "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
-                       				      "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"
-                  				 "  sample_name_minus.bam\n"
-                  				 "    Only generated when '--output-bam' option is set.\n\n"
-                  				 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
-                       				      "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), "
-						      "where w is the posterior probability of that alignment being the true mapping of a read. "
-                       				      "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
-                       				      "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
-                       				      "Please note that 'ZW' and 'ZF' tags are reserved for PROBer "
-						      "and users need to make sure the aligner output or input BAM/SAM file does not contain these two tags "
-                       				      "unless the input BAM file is produced by PROBer and alignment/filtering criteria are not changed. "
-                       				      "Because this file contains all alignment lines produced by the aligner, "
-						      "it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
-                  				 "  sample_name_plus.bam\n"
-                  				 "    Only generated when '--output-bam' option is set.\n\n"
-                  				 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
-                       				      "The annotation format is exactly the same as the one used in 'sample_name_minus.bam'.\n\n"
-                  				 "  sample_name.stat\n"
-                  				 "    This folder contains learned model parameters from data."
-                       				      "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
-                       				      "'sample_name_minus.read_model' contains the estimated sequencing error model from '-' channel. "
-                       				      "'sample_name_plus.theta' contains the estimated read generating probabilities from '+' channel. "
-                       				      "'sample_name_plus.read_model' contains the estimated sequencing error model from '+' channel. "
-                       				      "The files contained in this folder can be used for simulation.\n\n"
-                  				 "  sample_name.temp\n"
-                  				 "    This is a temporary folder contains intermediate files.\n\n")
+                                        usage = "PROBer estimate [options] reference_name sample_name {--bam input_minus.bam input_plus.bam | --sam input_minus.sam input_plus.sam | "
+                                                "--reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}",
+                                        description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.",
+                                        epilog = "OUTPUTS:\n"
+                                                 "  sample_name.expr\n"
+                                                 "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
+                                                 "    \n"
+                                                 "    transcript_id length effective_length expected_count_minus expected_count_plus TPM FPKM\n"
+                                                 "    \n"
+                                                 "    transcript_id gives the transcript's name. length is the transcript length. "
+                                                      "effective_length represents the number of positions that can generate a fragment. "
+                                                      "It is equal to length - primer_length + 1. "
+                                                      "expected_count_minus is the sum of posterior probabilities of reads coming from this transcript in the (-) channel. "
+                                                      "expected_count_plus is the counts from (+) channel. TPM is transcript per million. FPKM is fragment per kilobase per millon reads.\n\n"
+                                                 "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
+                                                 "  sample_name.beta\n"  
+                                                 "    Estimated beta parameters for each transcript. The first line contains the total number of transcripts. "
+                                                      "Then each line describes estimated parameters for a different transcript. "
+                                                      "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
+                                                      "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
+                                                 "  sample_name.gamma\n"
+                                                 "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
+                                                      "Then each line describes estimated parameters for a different transcript. "
+                                                      "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
+                                                      "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"
+                                                 "  sample_name_minus.bam\n"
+                                                 "    Only generated when '--output-bam' option is set.\n\n"
+                                                 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
+                                                      "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), "
+                                                      "where w is the posterior probability of that alignment being the true mapping of a read. "
+                                                      "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
+                                                      "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
+                                                      "Please note that 'ZW' and 'ZF' tags are reserved for PROBer "
+                                                      "and users need to make sure the aligner output or input BAM/SAM file does not contain these two tags "
+                                                      "unless the input BAM file is produced by PROBer and alignment/filtering criteria are not changed. "
+                                                      "Because this file contains all alignment lines produced by the aligner, "
+                                                      "it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
+                                                 "  sample_name_plus.bam\n"
+                                                 "    Only generated when '--output-bam' option is set.\n\n"
+                                                 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
+                                                      "The annotation format is exactly the same as the one used in 'sample_name_minus.bam'.\n\n"
+                                                 "  sample_name.stat\n"
+                                                 "    This folder contains learned model parameters from data."
+                                                      "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
+                                                      "'sample_name_minus.read_model' contains the estimated sequencing error model from '-' channel. "
+                                                      "'sample_name_plus.theta' contains the estimated read generating probabilities from '+' channel. "
+                                                      "'sample_name_plus.read_model' contains the estimated sequencing error model from '+' channel. "
+                                                      "The files contained in this folder can be used for simulation.\n\n"
+                                                 "  sample_name.temp\n"
+                                                 "    This is a temporary folder contains intermediate files.\n\n")
                   
 parser_estimate.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", type = expand, metavar = "reference_name")
 parser_estimate.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
@@ -225,24 +234,24 @@ parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of log
 
 
 parser_simulate = subparsers.add_parser("simulate", help = "This command is used to simulate reads.", formatter_class = MyFormatter,
-		  		        description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
-					epilog = "OUTPUT:\n"
-					"  If single-end reads are simulated, this program produces 'output_name_[minus/plus].[fa/fq]'. "
-					   "If paired-end reads are simulated, this program produces 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].")
+                                        description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
+                                        epilog = "OUTPUT:\n"
+                                        "  If single-end reads are simulated, this program produces 'output_name_[minus/plus].[fa/fq]'. "
+                                           "If paired-end reads are simulated, this program produces 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].")
 
 parser_simulate.add_argument("ref_name", help = "The reference's name, should be same as the one used in programs 'prepare' and 'estimate'.", type = expand, metavar = "reference_name")
 parser_simulate.add_argument("config_file", help = "A configuration file containting primer length, size selection min and max fragment size etc. "
-					    	   "'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.",
-			     type = expand, metavar = "config_file")
+                                                   "'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.",
+                             type = expand, metavar = "config_file")
 parser_simulate.add_argument("sample_name", help = "This should be the 'sample_name' used in 'PROBer-estimate-parameters'. No slash should be in the end of this string.",
-			     type = expand, metavar = "sample_name")
+                             type = expand, metavar = "sample_name")
 
 parser_simulate.add_argument("channel", help = "Which channel to simulate. 'minus' stands for the mock-treated channel and 'plus' stands for the modification-treated channel.",
-			     choices = ['plus', 'minus'], metavar = "channel")
+                             choices = ['plus', 'minus'], metavar = "channel")
 parser_simulate.add_argument("nreads", help = "Number of reads to simulate.", type = int, metavar = "number_of_reads")
 parser_simulate.add_argument("output_name", help = "Output files' prefix", type = expand, metavar = "output_name")
 
-parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", type = long, metavar = "<uint32>")
+parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", action = check_seed(), metavar = "<uint32>")
  
 
 #################################################
@@ -285,24 +294,24 @@ def gff3_to_gtf(input_gff, output_gtf, RNA_patterns):
 
     fin = open(input_gff, "r")
     for line in fin:
-    	if line.find("##FASTA") >= 0:
+        if line.find("##FASTA") >= 0:
             break
-    	if line.find("#") >= 0:
+        if line.find("#") >= 0:
             continue
 
-    	arr = rgx.split(line)
+        arr = rgx.split(line)
     
-	if arr[2] == "exon":
+        if arr[2] == "exon":
             exons.append(line.strip())
-    	elif rgx2.search(arr[2]) != None:
+        elif rgx2.search(arr[2]) != None:
             tid = None
             gid = None
             for attribute in arr[8].split(';'):
-            	if tid == None and attribute.startswith("ID="):
+                if tid == None and attribute.startswith("ID="):
                     tid = attribute[3:].strip()
-            	if gid == None and attribute.startswith("Parent="):
+                if gid == None and attribute.startswith("Parent="):
                     gid = attribute[7:].strip()
-            	if tid != None and gid != None:
+                if tid != None and gid != None:
                     break
             if tid != None and gid != None:
                 trans2gene[tid] = gid
@@ -310,18 +319,18 @@ def gff3_to_gtf(input_gff, output_gtf, RNA_patterns):
 
     fout = open(output_gtf, "w")
     for line in exons:
-    	(fields, sep, attributes) = line.rpartition('\t')
-    	pos = attributes.find("Parent=")
-    	if pos < 0:
+        (fields, sep, attributes) = line.rpartition('\t')
+        pos = attributes.find("Parent=")
+        if pos < 0:
             print("Line \"" + line + "\" does not contain a Parent attribute! Failed to convert GFF3 file!")
             exit(-1)
-    	pos += 7
-    	rpos = attributes.find(';', pos)
-    	if rpos < 0:
+        pos += 7
+        rpos = attributes.find(';', pos)
+        if rpos < 0:
             rpos = len(attributes)
     
-	tids = attributes[pos:rpos].split(',')
-    	for tid in tids:
+        tids = attributes[pos:rpos].split(',')
+        for tid in tids:
             tid = tid.strip()
             gid = trans2gene.get(tid, None)
             if gid != None:
@@ -341,7 +350,7 @@ if args.command == "prepare":
     gtf_file = None
     if args.gff3 != None:
         gtf_file = args.ref_name + os.extsep + "gtf"
-    	gff3_to_gtf(args.gff3, gtf_file, args.gff3_RNA_pattern)
+        gff3_to_gtf(args.gff3, gtf_file, args.gff3_RNA_pattern)
     elif args.gtf != None:
         gtf_file = args.gtf
 
@@ -349,28 +358,28 @@ if args.command == "prepare":
     tmp_list = args.ref_fastas.split(',')
     fasta_files = []
     for afile in tmp_list:
-    	afile = expand(afile)
-    	if os.path.isfile(afile):
+        afile = expand(afile)
+        if os.path.isfile(afile):
             fasta_files.append(afile)
-    	elif os.path.isdir(afile):
+        elif os.path.isdir(afile):
             fasta_files.extend(glob.glob("{}/*.fa".format(afile)))
             fasta_files.extend(glob.glob("{}/*.fasta".format(afile)))
-    	else:
-	    print("{} does not exist!".format(afile))
+        else:
+            print("{} does not exist!".format(afile))
             sys.exit(-1)
     if len(fasta_files) <= 0:
         print("reference_fasta_file(s) is empty! Please check if the directory name is correct or sequence files are sufficed with either '.fa' or '.fasta'.")
-    	sys.exit(-1)
+        sys.exit(-1)
 
     # Extract references        
     command = []
 
     if gtf_file != None:
         command.extend(["PROBer-extract-reference-transcripts", args.ref_name, ("1" if args.quiet else "0"), gtf_file])
-       	if args.tran2gene != None:
-       	    command.extend(["1", args.tran2gene])
-    	else:
-	    command.append("0")
+        if args.tran2gene != None:
+            command.extend(["1", args.tran2gene])
+        else:
+            command.append("0")
         command.extend(fasta_files)
     else:
         command.extend(["PROBer-synthesis-reference-transcripts", args.ref_name, ("1" if args.quiet else "0")])
@@ -563,7 +572,7 @@ if args.command == "simulate":
 
     command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, args.nreads, args.output_name]
     if args.seed != None:
-        command.extend(["--seed", str(args.seed)])
+        command.extend(["--seed", args.seed])
     runProg(command)
     
     sys.exit(0)
