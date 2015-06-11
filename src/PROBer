@@ -186,6 +186,10 @@ parser_estimate = subparsers.add_parser("estimate", help = "This command is used
                                                  "    Only generated when '--output-bam' option is set.\n\n"
                                                  "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
                                                       "The annotation format is exactly the same as the one used in 'sample_name_minus.bam'.\n\n"
+                                                 "  sample_name.logMAP\n"
+                                                 "    Only generated when '--output-logMAP' option is set.\n\n"
+                                                 "    This file contains the log MAP probability of the observed data given current parameter settings, "
+                                                      "which can be used to select appropriate priors.\n\n"
                                                  "  sample_name.stat\n"
                                                  "    This folder contains learned model parameters from data."
                                                       "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
@@ -216,6 +220,7 @@ group.add_argument("--no-quality-scores", help = "Input reads do not contain qua
 group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
 group.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
 group.add_argument("--output-bam", help = "Output transcript BAM file.", action = "store_true")
+group.add_argument("--output-logMAP", help = "Output the log MAP probability, which can be used to select priors.", action = "store_true")
 
 group = parser_estimate.add_argument_group(title = "Structure-seq related", description = "Set necessary parameters for generating a config file.")
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")

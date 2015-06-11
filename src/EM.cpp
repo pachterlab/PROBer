@@ -82,7 +82,7 @@ vector<pthread_t> threads;
 pthread_attr_t attr;
 int rc;
 
-bool output_bam;
+bool output_bam, output_logMAP;
 
 // Preprocess reads and alignments
 void preprocessAlignments(int channel) {
@@ -350,6 +350,14 @@ void EM() {
     if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
 
   } while (keepGoing);
+
+  if (output_logMAP) {
+    char logMAPF[STRLEN];
+    sprintf(logMAPF, "%s.logMAP", sampleName);
+    FILE *fo = fopen(logMAPF, "w");
+    fprintf(fo, "%.0f\n", curr_logprob);
+    fclose(fo);
+  }
   
   if (verbose) printf("EM is finished!\n");
 }
@@ -455,7 +463,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [-q]\n");
+    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [-q]\n");
     exit(-1);
   }
 
@@ -468,12 +476,14 @@ int main(int argc, char* argv[]) {
 
   verbose = true;
   output_bam = false;
+  output_logMAP = false;
   read_length = -1;
   isMAP = true;
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
+    if (!strcmp(argv[i], "--output-logMAP")) output_logMAP = true;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }
 
