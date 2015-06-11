@@ -221,6 +221,7 @@ group.add_argument("--paired-end", help = "Input reads are paired-end reads.", a
 group.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
 group.add_argument("--output-bam", help = "Output transcript BAM file.", action = "store_true")
 group.add_argument("--output-logMAP", help = "Output the log MAP probability, which can be used to select priors.", action = "store_true")
+group.add_argument("--keep-intermediate-files", help = "If PROBer should keep intermediate files.", action = "store_true", dest = "keep")
 
 group = parser_estimate.add_argument_group(title = "Structure-seq related", description = "Set necessary parameters for generating a config file.")
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
@@ -579,6 +580,10 @@ if args.command == "estimate":
         fo.write("EM\t{:.0f}s\n".format(t3 - t2))
         fo.close()
 
+    if not args.keep:
+        command = ["rm", "-rf", temp_dir]
+        runProg(command)
+    
     sys.exit(0)
 
 
