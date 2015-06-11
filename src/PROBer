@@ -566,6 +566,8 @@ if args.command == "estimate":
         command.append("--maximum-likelihood")
     if args.output_bam:
         command.append("--output-bam")
+    if args.output_logMAP:
+        command.append("--output-logMAP")
     if args.quiet:
         command.append("-q")
     runProg(command)
