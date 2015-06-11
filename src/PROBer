@@ -403,7 +403,8 @@ if args.command == "prepare":
         command.extend(["{}bowtie-build".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-f"])
         if args.quiet:
             command.append("-q")
-        command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
+       # command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
+        command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name]) # Do not convert N to G for bowtie indices, comment this line out for future releases
         runProg(command)
 
     if args.bowtie2:
@@ -496,7 +497,9 @@ if args.command == "estimate":
 
         if args.bowtie:
             command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "--norc", "-p", str(args.num_threads)])
-            command.extend("-n 2 -e 99999999 -l 25 -a -m 200 -S".split())
+            #command.extend("-n 2 -e 99999999 -l 25 -a -m 200 -S".split())
+            command.extend("-v 3 -a -m 200 -S".split())  # For future release, need to comment this line out
+
             if not args.paired_end:
                 command.extend([args.ref_name, args.reads[0]])
             else:
