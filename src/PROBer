@@ -568,8 +568,8 @@ if args.command == "estimate":
     if args.time:
         t3 = time.time()
         fo = open("{}.time".format(args.sample_name), "w")
-        fo.write("Alignment/Parsing: {:.0f}s or {:.2f}m or {:.2f}h\n".format((t2 - t1), (t2 - t1) / 60.0, (t2 - t1) / 3600.0))
-        fo.write("EM: {:.0f}s or {:.2f}m or {:.2f}h\n".format((t3 - t2), (t3 - t2) / 60.0, (t3 - t2) / 3600.0))
+        fo.write("Alignment/Parsing\t{:.0f}s\n".format(t2 - t1))
+        fo.write("EM\t{:.0f}s\n".format(t3 - t2))
         fo.close()
 
     sys.exit(0)

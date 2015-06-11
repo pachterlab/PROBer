@@ -433,7 +433,7 @@ void writeResults() {
     char timeF[STRLEN];
     sprintf(timeF, "%s.bam.time", sampleName);
     FILE *fo = fopen(timeF, "w");
-    fprintf(fo, "%ds or %.2fm or %.2fh.\n", int(b - a), (b - a) / 60.0, (b - a) / 3600.0);
+    fprintf(fo, "Generating_BAM_files\t%ds\n", int(b - a));
     fclose(fo);
   }
 
