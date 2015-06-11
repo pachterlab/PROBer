@@ -16,9 +16,22 @@ VERSION = "0.1.2"
 
 demo = False
 
-class MyFormatter(argparse.RawDescriptionHelpFormatter):
+class MyFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    def _split_lines(self, text, width):
+        if text.startswith("L:"):
+            return text[2:].splitlines()
+        return argparse.ArgumentDefaultsHelpFormatter._split_lines(self, text, width)
+    
+    def _fill_text(self, text, width, indent):
+        if text.startswith("L:"):
+            return ''.join([indent + line for line in text[2:].splitlines(True)])
+        else:
+            text = self._whitespace_matcher.sub(' ', text).strip()
+            return textwrap.fill(text, width, initial_indent=indent,
+                                           subsequent_indent=indent)
+
     def _format_action(self, action):
-        temp = super(argparse.RawDescriptionHelpFormatter, self)._format_action(action)
+        temp = super(argparse.ArgumentDefaultsHelpFormatter, self)._format_action(action)
         if action.nargs == argparse.PARSER:
             temp = "\n".join(temp.split("\n")[1:])
         return temp
@@ -93,7 +106,7 @@ def runProg(command, command2 = None, catch_stderr = None):
 
 
 
-parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to estimate RNA structure probing parameters.", add_help = True)
+parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to estimate RNA structure probing parameters.")
 subparsers = parser.add_subparsers(title = "commands", dest = "command")
 subparsers.required = True
 
@@ -135,7 +148,7 @@ parser_estimate = subparsers.add_parser("estimate", help = "This command is used
                                         usage = "PROBer estimate [options] reference_name sample_name {--bam input_minus.bam input_plus.bam | --sam input_minus.sam input_plus.sam | "
                                                 "--reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}",
                                         description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.",
-                                        epilog = "OUTPUTS:\n"
+                                        epilog = "L:OUTPUTS:\n"
                                                  "  sample_name.expr\n"
                                                  "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
                                                  "    \n"
@@ -208,7 +221,7 @@ group = parser_estimate.add_argument_group(title = "Structure-seq related", desc
 group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
 group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
 group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Intial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
+group.add_argument("--gamma-init", help = "Initial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
 group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.0001, metavar = "<float>")
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
