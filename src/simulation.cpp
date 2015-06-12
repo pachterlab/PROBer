@@ -17,6 +17,9 @@
 
 using namespace std;
 
+bool verbose = true; // define verbose
+
+
 Refs refs;
 
 PROBerWholeModel *whole_model;

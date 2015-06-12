@@ -15,6 +15,9 @@
 
 using namespace std;
 
+bool verbose = true; // define verbose
+
+
 int M;
 
 RefSeqPolicy refp;

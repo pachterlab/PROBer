@@ -16,6 +16,9 @@
 
 using namespace std;
 
+bool verbose = true; // define verbose
+
+
 struct ChrInfo {
 	string name;
 	size_t len;

@@ -21,6 +21,9 @@
 
 using namespace std;
 
+bool verbose = true; // define verbose
+
+
 int num_threads;
 MyHeap my_heap; // a heap to record number of alignments contained in each partition
 
@@ -110,7 +113,6 @@ int main(int argc, char* argv[]) {
   num_threads = atoi(argv[5]);
   assert(num_threads > 0);
 
-  verbose = true;
   bowtie_filter = false;
   max_hit_allowed = 2147483647; // 2^31 - 1
   min_len = -1;

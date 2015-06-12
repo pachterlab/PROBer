@@ -26,6 +26,9 @@
 
 using namespace std;
 
+bool verbose = true; // define verbose
+
+
 const int MAX_ROUND = 1000; // default maximum iterations
 const double deltaChange = 5e-6; // default log probability change per read
 
@@ -474,7 +477,6 @@ int main(int argc, char* argv[]) {
   sprintf(statName, "%s", argv[5]);
   num_threads = atoi(argv[6]);
 
-  verbose = true;
   output_bam = false;
   output_logMAP = false;
   read_length = -1;
