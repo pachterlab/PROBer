@@ -61,8 +61,8 @@ class DetectMem(threading.Thread):
         self.sample_name = sample_name
         self.aligner_name = aligner_name
         self.event = threading.Event()
-        self.os = subprocess.check_output("uname -s".split())[:-1].capitalize()
-        self.usr = subprocess.check_output("id -un".split())[:-1]
+        self.os = subprocess.check_output("uname -s".split()).decode()[:-1].capitalize()
+        self.usr = subprocess.check_output("id -un".split()).decode()[:-1]
 
         self.nskip = 0
         self.cmdpos = self.mempos = -1
@@ -77,7 +77,7 @@ class DetectMem(threading.Thread):
             mem_keyword = "RES"
             self.command = "top -b -n 1 -u {}".format(self.usr).split()
 
-        lines = subprocess.check_output(self.command).split("\n")            
+        lines = subprocess.check_output(self.command).decode().split("\n")            
         for i in xrange(len(lines) - 1):
             if lines[i].find("COMMAND") >= 0:
                 self.nskip = i + 1
@@ -97,7 +97,7 @@ class DetectMem(threading.Thread):
 
         with open("{}.raw.mem".format(self.sample_name), "w") as fout:
             while not self.event.is_set():
-                lines = subprocess.check_output(self.command).split("\n")
+                lines = subprocess.check_output(self.command).decode().split("\n")
 
                 is_active = False
                 steps = [-1.0] * 2
