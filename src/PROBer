@@ -8,6 +8,19 @@ import textwrap
 import glob
 import re
 import time
+import threading
+
+
+####### Make this script compatible with both Python 2 and 3 ########
+
+try:
+    xrange
+except NameError:
+    xrange = range
+
+####################################################################
+
+
 
 ############### Utility classes, functions, and etc. ###############
 
@@ -41,6 +54,101 @@ class MyParser(argparse.ArgumentParser):
         sys.stderr.write("{}: error: {}\n".format(os.path.basename(sys.argv[0]), message))
         self.print_help()
         sys.exit(-1)
+
+class DetectMem(threading.Thread):
+    def __init__(self, sample_name, aligner_name):
+        threading.Thread.__init__(self)
+        self.sample_name = sample_name
+        self.aligner_name = aligner_name
+        self.event = threading.Event()
+        self.os = subprocess.check_output("uname -s".split())[:-1].capitalize()
+        self.usr = subprocess.check_output("id -un".split())[:-1]
+
+        self.nskip = 0
+        self.cmdpos = self.mempos = -1
+        self.command = ""
+
+        if self.os == "Darwin":
+            # If Mac OS
+            mem_keyword = "RPRVT"
+            self.command = "top -r -l 1 -U {}".format(self.usr).split()
+        else:
+            # Linux/Unix
+            mem_keyword = "RES"
+            self.command = "top -b -n 1 -u {}".format(self.usr).split()
+
+        lines = subprocess.check_output(self.command).split("\n")            
+        for i in xrange(len(lines) - 1):
+            if lines[i].find("COMMAND") >= 0:
+                self.nskip = i + 1
+                fields = lines[i].split()
+                for j in xrange(len(fields)):
+                    if fields[j] == "COMMAND":
+                        self.cmdpos = j
+                    elif fields[j] == mem_keyword:
+                        self.mempos = j
+                break
+        
+    def run(self):
+        cmds = [self.aligner_name, "PROBer-parse-alignments", "PROBer-run-em"]
+
+        max_steps = [-1.0] * 2
+        max_evis = [""] * 2
+
+        with open("{}.raw.mem".format(self.sample_name), "w") as fout:
+            while not self.event.is_set():
+                lines = subprocess.check_output(self.command).split("\n")
+
+                is_active = False
+                steps = [-1.0] * 2
+                evis = [""] * 2
+
+                for line in lines[self.nskip : -1]:
+                    fields = line.split()
+
+                    step_id = -1
+                    if cmds[0].find(fields[self.cmdpos]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
+                        step_id = 0
+                    elif cmds[2].find(fields[self.cmdpos]) >= 0:
+                        step_id = 1
+
+                    if step_id >= 0:
+                        is_active = True
+                        fout.write(line + "\n")
+                        value = self.convert(fields[self.mempos], self.os)
+                        steps[step_id] = max(steps[step_id], 0.0) + value
+                        evis[step_id] += line + "\n"
+
+                if is_active:
+                    fout.write("-------------------\n")
+                    for i in xrange(2):
+                        if max_steps[i] < steps[i]:
+                            max_steps[i] = steps[i]
+                            max_evis[i] = evis[i]
+
+                self.event.wait(3)
+
+        with open("{}.mem".format(self.sample_name), "w") as fout:
+            fout.write("Alignment and Parsing\t{:.2f} GB\n".format(max_steps[0]))
+            fout.write("EM Algorithm\t{:.2f} GB\n".format(max_steps[1]))
+            fout.write("\nEvidence:\n")
+            fout.write(max_evis[0] + "\n")
+            fout.write(max_evis[1])
+
+    def convert(self, memstr, osstr):
+        value = 0
+        pos = len(memstr) - (2 if osstr == "Darwin" else 1)
+        unit = memstr[pos].lower()
+        if unit == 'g':
+            value = float(memstr[:pos])
+        elif unit == 'm':
+            value = float(memstr[:pos]) / 1024.0
+        elif unit == 'k':
+            value = float(memstr[:pos]) / 1024.0 / 1024.0
+        else:
+            value = float(memstr[:pos + 1]) / 1024.0 / 1024.0 / 1024.0
+
+        return value
 
 def nargs_range(list_of_range):
     """ Require number of arguments between n_min and n_max """
@@ -95,7 +203,6 @@ def runProg(command, command2 = None, catch_stderr = None):
     except subprocess.CalledProcessError as error:
         print("Command \"{}\" failed!".format(commandStr))
         sys.exit(-1)
-
 
 
 ####################################################################
@@ -243,6 +350,7 @@ group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, inde
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 
 parser_estimate.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
+parser_estimate.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 
@@ -487,6 +595,11 @@ if args.command == "estimate":
     if args.time:
         t1 = time.time()
 
+    detectMem = None
+    if args.memory:
+        detectMem = DetectMem(args.sample_name, "unknown" if args.bam != None or args.sam != None else "bowtie2" if args.bowtie2 else "bowtie")
+        detectMem.start()
+
     # Parse alignments
     command = []
     posChannel = 4
@@ -579,6 +692,9 @@ if args.command == "estimate":
         fo.write("Alignment/Parsing\t{:.0f}s\n".format(t2 - t1))
         fo.write("EM\t{:.0f}s\n".format(t3 - t2))
         fo.close()
+
+    if args.memory:
+        detectMem.event.set()
 
     if not args.keep:
         command = ["rm", "-rf", temp_dir]
