@@ -57,7 +57,7 @@ class MyParser(argparse.ArgumentParser):
 
 class DetectMem(threading.Thread):
     def __init__(self, sample_name, aligner_name):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon = True)
         self.sample_name = sample_name
         self.aligner_name = aligner_name
         self.event = threading.Event()
@@ -695,6 +695,7 @@ if args.command == "estimate":
 
     if args.memory:
         detectMem.event.set()
+        detectMem.join()
 
     if not args.keep:
         command = ["rm", "-rf", temp_dir]
