@@ -159,14 +159,11 @@ def nargs_range(list_of_range):
             setattr(namespace, self.dest, values)
     return _StoreConstraintAction
 
-def check_seed():
+def check_seed(value):
     """ Check if the seed is an integer """
-    class _StoreConstraintAction(argparse.Action):
-        def __call__(self, parser, namespace, value, option_string = None):
-            if re.match("^[\d]+$", value) == None:
-                raise argparse.ArgumentTypeError("{} must be an unsigned integer".format(self.dest))
-            setattr(namespace, self.dest, value)
-    return _StoreConstraintAction
+    if re.match("^[\d]+$", value) == None:
+        raise argparse.ArgumentTypeError("Seed must be an unsigned integer")
+    return value
 
 def expand(input):
     """ Expand input string to remove ~ and resovle symbolic link"""
@@ -378,7 +375,7 @@ parser_simulate.add_argument("channel", help = "Which channel to simulate. 'minu
 parser_simulate.add_argument("nreads", help = "Number of reads to simulate.", type = int, metavar = "number_of_reads")
 parser_simulate.add_argument("output_name", help = "Output files' prefix", type = expand, metavar = "output_name")
 
-parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", action = check_seed(), metavar = "<uint32>")
+parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", type = check_seed, metavar = "<uint32>")
  
 
 #################################################
@@ -715,7 +712,7 @@ if args.command == "estimate":
 
 if args.command == "simulate":
 
-    command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, args.nreads, args.output_name]
+    command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, str(args.nreads), args.output_name]
     if args.seed != None:
         command.extend(["--seed", args.seed])
     runProg(command)
