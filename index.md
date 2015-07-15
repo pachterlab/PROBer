@@ -12,5 +12,5 @@ header:
 
 # News
 
-* Jun. 6, 2015 &emsp; The PROBer website is under construction!
+* July 15, 2015 &emsp; PROBer website launched.
 

@@ -7,5 +7,5 @@ permalink: "/contact/"
 ---
 
 
-We may have a Google user group ???
+Questions are answered on the Google user group. Pease file bug reports on GitHub.
 

@@ -7,11 +7,11 @@ header:
 permalink: "/getting_started/"
 ---
 
-The short tutorial below explains how to run __PROBer__ using an imaginary example. Please go over the following steps before you continue:
+The short tutorial below explains how to run __PROBer__ using a small example. Please go over the following steps before you continue:
 
 1. [Download][1] PROBer.
 2. [Install][2] PROBer. 
-3. [Go over the manual][3].
+3. [Read the manual][3].
 
 [1]: {{ site.url }}/download/
 [2]: {{ site.url }}/resource/

@@ -13,7 +13,7 @@ The __PROBer__ GitHub repository is [here](https://github.com/pachterlab/PROBer)
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ~~~
 
-Other dependencies are either included, or can be installed using package managers on the system.
+Other dependencies are either included, or can be installed using package managers.
 
 #### Requirements: 
 
