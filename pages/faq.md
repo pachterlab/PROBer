@@ -7,5 +7,5 @@ header:
 permalink: "/faq/"
 ---
 
-* I ran out of questions, can you help me?
-  - Of course, let us finish the website together!
+*  When will the FAQ page be filled out?
+  - When we receive frequently asked questions.

@@ -7,7 +7,7 @@ header:
 permalink: "/acknowledgements/"
 ---
 
-We thanks [Harold Pimentel](http://www.cs.berkeley.edu/~pimentel/) and
+We thank [Harold Pimentel](http://www.cs.berkeley.edu/~pimentel/) and
 [P&aacute;ll Melsted](https://notendur.hi.is/pmelsted/) for their help
 with CMake, the website and markdown documents.
 
