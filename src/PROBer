@@ -339,7 +339,7 @@ group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estima
 
 
 group = parser_estimate.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
-group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -n 2 -e 99999999 -l 25 -a -m 200 -S\"."
+group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
