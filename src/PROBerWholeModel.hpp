@@ -26,7 +26,7 @@ public:
   PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
 
   /*
-    @function   destructor function, release contents of treads and transcripts
+    @function   destructor function, release contents of threads and transcripts
    */
   ~PROBerWholeModel();
 
