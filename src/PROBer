@@ -221,7 +221,7 @@ subparsers.required = True
 parser_prepare = subparsers.add_parser("prepare", help = "This command is used to prepare PROBer references.", formatter_class = MyFormatter,
                                         description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices.",
                                         epilog = "OUTPUT:\n"
-                                                 "  Built references in prefixed by 'reference_name'.")
+                                                 "  PROBer reference files prefixed by 'reference_name'.")
 
 parser_prepare.add_argument("ref_fastas", help = "Either a comma-separated list of Multi-FASTA formatted files OR a directory name. If a directory name is specified, This program will read all files with suffix \".fa\" or \".fasta\" in this directory. The files should contain either the sequences of transcripts or an entire genome, depending on whether the --gtf or --gff3  option is used.", metavar = "reference_fasta_file(s)")
 parser_prepare.add_argument("ref_name", help = "The name of the reference used. This program will generate several reference-related files that are prefixed by this name. This name can contain path information (e.g. /ref/mm9).", type = expand, metavar = "reference_name")
