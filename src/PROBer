@@ -414,7 +414,7 @@ def gff3_to_gtf(input_gff, output_gtf, RNA_patterns):
     trans2gene = dict()
 
     rgx = re.compile("[\t ]+")
-    rgx2 = re.compile("^(" + "|".join(argv[3].split(",")) + ")$")
+    rgx2 = re.compile("^(" + "|".join(RNA_patterns.split(",")) + ")$")
 
     fin = open(input_gff, "r")
     for line in fin:
