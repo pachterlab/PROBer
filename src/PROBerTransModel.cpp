@@ -95,7 +95,7 @@ PROBerTransModel::PROBerTransModel(int tid, const std::string& name, int transcr
 
   len = transcript_length - primer_length;
   efflen = len - min_frag_len + 1;
-  delta = 1.0 / (len + 1.0);
+  delta = 1.0 / (len + (primer_length > 0 ? 1.0 : 0.0));
   
   // If a transcript is excluded from analysis, all its gamma/beta values become 0
   gamma = new double[len + 1];
@@ -465,7 +465,7 @@ void PROBerTransModel::read(std::ifstream& fin, int channel) {
   if (name == "") { 
     name = tmp_name; len = tmp_len;
     efflen = len - min_frag_len + 1;
-    delta = 1.0 / (len + 1);
+    delta = 1.0 / (len + (primer_length > 0 ? 1.0 : 0.0));
     if (efflen > 0) {
       // auxiliary arrays
       logsum = new double[len + 1];
