@@ -166,7 +166,13 @@ public:
     int start_pos = pos + min_alloc_len;
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * (min_alloc_len == min_frag_len ? margin_prob[pos] : margin_prob2[pos]) * exp(logsum[start_pos] - logsum[pos]);
-    if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    if (getChannel() == 0) {
+      if (pos > 0) res *= gamma[pos];
+    }
+    else {
+      if (pos > 0) res *= beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p;
+      else res *= prob_p;
+    }
 
     return res;
   }
@@ -183,7 +189,13 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
-    if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    if (getChannel() == 0) {
+      if (pos > 0) res *= gamma[pos];
+    }
+    else {
+      if (pos > 0) res *= beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p;
+      else res *= prob_p;
+    }
 
     return res;
   }
@@ -304,6 +316,12 @@ private:
 
   static bool learning; // true if learning parameters, false if simulation
 
+
+  
+  static double prob_p; // the probability of enriching natural dropoffs in the + channel, this is shared by all transcripts
+  static bool enrich4signal; // if we need to learn prob_p;
+  
+  
   int tid; // transcript id
   std::string name; // transcript name
 
@@ -336,25 +354,6 @@ private:
   double *cdf_end; // cumulative probabilities of having a read end at a particular position, only used for simulation
 
   std::vector<InMemAlign*> alignmentsArr[2]; // In memory alignments used for update from (-) and (+) channels
-
-  /*
-    @param   beta   beta value at a position, this is the to-be-estimated parameter
-    @param   gamma  gamma value at the same position, which is assumed known
-    @param   dc     drop-off counts at the position
-    @param   cc     covering counts at the position
-    @comment: This function estimate MAP beta by solving an quadratic equation. It is only used when we estimate gamma and beta separately.
-   */
-  void solveQuadratic1(double& beta, double gamma, double dc, double cc);
-
-  /*
-    @param   gamma   gamma to be estimated
-    @param   beta    beta to be estimated
-    @param   dcm     drop-off counts at (-) channel
-    @param   ccm     covering counts at (-) channel
-    @param   dcp     drop-off counts at (+) channel
-    @param   ccp     covering counts at (+) channel
-   */
-  void solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp);
 };
 
 #endif

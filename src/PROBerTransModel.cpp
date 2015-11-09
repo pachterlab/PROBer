@@ -33,6 +33,9 @@ bool PROBerTransModel::isMAP = true; // default is true
 bool PROBerTransModel::learning = false; // default is simulation
 int PROBerTransModel::state = 0;
 
+double PROBerTransModel::prob_p = 1.0; // default is no enrichment for signal
+bool PROBerTransModel::enrich4signal = false; // default is not to enrich for signal
+  
 void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   PROBerTransModel::primer_length = primer_length;
@@ -41,7 +44,7 @@ void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int 
   state = init_state;
 }
 
-void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
+void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP, bool enrich4signal) {
   learning = true;
 
   PROBerTransModel::gamma_init = gamma_init;
@@ -49,7 +52,8 @@ void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_i
   PROBerTransModel::base = base;
   PROBerTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
   PROBerTransModel::isMAP = isMAP;
-
+  PROBerTransModel::enrich4signal = enrich4signal;
+  
   if (isMAP) {
     dgamma = gamma_init * base;
     cgamma = base - dgamma;
@@ -247,49 +251,6 @@ void PROBerTransModel::update() {
   }
 
   if (isZero(N_obs[channel])) N_obs[channel] = 0.0; // if N_obs is small, directly set it to 0
-}
-
-inline void PROBerTransModel::solveQuadratic1(double& beta, double gamma, double dc, double cc) {
-  double a = (1.0 - gamma) * (cbeta + cc + dbeta + dc);
-  double b = ((cbeta + cc + 2.0 * dbeta + dc) * gamma - (dc + dbeta)) / a;
-  double c = (-dbeta * gamma) / a;
-  double sqt_delta = sqrt(b * b - 4.0 * c);
-
-  if (sqt_delta <= fabs(b)) {
-    assert(b < 0.0);
-    sqt_delta = fabs(b);
-    //printf("dgamma = %.10g, cgamma = %.10g, dbeta = %.10g, cbeta = %.10g\n", dgamma, cgamma, dbeta, cbeta);
-    //printf("gamma = %.10g, dc = %.10g, cc = %.10g, a = %.10g, b = %.10g, c = %.10g, sqt_delta = %.10g\n", gamma, dc, cc, a, b, c, sqt_delta); 
-  }
-
-  beta = (-b + sqt_delta) / 2.0;
-  assert(beta > 0.0 && beta < 1.0);
-}
-
-inline void PROBerTransModel::solveQuadratic2(double& gamma, double& beta, double dcm, double ccm, double dcp, double ccp) {
-  double common_factor = cgamma + ccm - cbeta - dbeta;
-  double a = (cbeta + ccp + dbeta + dcp) * common_factor;
-  double b = (cbeta + ccp + dbeta) * (dbeta + dgamma + dcm) - common_factor * (dcp + dbeta) + dbeta * dcp;
-  double c = - dbeta * (dbeta + dcp + dgamma + dcm);
-  double sqt_delta;
-
-  // solve beta
-  if (!isZero(fabs(a))) {
-    // a != 0
-    b /= a; c /= a;
-    sqt_delta = sqrt(b * b - 4.0 * c);
-    assert(sqt_delta >= 0.0);
-    beta = (-b + (a > 0 ? sqt_delta : -sqt_delta)) / 2.0;
-  }
-  else {
-    // a == 0
-    beta = - c / b;
-  }
-  assert(beta > 0.0 && beta < 1.0);
-
-  // calculate gamma given beta
-  gamma = (dgamma + dcm) / (cgamma + ccm + dgamma + dcm + (dbeta * (1.0 - beta) / beta - cbeta));
-  assert(gamma > 0.0 && gamma < 1.0);
 }
 
 void PROBerTransModel::EM_step(double N_tot) {

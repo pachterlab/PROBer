@@ -155,7 +155,7 @@ private:
   double prob_pass[2]; // probability of generating a read that pass the size selection step
   
   double logprior[2], consts[2]; // logprior: log prior probabilities for each channel; consts: the unchanged part of log prior
-
+  
   int sim_tid; // if sim_tid > 0, only simulate from transcript sim_tid
   double *cdf; // a cumulative array of theta_i * prob_pass_i, used for simulation
 
@@ -168,12 +168,16 @@ private:
     int id;
     PROBerWholeModel *pointer;
 
+    double c_4_p, c_4_1mp; // expected counts for prob_p and 1 - prob_p
+    
     int num_trans;
     std::vector<PROBerTransModel*> trans;
 
     double *start2, *end2;
-
+    
     Params(int id, PROBerWholeModel *pointer) : id(id), pointer(pointer) {
+      c_4_p = c_4_1mp = 0.0;
+      
       num_trans = 0;
       trans.clear();
       start2 = end2 = NULL;
