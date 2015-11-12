@@ -242,8 +242,9 @@ private:
 
   void run_EM_step(Params* params) {
     int channel = PROBerTransModel::getChannel();
+    params->c_4_p = params->c_4_1mp = 0.0; // initialize counts
     for (int i = 0; i < params->num_trans; ++i) 
-      params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()]);
+      params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()], params->c_4_p, params->c_4_1mp);
   }
 
   static void* run_calcAuxiliaryArrays_per_thread(void* args) {

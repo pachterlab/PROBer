@@ -99,7 +99,7 @@ PROBerTransModel::PROBerTransModel(int tid, const std::string& name, int transcr
 
   len = transcript_length - primer_length;
   efflen = len - min_frag_len + 1;
-  delta = 1.0 / (len + (primer_length > 0 ? 1.0 : 0.0));
+  delta = 1.0 / (len + 1); // either len + 1 for both random priming and fragmentation or len for both; for now, len + 1, later will try len
   
   // If a transcript is excluded from analysis, all its gamma/beta values become 0
   gamma = new double[len + 1];
@@ -196,11 +196,12 @@ void PROBerTransModel::calcAuxiliaryArrays(int channel) {
       (max_pos > len ? margin_prob[i + 1] : margin_prob[i + 1] - exp(logsum[max_pos] - logsum[pos]));
   }
 
-  // Calculate the probability of passing the size selection step
+  // Calculate the probability of passing the size selection step and the enrichment step
   prob_pass[channel] = 0.0;
   for (int i = 0; i < efflen; ++i) {
     value = delta * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]);
-    if (i > 0) value *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
+    if (channel == 0) { if (i > 0) value *= gamma[i]; }
+    else { value *= (i > 0 ? beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p : prob_p); } 
     prob_pass[channel] += value;
   }
 
@@ -253,11 +254,11 @@ void PROBerTransModel::update() {
   if (isZero(N_obs[channel])) N_obs[channel] = 0.0; // if N_obs is small, directly set it to 0
 }
 
-void PROBerTransModel::EM_step(double N_tot) {
+void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
   int channel = getChannel();
 
   int max_end_i;
-  double psum, value;
+  double psum, value, ecpp; // ecpp, expected count per position
 
   assert(start2 != NULL && end2 != NULL);
 
@@ -295,7 +296,10 @@ void PROBerTransModel::EM_step(double N_tot) {
     default: assert(false);
     }
   }
-  else {
+  else {    
+
+    ecpp = N_tot * delta;
+
     //E step, if we have reads that do not know their start positions, infer start from end
     if (!isZero(N_se)) {
       double prev, curr;
@@ -324,44 +328,70 @@ void PROBerTransModel::EM_step(double N_tot) {
       }
     }
 
+
+    
     // E step, calculate hidden reads
     // Calculate end2
     psum = 1.0;
     for (int i = len; i >= 0; --i) {
       if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
       else end2[i] = psum;
-      if (i > 0) end2[i] *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
-      end2[i] *= delta * N_tot;
+      if (channel == 0) { if (i > 0) end2[i] *= gamma[i]; }
+      else { end2[i] *= (i > 0 ? beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p : prob_p); }
+      end2[i] *= ecpp;
       if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
     }
+
+
     
     // Calculate start2
-    for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
-    psum = 1.0;
+    for (int i = 0; i < min_frag_len; ++i) start2[i] = ecpp;
+    psum = 1.0; // sum of size-selection-passed and enriched fragments, the min_frag_len portion excluded
     for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
       start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
-      start2[i] *= delta * N_tot;
+      start2[i] *= ecpp;
       if (i < len) {
 	max_end_i = i - max_frag_len;
 	if (max_end_i >= 0) {
 	  value = exp(logsum[pos] - logsum[max_end_i]);
-	  if (max_end_i > 0) value *= (channel == 0 ? gamma[max_end_i] : gamma[max_end_i] + beta[max_end_i] - gamma[max_end_i] * beta[max_end_i]);
+	  if (channel == 0) { if (max_end_i > 0) value *= gamma[max_end_i]; }
+	  else { value *= (max_end_i > 0 ? beta[max_end_i] + (1.0 - beta[max_end_i]) * gamma[max_end_i] * prob_p : prob_p); }
 	  psum = std::max(psum - value, 0.0);
 	}
-	psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
+	psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: \
+		psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (beta[pos + 1] + (1.0 - beta[pos + 1]) * gamma[pos + 1] * prob_p));
       }
     }
 
+
+    
+    // Collect sufficient statistics for prob_p
+    if (enrich4signal && channel == 1) {
+      double prob_1mp = 1.0 - prob_p;
+      
+      c_4_p += end[0];
+      c_4_1mp += ecpp * margin_prob[0] * exp(logsum[min_frag_len]) * prob_1mp;
+      for (int i = 1; i < efflen; ++i) {
+	value = (1.0 - beta[i]) * gamma[i];
+	if (end[i] > 0.0) c_4_p += end[i] * (value * prob_p / (beta[i] + value * prob_p));
+	c_4_imp += ecpp * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * value * prob_1mp;
+      }
+    }
+
+
+    
     // M step
     double dc, cc; // dc: drop-off count; cc: covering count
     
     start2[0] += start[0];
     end2[0] += end[0];
     for (int i = 1; i <= len; ++i) {
+      end2[i] += end[i];
+      dc = end2[i]; // drop-off count
+
       start2[i] += start[i] + start2[i - 1];
-      end2[i] += end[i] + end2[i - 1];
-      
-      dc = std::max(0.0, end2[i] - end2[i - 1]); // drop-off count
+      end2[i] += end2[i - 1];
+
       cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
       
       switch(getState()) {
@@ -377,12 +407,14 @@ void PROBerTransModel::EM_step(double N_tot) {
 	break;
       case 1:
 	// learn separately, (+) channel
+	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
+        
 	if (isMAP) {
-	  solveQuadratic1(beta[i], gamma[i], dc, cc);
+	  beta[i] = (dbeta + value) / (dbeta + dc + cbeta + cc);
+	  assert(beta[i] > 0.0 && beta[i] < 1.0);
 	}
 	else {
-	  beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	  beta[i] = ((beta[i] > gamma[i]) && (gamma[i] < 1.0) ? (beta[i] - gamma[i]) / (1.0 - gamma[i]) : 0.0);
+	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
 	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
 	}
 	break;
@@ -391,20 +423,17 @@ void PROBerTransModel::EM_step(double N_tot) {
 	ccm[i] = cc;
 	break;
       case 3:
+	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
+	assert(dc - value >= 0.0);
+	
 	if (isMAP) {
-     	  solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
+	  gamma[i] = (dgamma + dcm[i] + (dc - value)) / (dgamma + dcm[i] + (dc - value) + cgamma + ccm[i] + cc);
+	  beta[i] = (dbeta + value) / (dbeta + dc + cbeta + cc);
+	  assert(gamma[i] > 0.0 && gamma[i] < 1.0 && beta[i] > 0.0 && beta[i] < 1.0);
 	}
 	else {
-	  gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
-	  beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	  if (beta[i] > gamma[i]) { 
-	    assert(gamma[i] < 1.0);
-	    beta[i] = (beta[i] - gamma[i]) / (1.0 - gamma[i]);
-	  }
-	  else {
-	    gamma[i] = (dcm[i] + dc > 0.0 ? (dcm[i] + dc) / (dcm[i] + ccm[i] + dc + cc) : 0.0);
-	    beta[i] = 0.0;
-	  }
+	  gamma[i] = (dcm[i] + (dc - value) > 0.0 ? (dcm[i] + (dc - value)) / (dcm[i] + (dc - value) + ccm[i] + cc) : 0.0);
+	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
 	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
 	}
 	break;
@@ -412,7 +441,7 @@ void PROBerTransModel::EM_step(double N_tot) {
       }
     }
   }
-
+  
   // Prepare for the next round
   calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }

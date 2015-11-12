@@ -166,13 +166,8 @@ public:
     int start_pos = pos + min_alloc_len;
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * (min_alloc_len == min_frag_len ? margin_prob[pos] : margin_prob2[pos]) * exp(logsum[start_pos] - logsum[pos]);
-    if (getChannel() == 0) {
-      if (pos > 0) res *= gamma[pos];
-    }
-    else {
-      if (pos > 0) res *= beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p;
-      else res *= prob_p;
-    }
+    if (getChannel() == 0) { if (pos > 0) res *= gamma[pos]; }
+    else { res *= (pos > 0 ? beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p : prob_p); }
 
     return res;
   }
@@ -189,13 +184,8 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
-    if (getChannel() == 0) {
-      if (pos > 0) res *= gamma[pos];
-    }
-    else {
-      if (pos > 0) res *= beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p;
-      else res *= prob_p;
-    }
+    if (getChannel() == 0) { if (pos > 0) res *= gamma[pos]; }
+    else { res *= (pos > 0 ? beta[pos] + (1.0 - beta[pos]) * gamma[pos] * prob_p : prob_p); }
 
     return res;
   }
@@ -253,9 +243,11 @@ public:
 
   /*
     @param   N_tot   expected total counts for this transcript
+    @param   c_4_p   count for prob_p
+    @param   c_4_1mp   count for 1 - prob_p
     @comment: Run one iteration of EM algorithm for a single transcript
    */
-  void EM_step(double N_tot);
+  void EM_step(double N_tot, double& c_4_p, double& c_4_1mp);
 
   /*
     @param   fin   input stream
