@@ -12,6 +12,7 @@
 #include "Transcript.hpp"
 #include "Transcripts.hpp"
 #include "MyHeap.hpp"
+#include "PROBerTransModel.hpp"
 #include "PROBerWholeModel.hpp"
 
 PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
@@ -200,6 +201,16 @@ void PROBerWholeModel::EM_step(double count0) {
     pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
 
+  // Estimate prob_p
+  if (PROBerTransModel::enrich_for_signal()) {
+    double c_4_p = 0.0, c_4_1mp = 0.0;
+    for (int i = 0; i < size; ++i) {
+      c_4_p += paramsVecEM[i]->c_4_p;
+      c_4_1mp += paramsVecEM[i]->c_4_1mp;
+    }
+    PROBerTransModel::set_prob_p(c_4_p / (c_4_p + c_4_1mp));
+  }
+  
   // Estimate new theta and prob_noise
   sum = sum2 = 0.0;  
   for (int i = 1; i <= M; ++i) {
@@ -257,7 +268,8 @@ void PROBerWholeModel::read(const char* input_name, const char* statName) {
   bool learning = PROBerTransModel::isLearning();
 
   int tmp_M;
-
+  double tmp_prob_p;
+  
   // load gamma
   if (!learning || (learning && state == 1)) {
     sprintf(input_param, "%s.gamma", input_name);
@@ -284,7 +296,8 @@ void PROBerWholeModel::read(const char* input_name, const char* statName) {
     fin.open(input_param);
     assert(fin.is_open());
     
-    assert((fin>> tmp_M) && (tmp_M == M));
+    assert((fin>> tmp_M>> tmp_prob_p) && (tmp_M == M));
+    PROBerTransModel::set_prob_p(tmp_prob_p);
     for (int i = 1; i <= M; ++i) transcripts[i]->read(fin, 1);
 
     fin.close();
@@ -393,7 +406,7 @@ void PROBerWholeModel::write(const char* output_name, const char* statName) {
     fout.precision(10);
     fout.unsetf(std::ios::floatfield);
 
-    fout<< M<< std::endl;
+    fout<< M<< '\t'<< PROBerTransModel::get_prob_p()<< std::endl;
     for (int i = 1; i <= M; ++i) transcripts[i]->write(fout, 1);
 
     fout.close();

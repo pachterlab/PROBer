@@ -401,26 +401,27 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	  gamma[i] = (dgamma + dc) / (dgamma + dc + cgamma + cc);
 	  assert(gamma[i] > 0.0 && gamma[i] < 1.0);
 	}
-	else {
+	else
 	  gamma[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	}
+	
 	break;
       case 1:
 	// learn separately, (+) channel
 	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
-        
+	assert(dc - value >= 0.0);
+	
 	if (isMAP) {
 	  beta[i] = (dbeta + value) / (dbeta + dc + cbeta + cc);
 	  assert(beta[i] > 0.0 && beta[i] < 1.0);
 	}
-	else {
+	else 
 	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
-	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
-	}
+	
 	break;
       case 2:
 	dcm[i] = dc;
 	ccm[i] = cc;
+	
 	break;
       case 3:
 	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
@@ -434,8 +435,8 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	else {
 	  gamma[i] = (dcm[i] + (dc - value) > 0.0 ? (dcm[i] + (dc - value)) / (dcm[i] + (dc - value) + ccm[i] + cc) : 0.0);
 	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
-	  if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
 	}
+	
 	break;
       default: assert(false);
       }
@@ -492,19 +493,6 @@ void PROBerTransModel::write(std::ofstream& fout, int channel) {
     for (int i = 1; i <= len; ++i) fout<< '\t'<< beta[i];
   }
 
-  fout<< std::endl;
-}
-
-void PROBerTransModel::writeFreq(std::ofstream& fc, std::ofstream& fout) {
-  double c = 0.0;
-  for (int i = 1; i <= len; ++i) c += -log(1.0 - beta[i]);
-
-  fc << c;
-  fout<< name;
-  if (!isZero(c)) {
-    fout<< '\t'<< len;
-    for (int i = 1; i <= len; ++i) fout<< '\t'<< std::max(0.0, -log(1.0 - beta[i]) / c);
-  }
   fout<< std::endl;
 }
 

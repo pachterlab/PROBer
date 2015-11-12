@@ -107,6 +107,21 @@ public:
   static bool isJoint() { return state >= 2; }
 
   /*
+    @return   if enrich for signal, true; otherwise, false
+   */
+  static bool enrich_for_signal() { return enrich4signal; }
+
+  /*
+    @comment: access prob_p
+   */
+  static double get_prob_p() { return prob_p; }
+
+  /*
+    @comment: set prob_p's value
+   */
+  static void set_prob_p(double p) { prob_p = p; }
+  
+  /*
     @return   transcript id
   */
   int getTid() const { return tid; }
