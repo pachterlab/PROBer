@@ -70,6 +70,7 @@ int model_type;
 int num_threads;
 int read_length;
 bool isMAP;
+bool enrich4signal;
 
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
@@ -200,7 +201,7 @@ void init() {
 
   // Create PROBerWholeModel
   sprintf(configF, "%s.config", imdName);
-  whole_model = new PROBerWholeModel(configF, 2, &transcripts, num_threads, read_length, isMAP);
+  whole_model = new PROBerWholeModel(configF, 2, &transcripts, num_threads, read_length, isMAP, enrich4signal);
 
   // Create PROBerReadModels
   read_models[0] = new PROBerReadModel(model_type, &refs, read_length);
@@ -466,7 +467,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [-q]\n");
+    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--enrich-signal] [--output-bam] [--output-logMAP] [-q]\n");
     exit(-1);
   }
 
@@ -481,9 +482,12 @@ int main(int argc, char* argv[]) {
   output_logMAP = false;
   read_length = -1;
   isMAP = true;
+  enrich4signal = false;
+  
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
+    if (!strcmp(argv[i], "--enrich-signal")) enrich4signal = true;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "--output-logMAP")) output_logMAP = true;
     if (!strcmp(argv[i], "-q")) verbose = false;

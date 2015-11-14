@@ -22,8 +22,9 @@ public:
     @param   num_threads   Number of threads allowed to use
     @param   read_length   If set, assuming all reads < read_length are due to adaptor trimming
     @param   isMAP         Use MAP estimates if true
+    @param   enrich4signal   Learn prob_p if true
    */
-  PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
+  PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true, bool enrich4signal = false);
 
   /*
     @function   destructor function, release contents of threads and transcripts

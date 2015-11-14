@@ -15,7 +15,7 @@
 #include "PROBerTransModel.hpp"
 #include "PROBerWholeModel.hpp"
 
-PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
+PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP, bool enrich4signal) {
   // set PROBerTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -26,7 +26,7 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
   PROBerTransModel::setGlobalParams(primer_length, min_frag_len, max_frag_len, init_state);
   if (trans != NULL) {
     assert(fscanf(fi, "%lf %lf", &gamma_init, &beta_init) == 2);
-    PROBerTransModel::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
+    PROBerTransModel::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP, enrich4signal);
   }
   fclose(fi);
 

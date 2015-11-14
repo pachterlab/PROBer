@@ -45,9 +45,10 @@ public:
     @param   base         base = alpha + beta - 2 for Beta(alpha, beta) distribution
     @param   read_length  the length of a single-end read
     @param   isMAP        if we want MAP estimates
+    @param   enrich4signal   if we want to estimate prob_p
     @comment: This function sets learning related parameters shared by all transcripts, calling this function means that we want to learn parameters from data.
   */
-  static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP);
+  static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP, bool enrich4signal);
 
   /*
     @param   channel   which channel

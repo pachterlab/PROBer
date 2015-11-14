@@ -336,7 +336,7 @@ group.add_argument("--beta-init", help = "Initial value for all betas.", type = 
 
 group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
 group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
-
+group.add_argument("--enrich-signal", help = "Enrich signal in (+) channel.", action = "store_true")
 
 group = parser_estimate.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
@@ -675,6 +675,8 @@ if args.command == "estimate":
         command.extend(["--read-length", str(args.read_length)])
     if args.ml_est:
         command.append("--maximum-likelihood")
+    if args.enrich_signal:
+        command.append("--enrich-signal")
     if args.output_bam:
         command.append("--output-bam")
     if args.output_logMAP:

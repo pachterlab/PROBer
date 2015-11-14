@@ -502,9 +502,9 @@ void PROBerTransModel::startSimulation() {
 
   calcAuxiliaryArrays(getChannel());
  
-  cdf_end[0] = exp(logsum[min_frag_len] - logsum[0]) * margin_prob[0];
+  cdf_end[0] = prob_p * exp(logsum[min_frag_len] - logsum[0]) * margin_prob[0];
   for (int i = 1; i < efflen; ++i) {
-    cdf_end[i] = (getChannel() == 0 ? gamma[i] : (gamma[i] + beta[i] - gamma[i] * beta[i])) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
+    cdf_end[i] = (getChannel() == 0 ? gamma[i] : (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
     cdf_end[i] += cdf_end[i - 1];
   }
 }
