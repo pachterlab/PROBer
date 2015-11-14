@@ -47,7 +47,7 @@ void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_i
   PROBerTransModel::gamma_init = gamma_init;
   PROBerTransModel::beta_init = beta_init;
   PROBerTransModel::base = base;
-  PROBerTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
+  PROBerTransModel::min_alloc_len = std::max(min_frag_len, read_length - primer_length);
   PROBerTransModel::isMAP = isMAP;
 
   if (isMAP) {
