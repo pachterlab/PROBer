@@ -321,7 +321,6 @@ void PROBerWholeModel::read(const char* input_name, const char* statName) {
 void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
   char exprF[STRLEN];
   double tpm[M + 1], fpkm[M + 1], l_bar;
-  int residue = (PROBerTransModel::get_primer_length() > 0 ? 1 : 0);
     
   l_bar = 0.0;
   for (int i = 1; i <= M; ++i) {
@@ -350,7 +349,7 @@ void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
 
   fout<< "transcript_id\tlength\teffective_length\t"<< (state <= 1 ? "expected_count" : "expected_count_minus\texpected_count_plus")<< "\tTPM\tFPKM"<< std::endl;
   for (int i = 1; i <= M; ++i) {
-    fout<< transcripts[i]->getName()<< '\t'<< transcripts[i]->getLen() + transcripts[i]->get_primer_length()<< '\t'<< transcripts[i]->getLen() + residue<< '\t';
+    fout<< transcripts[i]->getName()<< '\t'<< transcripts[i]->getLen() + transcripts[i]->get_primer_length()<< '\t'<< transcripts[i]->getLen() + 1<< '\t';
     if (state <= 1) fout<< counts[state & 1][i];
     else fout<< counts[0][i]<< '\t'<< counts[1][i];
     fout<< '\t'<< tpm[i]<< '\t'<< fpkm[i]<< '\t'<< std::endl;
