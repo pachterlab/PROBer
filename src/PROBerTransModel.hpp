@@ -280,13 +280,6 @@ public:
   void write(std::ofstream& fout, int channel);
 
   /*
-    @param   fc   output stream for c, the marking rate
-    @param   fout output stream for freqs
-    @format:  name c(rate of being marked) len freqs
-   */
-  void writeFreq(std::ofstream& fc, std::ofstream& fout);
-
-  /*
     @comment: allocate memory for cdf_end, call calcAuxiliaryArrays() and calculate cdf_end values
    */
   void startSimulation();

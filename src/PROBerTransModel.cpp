@@ -50,7 +50,7 @@ void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_i
   PROBerTransModel::gamma_init = gamma_init;
   PROBerTransModel::beta_init = beta_init;
   PROBerTransModel::base = base;
-  PROBerTransModel::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
+  PROBerTransModel::min_alloc_len = std::max(min_frag_len, read_length - primer_length);
   PROBerTransModel::isMAP = isMAP;
   PROBerTransModel::enrich4signal = enrich4signal;
   
@@ -332,7 +332,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
     
     // E step, calculate hidden reads
     // Calculate end2
-    psum = 1.0;
+    psum = 1.0; // sum of probability of starting from anywhere and end at i, with the drop-off probability excluded
     for (int i = len; i >= 0; --i) {
       if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
       else end2[i] = psum;
@@ -346,7 +346,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
     
     // Calculate start2
     for (int i = 0; i < min_frag_len; ++i) start2[i] = ecpp;
-    psum = 1.0; // sum of size-selection-passed and enriched fragments, the min_frag_len portion excluded
+    psum = (channel == 0 ? 1.0 : prob_p); // sum of size-selection-passed and enriched fragments, the min_frag_len portion excluded
     for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
       start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
       start2[i] *= ecpp;
@@ -374,7 +374,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
       for (int i = 1; i < efflen; ++i) {
 	value = (1.0 - beta[i]) * gamma[i];
 	if (end[i] > 0.0) c_4_p += end[i] * (value * prob_p / (beta[i] + value * prob_p));
-	c_4_imp += ecpp * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * value * prob_1mp;
+	c_4_1mp += ecpp * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * value * prob_1mp;
       }
     }
 
@@ -407,7 +407,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	break;
       case 1:
 	// learn separately, (+) channel
-	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
+	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i])) : 0.0);
 	assert(dc - value >= 0.0);
 	
 	if (isMAP) {
@@ -424,7 +424,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	
 	break;
       case 3:
-	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p)) : 0.0);
+	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i])) : 0.0);
 	assert(dc - value >= 0.0);
 	
 	if (isMAP) {
@@ -456,7 +456,7 @@ void PROBerTransModel::read(std::ifstream& fin, int channel) {
   if (name == "") { 
     name = tmp_name; len = tmp_len;
     efflen = len - min_frag_len + 1;
-    delta = 1.0 / (len + (primer_length > 0 ? 1.0 : 0.0));
+    delta = 1.0 / (len + 1); // either len + 1 for both random priming and fragmentation or len for both; for now, len + 1, later will try len
     if (efflen > 0) {
       // auxiliary arrays
       logsum = new double[len + 1];
@@ -502,9 +502,9 @@ void PROBerTransModel::startSimulation() {
 
   calcAuxiliaryArrays(getChannel());
  
-  cdf_end[0] = prob_p * exp(logsum[min_frag_len] - logsum[0]) * margin_prob[0];
+  cdf_end[0] = prob_p * exp(logsum[min_frag_len]) * margin_prob[0];
   for (int i = 1; i < efflen; ++i) {
-    cdf_end[i] = (getChannel() == 0 ? gamma[i] : (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
+    cdf_end[i] = (getChannel() == 0 ? gamma[i] : beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
     cdf_end[i] += cdf_end[i - 1];
   }
 }
