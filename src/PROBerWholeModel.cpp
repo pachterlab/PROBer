@@ -324,7 +324,7 @@ void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
     
   l_bar = 0.0;
   for (int i = 1; i <= M; ++i) {
-    tpm[i] = theta[i] / (transcripts[i]->getLen() + residue);
+    tpm[i] = theta[i] / (transcripts[i]->getLen() + 1.0);
     l_bar += tpm[i];
   }
   assert(l_bar > 0.0);

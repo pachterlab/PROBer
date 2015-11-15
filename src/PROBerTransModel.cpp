@@ -101,13 +101,14 @@ PROBerTransModel::PROBerTransModel(int tid, const std::string& name, int transcr
   efflen = len - min_frag_len + 1;
   delta = 1.0 / (len + 1); // either len + 1 for both random priming and fragmentation or len for both; for now, len + 1, later will try len
   
-  // If a transcript is excluded from analysis, all its gamma/beta values become 0
   gamma = new double[len + 1];
-  memset(gamma, 0, sizeof(double) * (len + 1));
+  gamma[0] = 0.0;
+  for (int i = 1; i <= len; ++i) gamma[i] = (isMAP ? gamma_init : 0.0);
 
   if (getState() > 0) {
     beta = new double[len + 1];
-    memset(beta, 0, sizeof(double) * (len + 1));
+    beta[0] = 0.0;
+    for (int i = 1; i <= len; ++i) beta[i] = (isMAP ? beta_init : 0.0);
   }
 }
 
@@ -486,12 +487,6 @@ void PROBerTransModel::write(std::ofstream& fout, int channel) {
   fout<< name<< '\t'<< len;
 
   if (channel == 0) {
-
-    // If MAP estimate, separately learn and the transcript is excluded, set the gammas to gamma_init 
-    if (isMAP && getState() == 0 && isExcluded()) {
-      for (int i = 1; i <= len; ++i) gamma[i] = gamma_init;
-    }
-
     for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
   }
   else {
