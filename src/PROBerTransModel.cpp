@@ -302,7 +302,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 
     //E step, if we have reads that do not know their start positions, infer start from end
     if (!isZero(N_se)) {
-      double prev, curr;
+      double curr;
       double *mp = NULL;
       int effl;
 
@@ -313,11 +313,10 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
       curr = (end_se[0] > 0.0 && mp[0] > 0.0) ? end_se[0] / mp[0] : 0.0;
       start[min_alloc_len] += curr;
       for (int i = 1, pos = min_alloc_len + 1; i < effl; ++i, ++pos) {
-	prev = curr;
+	value = curr;
 	curr = (end_se[i] > 0.0 && mp[i] > 0.0) ? end_se[i] / mp[i] : 0.0;
-	max_end_i = (pos - 1) - max_frag_len;
-	
-	value = prev;
+
+	max_end_i = (pos - 1) - max_frag_len;	
 	if (max_end_i >= 0) {
 	  value -= ((end_se[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end_se[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
 	  if (value < 0.0) value = 0.0;
@@ -329,16 +328,15 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
     }
 
 
-    
+
     // E step, calculate hidden reads
-    // Calculate end2
+    // Calculate end2, do not count for reads that fail to enrich
     psum = 1.0; // sum of probability of starting from anywhere and end at i, with the drop-off probability excluded
     for (int i = len; i >= 0; --i) {
-      if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
-      else end2[i] = psum;
-      if (channel == 0) { if (i > 0) end2[i] *= gamma[i]; }
-      else { end2[i] *= (i > 0 ? beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p : prob_p); }
-      end2[i] *= ecpp;
+      end2[i] = psum;
+      if (i < efflen) end2[i] = std::max(end2[i] - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
+      value = (i > 0 ? (channel == 0 ? gamma[i] : beta[i] + (1.0 - beta[i]) * gamma[i]) : 1.0); // drop-off probability for psum
+      end2[i] *= ecpp * value;
       if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
     }
 
@@ -381,11 +379,20 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 
     
     // M step
-    double dc, cc; // dc: drop-off count; cc: covering count
+    double dc, cc, d1; // dc: drop-off count; cc: covering count; d1: drop-of count due to modification
     
     start2[0] += start[0];
     end2[0] += end[0];
     for (int i = 1; i <= len; ++i) {
+
+      // calculate D1
+      if (channel == 1) {
+	d1 = 0.0;
+	if (end[i] > 0.0) d1 += end[i] * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p));
+	if (end2[i] > 0.0) d1 += end2[i] * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i]));
+	if (i < efflen) end2[i] += ecpp * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * (1.0 - beta[i]) * gamma[i] * (1.0 - prob_p);
+      }
+      
       end2[i] += end[i];
       dc = end2[i]; // drop-off count
 
@@ -407,15 +414,14 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	break;
       case 1:
 	// learn separately, (+) channel
-	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i])) : 0.0);
-	assert(dc - value >= 0.0);
+	assert(dc - d1 >= 0.0);
 	
 	if (isMAP) {
-	  beta[i] = (dbeta + value) / (dbeta + dc + cbeta + cc);
+	  beta[i] = (dbeta + d1) / (dbeta + dc + cbeta + cc);
 	  assert(beta[i] > 0.0 && beta[i] < 1.0);
 	}
 	else 
-	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
+	  beta[i] = (d1 > 0.0 ? d1 / (dc + cc) : 0.0);
 	
 	break;
       case 2:
@@ -424,17 +430,16 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	
 	break;
       case 3:
-	value = (dc > 0.0 ? dc * (beta[i] / (beta[i] + (1.0 - beta[i]) * gamma[i])) : 0.0);
-	assert(dc - value >= 0.0);
+	assert(dc - d1 >= 0.0);
 	
 	if (isMAP) {
-	  gamma[i] = (dgamma + dcm[i] + (dc - value)) / (dgamma + dcm[i] + (dc - value) + cgamma + ccm[i] + cc);
-	  beta[i] = (dbeta + value) / (dbeta + dc + cbeta + cc);
+	  gamma[i] = (dgamma + dcm[i] + (dc - d1)) / (dgamma + dcm[i] + (dc - d1) + cgamma + ccm[i] + cc);
+	  beta[i] = (dbeta + d1) / (dbeta + dc + cbeta + cc);
 	  assert(gamma[i] > 0.0 && gamma[i] < 1.0 && beta[i] > 0.0 && beta[i] < 1.0);
 	}
 	else {
-	  gamma[i] = (dcm[i] + (dc - value) > 0.0 ? (dcm[i] + (dc - value)) / (dcm[i] + (dc - value) + ccm[i] + cc) : 0.0);
-	  beta[i] = (value > 0.0 ? value / (dc + cc) : 0.0);
+	  gamma[i] = (dcm[i] + (dc - d1) > 0.0 ? (dcm[i] + (dc - d1)) / (dcm[i] + (dc - d1) + ccm[i] + cc) : 0.0);
+	  beta[i] = (d1 > 0.0 ? d1 / (dc + cc) : 0.0);
 	}
 	
 	break;
