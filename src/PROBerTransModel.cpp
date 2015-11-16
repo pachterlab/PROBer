@@ -33,7 +33,7 @@ bool PROBerTransModel::isMAP = true; // default is true
 bool PROBerTransModel::learning = false; // default is simulation
 int PROBerTransModel::state = 0;
 
-double PROBerTransModel::prob_p = 1.0; // default is no enrichment for signal
+double PROBerTransModel::prob_p = 0.0; // 1.0; // default is no enrichment for signal
 bool PROBerTransModel::enrich4signal = false; // default is not to enrich for signal
   
 void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
@@ -376,12 +376,14 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
 	c_4_1mp += ecpp * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * value * prob_1mp;
       }
     }
-
-
     
+
+
     // M step
-    double dc, cc, d1; // dc: drop-off count; cc: covering count; d1: drop-of count due to modification
+    double dc, cc, d1 = 0.0; // dc: drop-off count; cc: covering count; d1: drop-of count due to modification
     
+    if (channel == 1) end2[0] += ecpp * margin_prob[0] * exp(logsum[min_frag_len]) * (1.0 - prob_p);
+
     start2[0] += start[0];
     end2[0] += end[0];
     for (int i = 1; i <= len; ++i) {
@@ -401,7 +403,7 @@ void PROBerTransModel::EM_step(double N_tot, double& c_4_p, double& c_4_1mp) {
       end2[i] += end2[i - 1];
 
       cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
-      
+
       switch(getState()) {
       case 0: 
 	// learn separately, (-) channel 
@@ -502,7 +504,7 @@ void PROBerTransModel::startSimulation() {
 
   calcAuxiliaryArrays(getChannel());
  
-  cdf_end[0] = prob_p * exp(logsum[min_frag_len]) * margin_prob[0];
+  cdf_end[0] = (getChannel() == 0 ? 1.0 : prob_p) * exp(logsum[min_frag_len]) * margin_prob[0];
   for (int i = 1; i < efflen; ++i) {
     cdf_end[i] = (getChannel() == 0 ? gamma[i] : beta[i] + (1.0 - beta[i]) * gamma[i] * prob_p) * exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i];
     cdf_end[i] += cdf_end[i - 1];
