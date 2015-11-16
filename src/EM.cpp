@@ -474,8 +474,8 @@ int main(int argc, char* argv[]) {
   strcpy(refName, argv[1]);
   model_type = atoi(argv[2]);
   strcpy(sampleName, argv[3]);
-  sprintf(imdName, "%s", argv[4]);
-  sprintf(statName, "%s", argv[5]);
+  strcpy(imdName, argv[4]);
+  strcpy(statName, argv[5]);
   num_threads = atoi(argv[6]);
 
   output_bam = false;
