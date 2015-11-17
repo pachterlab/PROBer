@@ -314,7 +314,7 @@ void one_EM_iteration(int channel, int ROUND) {
   else {
     // Run PROBerWholeModel's EM_step procedure
     whole_model->EM_step(count0[channel]);
-    
+
     if (updateReadModel) {
       read_models[channel]->init();
       for (int i = 0; i < num_threads; ++i) read_models[channel]->collect(paramsVecs[channel][i]->estimator);
@@ -351,7 +351,6 @@ void EM() {
     prev_logprob = curr_logprob;
     curr_logprob = logprob[0] + logprob[1];
 
-    printf("logprob[0] = %.2f, logprob[1] = %.2f\n", logprob[0], logprob[1]);
     if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
 
   } while (keepGoing);

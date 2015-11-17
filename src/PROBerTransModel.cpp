@@ -33,7 +33,7 @@ bool PROBerTransModel::isMAP = true; // default is true
 bool PROBerTransModel::learning = false; // default is simulation
 int PROBerTransModel::state = 0;
 
-double PROBerTransModel::prob_p = 0.0; // 1.0; // default is no enrichment for signal
+double PROBerTransModel::prob_p = 1.0; // default is no enrichment for signal
 bool PROBerTransModel::enrich4signal = false; // default is not to enrich for signal
   
 void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 

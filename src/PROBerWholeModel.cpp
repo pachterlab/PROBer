@@ -202,7 +202,7 @@ void PROBerWholeModel::EM_step(double count0) {
   }
 
   // Estimate prob_p
-  if (PROBerTransModel::enrich_for_signal()) {
+  if (channel == 1 && PROBerTransModel::enrich_for_signal()) {
     double c_4_p = 0.0, c_4_1mp = 0.0;
     for (int i = 0; i < size; ++i) {
       c_4_p += paramsVecEM[i]->c_4_p;
