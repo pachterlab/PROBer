@@ -65,6 +65,8 @@ void PROBerTransModel::setLearningRelatedParams(double gamma_init, double beta_i
     defaults[0] = dgamma * log(gamma_init) + cgamma * log(1.0 - gamma_init);
     defaults[1] = dbeta * log(beta_init) + cbeta * log(1.0 - beta_init);
   }
+
+  if (enrich4signal) prob_p = 0.5; // set it as a number smaller than 1.0
 }
 
 
