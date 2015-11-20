@@ -363,7 +363,10 @@ void EM() {
     fclose(fo);
   }
   
-  if (verbose) printf("EM is finished!\n");
+  if (verbose) {
+    printf("PROB_P = %.4f\n", PROBerTransModel::get_prob_p());
+    printf("EM is finished!\n");
+  }
 }
 
 void outputBamFiles(int channel) {
