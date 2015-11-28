@@ -303,7 +303,7 @@ void one_EM_iteration(int channel, int ROUND) {
   }
 
   count0[channel] = N0[channel];
-  logprob[channel] += N0[channel] * log(whole_model->getTheta(0)) + read_models[channel]->calcLogP();
+  if (N0[channel] > 0) logprob[channel] += N0[channel] * log(whole_model->getTheta(0)) + read_models[channel]->calcLogP();
   for (int i = 0; i < num_threads; ++i) {
     count0[channel] += paramsVecs[channel][i]->count0;
     logprob[channel] += paramsVecs[channel][i]->loglik;
