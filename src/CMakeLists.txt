@@ -3,7 +3,7 @@ include_directories(../ext)
 
 file(GLOB sources *.cpp)
 file(GLOB headers *.h *.hpp)
-list(REMOVE_ITEM sources extractRef.cpp synthesisRef.cpp preRef.cpp parseAlignments.cpp EM.cpp simulation.cpp)
+list(REMOVE_ITEM sources extractRef.cpp synthesisRef.cpp preRef.cpp parseAlignments.cpp EM.cpp EM_separate.cpp simulation.cpp)
 
 add_compile_options(-Wall -O3 -ffast-math)
 add_library(PROBer_core ${sources} ${headers})
@@ -31,3 +31,12 @@ configure_file(PROBer PROBer COPYONLY)
 
 install(TARGETS PROBer-extract-reference-transcripts PROBer-synthesis-reference-transcripts PROBer-preref PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads DESTINATION bin)
 install(PROGRAMS PROBer DESTINATION bin)
+
+
+
+add_executable(PROBer-run-em-separate EM_separate.cpp)
+add_dependencies(PROBer-run-em-separate samtools)
+target_link_libraries(PROBer-run-em-separate PROBer_core ${SAMTOOLS_DIR}/libbam.a ${ZLIB_LIBRARIES} pthread)
+configure_file(PROBer-estimate-parameters-separately PROBer-estimate-parameters-separately COPYONLY)
+install(TARGETS PROBer-run-em-separate DESTINATION bin)
+install(PROGRAMS PROBer-estimate-parameters-separately DESTINATION bin)

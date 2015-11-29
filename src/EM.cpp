@@ -352,7 +352,7 @@ void EM() {
     prev_logprob = curr_logprob;
     curr_logprob = logprob[0] + logprob[1];
 
-    if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]));
+    if (verbose) printf("Log probability of ROUND %d = %.2f, delta Change = %.10g, PROB_P = %.4f\n", ROUND - 1, curr_logprob, (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]), PROBerTransModel::get_prob_p());
 
   } while (keepGoing);
 
