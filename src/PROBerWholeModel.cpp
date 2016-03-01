@@ -163,6 +163,8 @@ void PROBerWholeModel::init() {
     }  
 
     calcProbPass(channel_to_calc);
+
+    o0 = h0 = 0.0; // initialize o0 and h0
   }
 }
 
@@ -197,7 +199,7 @@ void PROBerWholeModel::EM_step(double count0) {
   // join threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
   }
 
   // Estimate new theta and prob_noise
@@ -218,8 +220,31 @@ void PROBerWholeModel::EM_step(double count0) {
     for (int i = 1; i <= M; ++i) theta[i] /= sum2;
   }
 
+
+  // updating alpha
+  for (int i = 0; i < size; ++i) {
+    o0 += paramsVecEM[i]->o0;
+    h0 += paramsVecEM[i]->h0;
+  }  
+  if (state != 2) {
+    PROBerTransModel::alpha = o0 / (o0 + h0);
+    o0 = h0 = 0.0;
+  }
+  
   // calculate the probability of a read passing size selection step for next call
-  channel_to_calc = (state >= 2 ? (channel ^ 1) : channel); 
+  channel_to_calc = (state >= 2 ? (channel ^ 1) : channel);
+
+  // create threads
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+  }
+  // join threads
+  for (int i = 0; i < size; ++i) {
+    rc = pthread_join(threads[i], NULL);
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+  }  
+  
   calcProbPass(channel_to_calc);
 }
 

@@ -175,7 +175,8 @@ void PROBerTransModel::init() {
 
 void PROBerTransModel::calcAuxiliaryArrays(int channel) {
   int max_pos;
-
+  double value;
+  
   // Calculate logsum
   logsum[0] = 0.0;
   for (int i = 1; i <= len; ++i) {
@@ -464,7 +465,7 @@ void PROBerTransModel::EM_step(double N_tot, double &o0, double &h0) {
   }
 
   // Prepare for the next round
-  calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
+  //  calcAuxiliaryArrays(isJoint()? channel ^ 1 : channel);
 }
 
 void PROBerTransModel::read(std::ifstream& fin, int channel) {

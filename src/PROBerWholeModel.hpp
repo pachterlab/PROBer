@@ -162,6 +162,7 @@ private:
 
   int channel_to_calc; // the channel to calculate auxiliary arrays
 
+  double o0, h0;
 
   // Params, used for multi-threading
   struct Params {
@@ -173,10 +174,14 @@ private:
 
     double *start2, *end2;
 
+    double o0, h0;
+    
     Params(int id, PROBerWholeModel *pointer) : id(id), pointer(pointer) {
       num_trans = 0;
       trans.clear();
       start2 = end2 = NULL;
+
+      o0 = h0 = 0.0;
     }
     
     ~Params() {
@@ -238,8 +243,14 @@ private:
 
   void run_EM_step(Params* params) {
     int channel = PROBerTransModel::getChannel();
-    for (int i = 0; i < params->num_trans; ++i) 
-      params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()]);
+    double o0, h0;
+
+    params->o0 = params->h0 = 0.0;
+    for (int i = 0; i < params->num_trans; ++i) {
+      params->trans[i]->EM_step(N_tot * prob_noise[channel][1] * theta[params->trans[i]->getTid()], o0, h0);
+      params->o0 += o0;
+      params->h0 += h0;
+    }
   }
 
   static void* run_calcAuxiliaryArrays_per_thread(void* args) {

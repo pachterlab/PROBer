@@ -291,6 +291,9 @@ public:
   double* getGamma() { return gamma; }
   double* getBeta() { return beta; }
 
+  static double alpha; // probability of dropping of at the 5' end passing the size selection 
+
+  
 private:
   static const double INF; // Define exp(1000) as infinite to avoid the partial sum be -inf
 
@@ -306,8 +309,6 @@ private:
   static double lgammas[2], defaults[2]; // auxiliary arrays for calculating log priors
 
   static bool learning; // true if learning parameters, false if simulation
-
-  static double alpha; // probability of dropping of at the 5' end passing the size selection 
 
   int tid; // transcript id
   std::string name; // transcript name
