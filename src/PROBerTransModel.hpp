@@ -167,6 +167,7 @@ public:
     if (start_pos > len || pos < 0) return 0.0;
     double res = delta * (min_alloc_len == min_frag_len ? margin_prob[pos] : margin_prob2[pos]) * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    else res *= alpha;
 
     return res;
   }
@@ -184,6 +185,7 @@ public:
     
     double res = delta * exp(logsum[start_pos] - logsum[pos]);
     if (pos > 0) res *= (getChannel() == 0 ? gamma[pos] : (gamma[pos] + beta[pos] - gamma[pos] * beta[pos]));
+    else res *= alpha;
 
     return res;
   }
@@ -241,9 +243,10 @@ public:
 
   /*
     @param   N_tot   expected total counts for this transcript
+    @param   o0, h0   observed and expected counts at position 0
     @comment: Run one iteration of EM algorithm for a single transcript
    */
-  void EM_step(double N_tot);
+  void EM_step(double N_tot, double &o0, double &h0);
 
   /*
     @param   fin   input stream
@@ -303,6 +306,8 @@ private:
   static double lgammas[2], defaults[2]; // auxiliary arrays for calculating log priors
 
   static bool learning; // true if learning parameters, false if simulation
+
+  static double alpha; // probability of dropping of at the 5' end passing the size selection 
 
   int tid; // transcript id
   std::string name; // transcript name

@@ -33,6 +33,8 @@ bool PROBerTransModel::isMAP = true; // default is true
 bool PROBerTransModel::learning = false; // default is simulation
 int PROBerTransModel::state = 0;
 
+double PROBerTransModel::alpha = 1.0; // default t.b.d.
+
 void PROBerTransModel::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   PROBerTransModel::primer_length = primer_length;
@@ -172,7 +174,6 @@ void PROBerTransModel::init() {
 }
 
 void PROBerTransModel::calcAuxiliaryArrays(int channel) {
-  double value;
   int max_pos;
 
   // Calculate logsum
@@ -193,12 +194,9 @@ void PROBerTransModel::calcAuxiliaryArrays(int channel) {
   }
 
   // Calculate the probability of passing the size selection step
-  prob_pass[channel] = 0.0;
-  for (int i = 0; i < efflen; ++i) {
-    value = delta * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]);
-    if (i > 0) value *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
-    prob_pass[channel] += value;
-  }
+  prob_pass[channel] = delta * margin_prob[0] * exp(logsum[min_frag_len]) * alpha; // 5' end
+  for (int i = 1; i < efflen; ++i)
+    prob_pass[channel] += delta * margin_prob[i] * exp(logsum[i + min_frag_len] - logsum[i]) * (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);  
 
   if (efflen2 > 0) {
     // Calculate marginal probability array for allocating SE reads 
@@ -292,13 +290,15 @@ inline void PROBerTransModel::solveQuadratic2(double& gamma, double& beta, doubl
   assert(gamma > 0.0 && gamma < 1.0);
 }
 
-void PROBerTransModel::EM_step(double N_tot) {
+void PROBerTransModel::EM_step(double N_tot, double &o0, double &h0) {
   int channel = getChannel();
 
   int max_end_i;
   double psum, value;
 
   assert(start2 != NULL && end2 != NULL);
+
+  o0 = h0 = 0.0;
 
   // What to do if no observed reads
   if (isZero(N_obs[channel])) {
@@ -373,7 +373,7 @@ void PROBerTransModel::EM_step(double N_tot) {
       end2[i] *= delta * N_tot;
       if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
     }
-    
+
     // Calculate start2
     for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
     psum = 1.0;
@@ -391,6 +391,17 @@ void PROBerTransModel::EM_step(double N_tot) {
       }
     }
 
+    // calculate o0 and h0
+    o0 = end[0];
+    h0 = N_tot * delta * margin_prob[0] * exp(logsum[min_frag_len]) * (1.0 - alpha);
+    end2[0] += h0;
+    value = (h0 > 0.0 && margin_prob[0] > 0.0 ? h0 / margin_prob[0] : 0.0);
+    start2[min_frag_len] += value;
+    for (int i = min_frag_len + 1; i <= max_frag_len; ++i) {
+      value *= (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
+      start2[i] += value;
+    }
+    
     // M step
     double dc, cc; // dc: drop-off count; cc: covering count
     
