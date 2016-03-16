@@ -7,7 +7,7 @@
 #include<cassert>
 #include<vector>
 
-#include "sam/sam.h"
+#include "htslib/sam.h"
 
 #include "SEQstring.hpp"
 #include "QUALstring.hpp"
@@ -42,8 +42,8 @@ public:
     for (int i = 0; i < s; ++i) alignments[i]->markAsFiltered();
   }
 
-  bool read(samfile_t*);
-  bool write(samfile_t*, int=0);
+  bool read(samFile* in, bam_hdr_t* header);
+  bool write(samFile* out, bam_hdr_t* header, int choice = 0);
 
   bool isPaired() const { return (s > 0) && alignments[0]->isPaired(); }
 
@@ -89,7 +89,7 @@ private:
   }
 };
 
-inline bool AlignmentGroup::read(samfile_t *in) {
+inline bool AlignmentGroup::read(samFile* in, bam_hdr_t* header) {
   const char *cname = NULL, *name = NULL;
   BamAlignment *tmp = NULL;
 
@@ -101,7 +101,7 @@ inline bool AlignmentGroup::read(samfile_t *in) {
   case 0 : return false;
   case -1 :
     s = 0; allocate();
-    leftover = alignments[s]->read(in);
+    leftover = alignments[s]->read(in, header);
     if (leftover == 0) return false;
     break;
   default : assert(false);
@@ -111,7 +111,7 @@ inline bool AlignmentGroup::read(samfile_t *in) {
   assert(cname[0] != 0);
   s = 1;
 
-  while (allocate(), (leftover = alignments[s]->read(in, alignments[0]))) {
+  while (allocate(), (leftover = alignments[s]->read(in, header, alignments[0]))) {
     name = alignments[s]->getName();
     if (name[0] != 0 && strcmp(cname, name)) break;
     assert(alignments[s]->isPaired() == alignments[0]->isPaired());
@@ -122,10 +122,10 @@ inline bool AlignmentGroup::read(samfile_t *in) {
 }
 
 // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score.
-inline bool AlignmentGroup::write(samfile_t *out, int choice) {
+inline bool AlignmentGroup::write(samFile *out, bam_hdr_t* header, int choice) {
   assert(s > 0);
-  alignments[0]->write(out);
-  for (int i = 1; i < s; ++i) alignments[i]->write(out, choice, alignments[0]);
+  alignments[0]->write(out, header);
+  for (int i = 1; i < s; ++i) alignments[i]->write(out, header, choice, alignments[0]);
   return true;
 }
 

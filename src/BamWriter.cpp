@@ -5,46 +5,44 @@
 #include<sstream>
 
 #include<stdint.h>
-#include "sam/bam.h"
-#include "sam/sam.h"
+#include "htslib/sam.h"
 
 #include "my_assert.h"
-
 #include "BamWriter.hpp"
 
 // If header == NULL, just create an empty header with one target (to avoid free non null pointer due to calloc) and paste the program_id line
-BamWriter::BamWriter(const char* outF, const bam_header_t* header, const char* program_id) {
-  bam_header_t *out_header = NULL;
+BamWriter::BamWriter(const char* outF, bam_hdr_t* header, const char* program_id) {
+
 
   if (header != NULL) {
-    out_header = header_duplicate_without_text(header);
+    this->header = header_duplicate_without_text(header);
   }
   else {
-    out_header = bam_header_init();
-    out_header->n_targets = 1;
-    out_header->target_len = new uint32_t[1];
-    out_header->target_name = new char*[1];
-    out_header->target_len[0] = 0;
-    out_header->target_name[0] = new char[1];
-    out_header->target_name[0][0] = 0;
+    this->header = bam_hdr_init();
+    this->header->n_targets = 1;
+    this->header->target_len = new uint32_t[1];
+    this->header->target_name = new char*[1];
+    this->header->target_len[0] = 0;
+    this->header->target_name[0] = new char[1];
+    this->header->target_name[0][0] = 0;
   }
   
   std::ostringstream strout;
   strout<< "@HD\tVN:1.4\tSO:unknown\n@PG\tID:"<< program_id<< std::endl;
   header_append_new_text(out_header, strout.str());
 
-  bam_out = samopen(outF, "wb", out_header);
+  bam_out = sam_open(outF, "wb");
   general_assert(bam_out != 0, "Cannot write to " + cstrtos(outF) + "!");
-
-  bam_header_destroy(out_header);
+  sam_hdr_write(bam_out, this->header);
 }
 
 BamWriter::~BamWriter() {
-  samclose(bam_out);
+  bam_hdr_destroy(header);
+  sam_close(bam_out);
 }
 
 bam_header_t* BamWriter::header_duplicate_without_text(const bam_header_t *ori_h) {
-  bam_header_t *h = bam_header_init();
+  bam_header_t *h = bam_hdr_init();
   h->n_targets = ori_h->n_targets;
   h->target_len = new uint32_t[h->n_targets];
   h->target_name = new char*[h->n_targets];

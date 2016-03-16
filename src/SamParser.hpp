@@ -1,30 +1,31 @@
 #ifndef SAMPARSER_H_
 #define SAMPARSER_H_
 
-#include "sam/bam.h"
-#include "sam/sam.h"
+#include<string>
+
+#include "htslib/sam.h"
 
 #include "BamAlignment.hpp"
 #include "AlignmentGroup.hpp"
 
 class SamParser {
 public:
-  SamParser(char inpType, const char* inpF, const char* aux = NULL);
+  SamParser(const char* inpF);
   ~SamParser();
 
-  const bam_header_t* getHeader() const { 
-    return header;
-  }
+  const bam_hdr_t* getHeader() const { return header; }
 
-  const char* getProgramID(); 
+  std::string getProgramID(); // scan header to look up program ID, slow
 
-  bool next(BamAlignment& b) { return b.read(sam_in); }
+  bool next(BamAlignment& b) { return b.read(sam_in, header); }
 
-  bool next(AlignmentGroup& ag) { return ag.read(sam_in); }
+  bool next(AlignmentGroup& ag) { return ag.read(sam_in, header); }
   
 private:
-  samfile_t *sam_in;
-  bam_header_t *header;
+  samFile* sam_in;
+  bam_hdr_t* header;
+
+  const char program_id[1005];
 };
 
 #endif

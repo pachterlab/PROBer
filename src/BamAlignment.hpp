@@ -7,8 +7,7 @@
 #include<algorithm>
 
 #include<stdint.h>
-#include "sam/bam.h"
-#include "sam/sam.h"
+#include "htslib/sam.h"
 
 #include "my_assert.h"
 
@@ -18,7 +17,7 @@
 
 class BamAlignment {
 public:
-  BamAlignment() : is_paired(false), is_aligned(-1), b(NULL), b2(NULL) {
+  BamAlignment() : is_paired(false), is_aligned(-1), b(NULL), b2(NULL), tmp(NULL) {
   }
 
   BamAlignment(const BamAlignment& o) : b(NULL), b2(NULL) {
@@ -34,39 +33,41 @@ public:
   }
   
   /*
-    @param   in   input SAM/BAM file handler
-    @param   o    An BamAlignment object that contains sequence/qual score information
+    @param   in       input SAM/BAM/CRAM file handler
+    @param   header   input file header
+    @param   o        optional BAM alignment
    */
-  bool read(samfile_t* in, BamAlignment* o= NULL);
+  bool read(samFile* in, bam_hdr_t* header, BamAlignment* o = NULL);
 
   /*
-    @param   out     output BAM file handler
-    @param   choice  0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score
-    @param   o       An BamAlignment oject that contains sequence/qual score information
+    @param   out      output BAM file handler
+    @param   header   output file header
+    @param   choice   0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score
+    @param   o        optional BAM alignment
    */
-  bool write(samfile_t* out, int choice = 0, BamAlignment* o = NULL);
+  bool write(samFile* out, bam_hdr_t* header, int choice = 0, BamAlignment* o = NULL);
   
   // overall stats
   
   bool isPaired() const { return is_paired; }
   
-  // -1: nothing is loaded, 0: not aligned, 1: fully aligned, 2: first mate is aligned (including SE reads), 3: second mate is aligned. 
+  // -1: nothing is loaded, 0: not aligned, 1: first mate is aligned (including SE reads), 2: second mate is aligned, 3: fully aligned 
   int isAligned() const { return is_aligned; }
-    
+
   int getInsertSize() const {
-    assert(is_aligned == 1);
+    assert(is_aligned == 3);
     return abs(b->core.isize); 
   }
   
   int getTid() const { 
     assert(is_aligned > 0); 
-    return (is_aligned != 3 ? b->core.tid : b2->core.tid);
+    return (is_aligned & 1) ? b->core.tid : b2->core.tid;
   }
   
   char getDir() const { 
     assert(is_aligned > 0);
-    if (is_aligned != 3) return !(b->core.flag & 0x0010) ? '+' : '-';
-    return (b2->core.flag & 0x0010) ? '+' : '-';
+    if (is_aligned & 1) return !bam_is_rev(b) ? '+' : '-';
+    return bam_is_rev(b2) ? '+' : '-';
   }
 
   /*
@@ -77,28 +78,24 @@ public:
    */
   int getLeftMostPos(int fragment_length = 0) const {
     assert(is_aligned > 0);
-    if (is_aligned == 1) return std::min(b->core.pos, b2->core.pos);
+    if (is_aligned == 3) return std::min(b->core.pos, b2->core.pos);
     if (fragment_length <= 0) return (is_aligned == 2 ? b->core.pos : b2->core.pos);
 
-    if (is_aligned == 2) {
-      return ((b->core.flag & 0x0010) == 0) ? b->core.pos : std::max(0, (int)bam_calend(&(b->core), bam1_cigar(b)) - fragment_length);
-    }
-    else {
-      return ((b2->core.flag & 0x0010) == 0) ? b2->core.pos : std::max(0, (int)bam_calend(&(b2->core), bam1_cigar(b2)) - fragment_length);
-    }
+    tmp = (is_aligned & 1) ? b : b2;
+    return (!bam_is_rev(tmp) ? tmp->core.pos : std::max(0, bam_endpos(tmp) - fragment_length));
   }
   
   // if length = 2k, midpoint is k - 1
   int getMidPos(int fragment_length = 0) const {
     assert(is_aligned > 0);
-    return (is_aligned == 1 ? getLeftMostPos() + (getInsertSize() - 1) / 2 : getLeftMostPos(fragment_length) + (fragment_length - 1) / 2);
+    return (is_aligned == 3 ? getLeftMostPos() + (getInsertSize() - 1) / 2 : getLeftMostPos(fragment_length) + (fragment_length - 1) / 2);
   }
   
-  int getMapQ() const { return (is_aligned != 3 ? b->core.qual : b2->core.qual); }
+  int getMapQ() const { return ((is_aligned & 1) ? b->core.qual : b2->core.qual); }
   
   void setMapQ(int MapQ) { 
-    b->core.qual = ((b->core.flag & 0x0004) == 0 ? MapQ : 255);
-    if (is_paired) b2->core.qual = ((b2->core.flag & 0x004) == 0 ? MapQ : 255);
+    b->core.qual = (bam_is_mapped(b) ? MapQ : 255);
+    if (is_paired) b2->core.qual = (bam_is_mapped(b2) ? MapQ : 255);
   }
   
   // for mates
@@ -109,19 +106,14 @@ public:
     @comment: This function returns the smallest position of the mate from its strand
    */
   int getDirPos(int mate, int target_len) const {
-    assert(is_aligned > 0);
-    switch(mate) {
-    case 1: return (b->core.flag & 0x0010) == 0 ? b->core.pos : target_len - (int)bam_calend(&(b->core), bam1_cigar(b));
-    case 2:
-      assert(is_paired);
-      return (b2->core.flag & 0x0010) == 0 ? b2->core.pos : target_len - (int)bam_calend(&(b2->core), bam1_cigar(b2));
-    default: assert(false);
-    }
+    assert(is_aligned > 0 && (mate == 1 || mate == 2 && is_paired));
+    tmp = (mate == 1 ? b : b2);
+    return !bam_is_rev(tmp) ? tmp->core.pos : target_len - bam_endpos(tmp);
   }
 
   // mate = 0, the name of the read; 1, mate 1; 2, mate 2
   const char* getName(int mate = 0) const { 
-    return (char*)bam1_qname(mate < 2 ? b : b2); 
+    return bam_get_qname(mate < 2 ? b : b2); 
   }
   
   // length of the query sequence
@@ -133,24 +125,24 @@ public:
   
   bool getCIGAR(CIGARstring& ci, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
-    if (mate == 1) ci.setUp(bam1_cigar(b), b->core.n_cigar, getSign(b));
-    else ci.setUp(bam1_cigar(b2), b2->core.n_cigar, getSign(b2));
+    if (mate == 1) ci.setUp(bam_get_cigar(b), b->core.n_cigar, is_ori(b));
+    else ci.setUp(bam_get_cigar(b2), b2->core.n_cigar, is_ori(b2));
     return true;
   }
 
   bool getSEQ(SEQstring& si, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
     assert(((mate == 1) && (b->core.l_qseq > 0)) || ((mate == 2) && (b2->core.l_qseq > 0)));
-    if (mate == 1) si.setUp(bam1_seq(b), b->core.l_qseq, getSign(b));
-    else si.setUp(bam1_seq(b2), b2->core.l_qseq, getSign(b2));
+    if (mate == 1) si.setUp(bam_get_seq(b), b->core.l_qseq, is_ori(b));
+    else si.setUp(bam_get_seq(b2), b2->core.l_qseq, is_ori(b2));
     return true;
   }
   
   bool getQUAL(QUALstring& qi, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
     assert(((mate == 1) && (b->core.l_qseq > 0)) || ((mate == 2) && (b2->core.l_qseq > 0)));
-    if (mate == 1) qi.setUp(bam1_qual(b), b->core.l_qseq, getSign(b));
-    else qi.setUp(bam1_qual(b2), b2->core.l_qseq, getSign(b2));
+    if (mate == 1) qi.setUp(bam_get_qual(b), b->core.l_qseq, is_ori(b));
+    else qi.setUp(bam_get_qual(b2), b2->core.l_qseq, is_ori(b2));
     return true;
   }
 
@@ -207,14 +199,14 @@ public:
 
   // If no ZW field, return -1.0
   float getFrac() {
-    uint8_t *p_tag = bam_aux_get((is_aligned != 3 ? b : b2), "ZW");
+    uint8_t *p_tag = bam_aux_get(((is_aligned & 1) ? b : b2), "ZW");
     return p_tag != NULL ? bam_aux2f(p_tag) : -1.0;
   }
   
   void setFrac(float frac) {
     uint8_t *p_tag = NULL;
 
-    if (!(b->core.flag & 0x0004)) {
+    if (bam_is_mapped(b)) {
       p_tag = bam_aux_get(b, "ZW");
       if (p_tag != NULL) {
 	memcpy(p_tag + 1, (uint8_t*)&(frac), bam_aux_type2size('f'));
@@ -223,7 +215,7 @@ public:
       }
     }
     
-    if (is_paired && !(b2->core.flag & 0x0004)) {
+    if (is_paired && bam_is_mapped(b2)) {
       p_tag = bam_aux_get(b2, "ZW");
       if (p_tag != NULL) {
 	memcpy(p_tag + 1, (uint8_t*)&(frac), bam_aux_type2size('f'));
@@ -235,15 +227,29 @@ public:
     setMapQ(frac2MapQ(frac));
   }
 
-  void writeToBED(FILE*, const bam_header_t*);
-  void writeToTagAlign(FILE*, const bam_header_t*);
-
 protected:
-
-  bool is_paired;
-  char is_aligned; // 0, unalignable; 1, both mates are aligned; 2, only first mate is aligned; 3, only second mate is aligned
+  static const uint8_t rnt_table[16];
   
-  bam1_t *b, *b2;
+  bool is_paired;
+  char is_aligned; // 2 bits, from left to right, the first bit represents first mate and the second bit represents the second mate
+                   // Thus, 0, unalignable; 1, only first mate; 2, only second mate; 3, both mates
+  bam1_t *b, *b2, *tmp;
+
+
+  bool bam_is_paired(const bam1_t* b) { return (b->core.flag & BAM_FPAIRED); }
+  bool bam_is_proper(const bam1_t* b) { return (b->core.flag & BAM_FPROPER_PAIR); }
+  bool bam_is_mapped(const bam1_t* b) { return !(b->core.flag & BAM_FUNMAP); }
+  bool bam_is_unmapped(const bam1_t* b) { return (b->core.flag & BAM_FUNMAP); }
+  bool bam_is_read1(const bam1_t* b) { return (b->core.flag & BAM_FREAD1); }
+  bool bam_is_read2(const bam1_t* b) { return (b->core.flag & BAM_FREAD2); }
+  
+  int bam_aux_type2size(char x) {
+    if (x == 'C' || x == 'c' || x == 'A') return 1;
+    else if (x == 'S' || x == 's') return 2;
+    else if (x == 'I' || x == 'i' || x == 'f') return 4;
+    else if (x == 'd') return 8;
+    else return 0;
+  }
   
   uint8_t frac2MapQ(float val) {
     float err = 1.0 - val;
@@ -251,17 +257,61 @@ protected:
     return (uint8_t)(-10 * log10(err) + .5); // round it
   }
 
+  bool is_ori(bam1_t* b) {
+    return ((bam_is_unmapped(b) || !bam_is_rev(b)) ? : true : false);
+  }
+
+  void compress(bam1_t* b) {
+    int l_aux = bam_get_l_aux(b);
+    b->data[0] = 0;
+    memmove(b->data + 1, bam_get_cigar(b), b->core.n_cigar * 4);
+    memmove(b->data + 1 + b->core.n_cigar * 4, bam_get_aux(b), l_aux);
+    b->l_data = 1 + b->core.n_cigar * 4 + l_aux;
+    b->core.l_qname = 1;
+    b->core.l_qseq = 0;
+  }
+  
   // Caution: this function may change b->data's adddress!  
-  void expand_data_size(bam1_t *b) {
-    if (b->m_data < b->data_len) {
-      b->m_data = b->data_len;
+  void expand_data_size(bam1_t* b) {
+    if (b->m_data < b->l_data) {
+      b->m_data = b->l_data;
       kroundup32(b->m_data);
       b->data = (uint8_t*)realloc(b->data, b->m_data);
     }
-  }  
+  }
+
+  void copy_rc_seq(uint8_t* dst, uint8_t* src, int len) {
+    uint8_t base;
+    for (int i = 0; i < len; ++i) {
+      base = rnt_table[bam_seqi(src, len - i - 1)];
+      assert(base > 0);
+      if (i & 1) { *dst |= base; ++dst; }
+      else { *dst = base << 4; }
+    }
+  }
+
+  void copy_r_qual(uint8_t* dst, uint8_t* src, int len) {
+    for (int i = 0; i < len; ++i) dst[i] = src[len - i - 1];
+  }
   
-  char getSign(bam1_t *b) {
-    return (((b->core.flag & 0x0004) || !(b->core.flag & 0x0010)) ? '+' : '-');
+  void decompress(bam1_t* b, bam1_t* other) {
+    int l_aux = bam_get_l_aux(b);
+    b->core.l_qname = other->core.l_qname;
+    b->core.l_qseq = other->core.l_qseq;
+    b->l_data = b->core.l_qname + b->core.n_cigar * 4 + (b->core.l_qseq + 1) / 2 + b->core.l_qseq + l_aux;
+    expand_data_size(b);
+    memmove(bam_get_aux(b), b->data + 1 + b->core.n_cigar * 4, b->l_aux); // move aux options
+    memmove(bam_get_cigar(b), b->data + 1, b->core.n_cigar * 4); // move cigar string
+    memcpy(bam_get_qname(b), bam_get_qname(other), b->core.l_qname); // copy qname
+
+    if (bam_is_rev(b) == bam_is_rev(other)) {
+      memcpy(bam_get_seq(b), bam_get_seq(other), (b->core.l_qseq + 1) / 2); // copy seq
+      memcpy(bam_get_qual(b), bam_get_qual(other), b->core.l_qseq); // copy qual
+    }
+    else {
+      copy_rc_seq(bam_get_seq(b), bam_get_seq(other), b->core.l_qseq); // copy reverse complement seq
+      copy_r_qual(bam_get_qual(b), bam_get_qual(other), b->core.l_qseq); // copy reverse qual
+    }
   }
 };
 
