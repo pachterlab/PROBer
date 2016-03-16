@@ -1,4 +1,5 @@
 #include<string>
+#include<sstream>
 
 #include "SEQstring.hpp"
 
@@ -11,11 +12,9 @@ const int SEQstring::rcodes[16] = {-1, 3, 2, -1, 1, -1, -1, -1, 0, -1, -1, -1, -
 
 // toString will reset dir
 std::string SEQstring::toString(char dir) {
-  assert(dir == '+' || dir == '-');
-  this->dir = dir;
+  setDir(dir);
   std::ostringstream strout;
-  for (int i = 0; i < len; i++) strout<< baseAt(i);
-  this->dir = 0;
+  for (int i = 0; i < len; ++i) strout<< baseAt(i);
   return strout.str();
 }
 
