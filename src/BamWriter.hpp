@@ -14,10 +14,10 @@ public:
   ~BamWriter();
 
   // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score  
-  bool write(BamAlignment& b, bam_hdr_t* header, int choice = 0) { return b.write(bam_out, header, choice); }
+  bool write(BamAlignment& b, int choice = 0) { return b.write(bam_out, header, choice); }
   
   // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score
-  bool write(AlignmentGroup& ag, bam_hdr_t* header, int choice = 0) { return ag.write(bam_out, header, choice); } 
+  bool write(AlignmentGroup& ag, int choice = 0) { return ag.write(bam_out, header, choice); } 
 
 private:
   samFile* bam_out;

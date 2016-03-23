@@ -7,8 +7,8 @@
 #include<fstream>
 #include<iostream>
 
-#include "sam/bam.h"
-#include "sam/sam.h"
+
+#include "htslib/sam.h"
 
 #include "utils.h"
 #include "my_assert.h"
@@ -33,7 +33,7 @@ char paramsF[STRLEN], partitionF[STRLEN];
 
 Transcripts transcripts;
 
-const bam_header_t *header;
+const bam_hdr_t *header;
 
 AlignmentGroup ag;
 SamParser* parser;
@@ -99,8 +99,8 @@ void writeStat(const char* statName) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 8) { 
-    printf("PROBer-parse-alignments refName imdName statName channel number_of_partitions alignFType('s' for sam, 'b' for bam) alignF [-m max_hit_allowed][--shorter-than min_len] [-q]\n");
+  if (argc < 7) { 
+    printf("PROBer-parse-alignments refName imdName statName channel number_of_partitions alignF [-m max_hit_allowed][--shorter-than min_len] [-q]\n");
     exit(-1);
   }
 
@@ -117,13 +117,13 @@ int main(int argc, char* argv[]) {
   max_hit_allowed = 2147483647; // 2^31 - 1
   min_len = -1;
 
-  for (int i = 8; i < argc; i++) {
+  for (int i = 7; i < argc; i++) {
     if (!strcmp(argv[i], "-q")) verbose = false;
     if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
   }
 
-  parser = new SamParser(argv[6][0], argv[7], NULL);
+  parser = new SamParser(argv[6]);
 
   const char* program_id = parser->getProgramID();
   if (!strcmp(program_id, "Bowtie") || !strcmp(program_id, "bowtie")) bowtie_filter = true;

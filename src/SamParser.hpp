@@ -15,7 +15,7 @@ public:
 
   const bam_hdr_t* getHeader() const { return header; }
 
-  std::string getProgramID(); // scan header to look up program ID, slow
+  const char* getProgramID(); // scan header to look up program ID, slow
 
   bool next(BamAlignment& b) { return b.read(sam_in, header); }
 
