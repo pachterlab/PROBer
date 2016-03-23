@@ -1,6 +1,6 @@
+#include<cassert>
 #include<string>
 #include<fstream>
-#include<algorithm>
 
 #include "utils.h"
 #include "sampling.hpp"
@@ -37,7 +37,7 @@ PROBerReadModel::PROBerReadModel(PROBerReadModel* master_model) {
   loglik = 0.0;
 
   npro = new NoiseProfile();
-  seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
+  seqmodel = new SequencingModel((model_type & 1), max_len);
 
   refs = master_model->refs;
   sampler = NULL;

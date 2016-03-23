@@ -8,7 +8,7 @@
 
 class Profile {
 public:
-  Profile(int maxL = 1000);
+  Profile(int maxL);
   ~Profile();
 
   double getProb(int pos, int ref_base, int read_base) {

@@ -75,4 +75,43 @@ private:
   
 };
 
+/*
+  @function constructing RefSeq based on MD filed
+  @param   dir     alignment direction
+  @param   cigar   CIGAR string
+  @param   mdstr   MD string
+  @param   seq     SEQ string
+ */
+inline void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstring& seq) {
+  len = 0; name = seq = "";
+
+  char old_dir = cigar.getDir();
+  cigar.setDir(dir);
+  seq.setDir(dir);
+  
+  int pos = -1, cigar_len = cigar.getLen();
+  int optype, oplen;
+  char ref_base;
+  
+  for (int i = 0; i < cigar_len; ++i) {
+    optype = cigar.optypeAt(i);
+    oplen = cigar.oplenAt(i);
+    for (int j = 0; j < oplen; ++j) {
+      if (optype & 1) ++pos;
+      if (optype & 2) {
+	ref_base = mdstr.next();
+	assert(ref_base >= 0);
+	if (ref_base == 0) ref_base = seq.baseAt(pos);
+	seq += ref_base;
+      }
+    }
+  }
+  
+  name = "constructed_from_BAM_alignment";
+  len = seq.length();
+
+  cigar.setDir(old_dir);
+  seq.setDir(old_dir);
+}
+
 #endif

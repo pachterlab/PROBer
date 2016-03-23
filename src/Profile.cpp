@@ -7,6 +7,8 @@
 #include "Profile.hpp"
 
 Profile::Profile(int maxL) {
+  if (maxL < 0) maxL = 1000; // default is 1000bp, which is very long
+  
   proLen = maxL;
   size = proLen * NCODES * NCODES;
   p = new double[proLen][NCODES][NCODES];
