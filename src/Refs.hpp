@@ -1,30 +1,55 @@
+/* Copyright (c) 2015
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
 #ifndef REFS_H_
 #define REFS_H_
 
+#include<string>
 #include<vector>
 
-#include "RefSeqPolicy.h"
-#include "PolyARules.h"
 #include "RefSeq.hpp"
 
+/**
+   No padding poly(A) tails
+ */
 class Refs {
  public:
   Refs();
+  ~Refs();
+  
+  void readFrom(char* inpF);
+  void writeTo(char* outF);
+  void writeTransListTo(char* outF);
+  
+  int getM() const { return M; } // get number of isoforms
 
-  void makeRefs(char* inpF, RefSeqPolicy& policy, PolyARules& rules);
-  void loadRefs(char* inpF, int option = 0);
-  void saveRefs(char* outF);
+  const RefSeq* getRef(int sid) const { return seqs[sid]; } // get a particular reference
 
-  int getM() { return M; } // get number of isoforms
-
-  RefSeq& getRef(int sid) { return seqs[sid]; } // get a particular reference
-
-  bool hasPolyA() { return has_polyA; } // if any of sequence has poly(A) tail added
-
+  void addRef(const std::string& name, const std::string& rawseq) {
+    ++M;
+    seqs.push_back(new RefSeq(name, rawseq));
+  }
+  
  private:
   int M; // # of isoforms, id starts from 1
-  std::vector<RefSeq> seqs;  // reference sequences, starts from 1; 0 is for noise gene
-  bool has_polyA; // if at least one sequence has polyA added, the value is true; otherwise, the value is false
+  std::vector<RefSeq*> seqs;  // reference sequences, starts from 1; 0 is for noise transcript
 };
 
 #endif

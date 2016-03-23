@@ -1,97 +1,119 @@
+/* Copyright (c) 2015
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
 #include<cassert>
 #include<string>
-#include<vector>
 #include<fstream>
-#include<stdint.h>
 
+#include "CIGARstring.hpp"
+#include "MDstring.hpp"
+#include "SEQstring.hpp"
 #include "RefSeq.hpp"
 
 RefSeq::RefSeq() {
-  fullLen = totLen = 0;
-  name = ""; seq = "";
-  fmasks.clear();
+  len = 0;
+  name = seq = "";
 }
 
-//Constructor , seq : the forward strand of the reference
-//tag does not contain ">"
-//polyALen : length of polyA tail we add
-RefSeq::RefSeq(const std::string& name, const std::string& seq, int polyALen) {
-  fullLen = seq.length();
-  totLen = fullLen + polyALen;
+/*
+  @function   constructor.
+  @param   name   transcript name
+  @param   rawseq    raw transcript sequence
+ */
+RefSeq::RefSeq(const std::string& name, const std::string& rawseq) {
+  len = rawseq.length();
+  assert(len > 0);
+  
   this->name = name;
-  this->seq = seq;
-  this->seq.append(polyALen, 'A');
+  this->seq = rawseq;
   
-  assert(fullLen > 0 && totLen >= fullLen);
-  
-  int len = (fullLen - 1) / NBITS + 1;
-  fmasks.assign(len, 0);
-
-  // Set mask if poly(A) tail is added
-  // This part will be removed once we have a good way to add mask sequences
-  if (polyALen > 0) {
-    int OLEN = 25; // last 24 bases are masked as no read should align to
-    for (int i = std::max(fullLen - OLEN + 1, 0); i < fullLen; i++) setMask(i);
-  }
+  convertRawSeq();
 }
 
 RefSeq::RefSeq(const RefSeq& o) {
-  fullLen = o.fullLen;
-  totLen = o.totLen;
+  len = o.len;
   name = o.name;
   seq = o.seq;
-  fmasks = o.fmasks;
 }
 
 RefSeq& RefSeq::operator= (const RefSeq &rhs) {
   if (this != &rhs) {
-    fullLen = rhs.fullLen;
-    totLen = rhs.totLen;
+    len = rhs.len;
     name = rhs.name;
     seq = rhs.seq;
-    fmasks = rhs.fmasks;
   }
   
   return *this;
 }
 
-//internal read; option 0 : read all 1 : do not read seqences
-bool RefSeq::read(std::ifstream& fin, int option) {
+bool RefSeq::read(std::ifstream& fin) {
   std::string line;
-  
-  if (!(fin>>fullLen>>totLen)) return false;
-  assert(fullLen > 0 && totLen >= fullLen);
-  getline(fin, line);
+
   if (!getline(fin, name)) return false;
+  name = name.substr(1);
   if (!getline(fin, seq)) return false;
-  
-  int len = (fullLen - 1) / NBITS + 1; // assume each cell contains NBITS bits
-  fmasks.assign(len, 0);
-  for (int i = 0; i < len; i++)
-    if (!(fin>>fmasks[i])) return false;
-  getline(fin, line);
-  
-  assert(option == 0 || option == 1);
-  if (option == 1) { seq = ""; }
+  len = seq.length();
 
   return true;
 }
 
-//write to file in "internal" format
 void RefSeq::write(std::ofstream& fout) {
-  fout<<fullLen<<" "<<totLen<<std::endl;
-  fout<<name<<std::endl;
-  fout<<seq<<std::endl;
-  
-  int len = fmasks.size();
-  for (int i = 0; i < len - 1; i++) fout<<fmasks[i]<<" ";
-  fout<<fmasks[len - 1]<<std::endl;
+  fout<< ">"<< name<< std::endl;
+  fout<< seq<< std::endl;
 }
 
-const std::vector<uint32_t> RefSeq::mask_codes = RefSeq::init_mask_code();
+/*
+  @function constructing RefSeq based on MD filed
+  @param   dir     alignment direction
+  @param   cigar   CIGAR string
+  @param   mdstr   MD string
+  @param   seq     SEQ string
+ */
+void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstring& seq) {
+  len = 0; name = seq = "";
 
-std::vector<uint32_t> RefSeq::init_mask_code() {
-  std::vector<uint32_t> vec(NBITS);
-  for (int i = 0; i < NBITS; i++) vec[i] = 1 << i;
-  return vec;
+  char old_dir = cigar.getDir();
+  cigar.setDir(dir);
+  seq.setDir(dir);
+  
+  int pos = -1, cigar_len = cigar.getLen();
+  int optype, oplen;
+  char ref_base;
+  
+  for (int i = 0; i < cigar_len; ++i) {
+    optype = cigar.optypeAt(i);
+    oplen = cigar.oplenAt(i);
+    for (int j = 0; j < oplen; ++j) {
+      if (optype & 1) ++pos;
+      if (optype & 2) {
+	ref_base = mdstr.next();
+	assert(ref_base >= 0);
+	if (ref_base == 0) ref_base = seq.baseAt(pos);
+	seq += ref_base;
+      }
+    }
+  }
+  
+  name = "constructed_from_BAM_alignment";
+  len = seq.length();
+
+  cigar.setDir(old_dir);
+  seq.setDir(old_dir);
 }

@@ -19,6 +19,8 @@ public:
     // Default, return the original quality score sequence
     return_current = (is_ori ? true : false);
   }
+
+  char getDir() { return (is_ori && return_current || !is_ori && !return_current) ? '+' : '-'; }
   
   // '+' returns the original qual string; '-' returns the reverse string
   void setDir(char dir) { 

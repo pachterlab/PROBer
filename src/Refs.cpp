@@ -1,3 +1,23 @@
+/* Copyright (c) 2015
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
 #include<cstdio>
 #include<cassert>
 #include<string>
@@ -5,90 +25,54 @@
 #include<vector>
 
 #include "my_assert.h"
-#include "RefSeqPolicy.h"
-#include "PolyARules.h"
 #include "RefSeq.hpp"
 #include "Refs.hpp"
 
 Refs::Refs() {
   M = 0;
-  seqs.clear();
-  has_polyA = false;
+  seqs.assign(1, NULL);
 }
 
-//inpF in fasta format
-void Refs::makeRefs(char *inpF, RefSeqPolicy& policy, PolyARules& rules) {
-  //read standard fasta format here
-  std::ifstream fin;
-  std::string tag, line, rawseq;
+Refs::~Refs() {
+  for (int i = 1; i <= M; ++i) delete seqs[i];
+}
 
-  seqs.clear();
-  seqs.push_back(RefSeq()); // noise isoform
+void Refs::readFrom(char* inpF) {
+  std::ifstream fin(inpF);
+  RefSeq* seq;
 
-  M = 0;
-  has_polyA = false;
-
-  fin.open(inpF);
   general_assert(fin.is_open(), "Cannot open " + cstrtos(inpF) + "! It may not exist.");
-  getline(fin, line);
-  while ((fin) && (line[0] == '>')) {
-    tag = line.substr(1);
-    rawseq = "";
-    while((getline(fin, line)) && (line[0] != '>')) {
-      rawseq += line;
-    }
-    if (rawseq.size() <= 0) {
-      printf("Warning: Fasta entry %s has an empty sequence! It is omitted!\n", tag.c_str()); 
-      continue;
-    }
-    ++M;
-    seqs.push_back(RefSeq(tag, policy.convert(rawseq), rules.getLenAt(tag)));
-    has_polyA = has_polyA || seqs[M].getFullLen() < seqs[M].getTotLen();
-  }
-  fin.close();
-
-  if (verbose) { printf("Refs.makeRefs finished!\n"); }
-}
-
-//inpF in fasta format, with sequence all in one line together
-//option 0 read all, 1 do not read sequences
-void Refs::loadRefs(char *inpF, int option) {
-  std::ifstream fin;
-  RefSeq seq;
-
-  fin.open(inpF);
-  general_assert(fin.is_open(), "Cannot open " + cstrtos(inpF) + "! It may not exist."); 
-  seqs.clear();
-  seqs.push_back(RefSeq());
-
+  
   M = 0;
-  has_polyA = false;
-
-  bool success;
-  do {
-    success = seq.read(fin, option);
-    if (success) {
-    	seqs.push_back(seq);
-        ++M;
-    	has_polyA = has_polyA || seq.getFullLen() < seq.getTotLen();
-    }
-  } while (success);
-
+  seqs.assign(1, NULL);
+  seq = new RefSeq();
+  
+  while (seq.read(fin)) {
+    seqs.push_back(seq);
+    ++M;
+    seq = new RefSeq();
+  }
+  delete seq;
+  
   fin.close();
 
   assert(M + 1 == (int)seqs.size());
 
-  if (verbose) { printf("Refs.loadRefs finished!\n"); }
+  if (verbose) { printf("Refs.readFrom finished!\n"); }
 }
 
-void Refs::saveRefs(char* outF) {
-  std::ofstream fout;
-
-  fout.open(outF);
-  for (int i = 1; i <= M; i++) {
-    seqs[i].write(fout);
-  }
+void Refs::writeTo(char* outF) {
+  std::ofstream fout(outF);
+  for (int i = 1; i <= M; ++i) 
+    seqs[i]->write(fout);
   fout.close();
+  if (verbose) { printf("Refs.writeTo finished!\n"); }
+}
 
-  if (verbose) { printf("Refs.saveRefs finished!\n"); }
+void Refs::writeTransListTo(char* outF) {
+  std::ofstream fout(outF);
+  for (int i = 1; i <= M; ++i)
+    fout<< seqs[i]->getName()<< '\t'<< seqs[i]->getLen()<< std::endl;
+  fout.close();
+  if (verbose) { printf("Refs.writeTransListTo finished!\n"); }
 }

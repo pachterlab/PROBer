@@ -20,6 +20,8 @@ public:
     // Default, return the CIGAR string in original read sequence's order
     return_current = (is_ori ? true : false);
   }
+
+  char getDir() { return (is_ori && return_current || !is_ori && !return_current) ? '+' : '-'; }
   
   // '+' returns CIGAR string in original read sequence's order; '-' returns the reverse CIGAR
   void setDir(char dir) { 
@@ -48,6 +50,11 @@ public:
     return bam_cigar_oplen(return_current ? cigar[pos] : cigar[len - pos - 1]);
   }
 
+  // 0: consume nothing; 1: query; 2: reference; 3: both
+  int optypeAt(int pos) const {
+    return bam_cigar_type(opAt(pos));
+  }
+  
   // toString will reset dir
   std::string toString(char dir = '+') {
     setDir(dir);

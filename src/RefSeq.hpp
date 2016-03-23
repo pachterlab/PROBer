@@ -1,66 +1,78 @@
+/* Copyright (c) 2015
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
 #ifndef REFSEQ_H_
 #define REFSEQ_H_
 
+#include<cctype>
 #include<cassert>
 #include<fstream>
 #include<string>
-#include<vector>
+
 #include<stdint.h>
 
 #include "utils.h"
+#include "my_assert.h"
+#include "CIGARstring.hpp"
+#include "MDstring.hpp"
+#include "SEQstring.hpp"
 
-//Each Object can only be used once
 class RefSeq {
 public:
   RefSeq();
-  RefSeq(const std::string&, const std::string&, int);
+  RefSeq(const std::string& name, const std::string& rawseq);
   RefSeq(const RefSeq& o);
   RefSeq& operator= (const RefSeq&);
   
-  bool read(std::ifstream&, int  = 0);
-  void write(std::ofstream&);
+  bool read(std::ifstream& fin);
+  void write(std::ofstream& fout);
 
-  int getFullLen() const { return fullLen; }  
-
-  int getTotLen() const { return totLen; }
-
+  int getLen() const { return len; }
   const std::string& getName() const { return name; }
-
-  std::string getSeq() const { return seq; }
+  const std::string& getSeq() const { return seq; }
 
   char baseAt(char dir, int pos) const {
-    assert(pos >= 0 && pos < totLen);
-    return (dir == '+' ? seq[pos] : base2rbase[seq[totLen - pos - 1]]);
+    assert(pos >= 0 && pos < len);
+    return (dir == '+' ? seq[pos] : base2rbase[seq[len - pos - 1]]);
   }
 
   int baseCodeAt(char dir, int pos) const {
-    assert(pos >= 0 && pos < totLen);
-    return (dir == '+' ? base2code[seq[pos]] : rbase2code[seq[totLen - pos - 1]]);
+    assert(pos >= 0 && pos < len);
+    return (dir == '+' ? base2code[seq[pos]] : rbase2code[seq[len - pos - 1]]);
   }
-  
-  bool getMask(int pos) const {
-    assert(pos >= 0 && pos < totLen);
-    return fmasks[pos >> NSHIFT] & mask_codes[pos & MASK];
-  }
-  
-  void setMask(int pos) {
-    assert(pos >= 0 && pos < totLen);
-    fmasks[pos >> NSHIFT] |= mask_codes[pos & MASK];
-  }
+
+  void setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstring& seq);
   
 private:
-  int fullLen; // fullLen : the original length of an isoform
-  int totLen; // totLen : the total length, included polyA tails, if any
+  int len; // the transcript length
   std::string name; // the tag
-  std::string seq; // the raw sequence, in forward strand
-  std::vector<uint32_t> fmasks; // record masks for forward strand, each position occupies 1 bit
+  std::string seq; // the sequence, in the forward strand
 
-  static const int NBITS = 32; // use unsigned int, 32 bits per variable
-  static const int NSHIFT = 5;
-  static const int MASK = (1 << NSHIFT) - 1;
-  static const std::vector<uint32_t> mask_codes;
-
-  static std::vector<uint32_t> init_mask_code();
+  void convertRawSeq() {
+    for (int i = 0; i < len; ++i) {
+      general_assert(isalpha(seq[i]), "Sequence contains unknown code " + ctos(seq[i]) + "!");
+      seq[i] = toupper(seq[i]);
+      if (seq[i] != 'A' && seq[i] != 'C' && seq[i] != 'G' && seq[i] != 'T') seq[i] = 'N';
+    }
+  }
+  
 };
 
 #endif

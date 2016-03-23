@@ -110,7 +110,11 @@ private:
   Refs *refs;  
   Sampler *sampler;
 
-  int read_length; // the minimum read length, if read_length is set (not -1), all mates have a same length. 
+  int read_length; // the minimum read length, if read_length is set (not -1), all mates have a same length.
+
+  SEQstring seq;
+  QUALstring qual;
+  CIGARstring cigar;
 };
 
 inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) {
@@ -143,10 +147,8 @@ inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligne
 
 inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
   int seqlen;
-  SEQstring seq;
-  QUALstring qual;
-  CIGARstring cigar;
-
+  RefSeq* refseq = NULL;
+  
   // Get read sequences and quality scores
   assert(ag.getSEQ(seq));
   seqlen = read_length < 0 ? ag.getSeqLength() : read_length;
@@ -155,7 +157,7 @@ inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* ali
   ag_in_mem->noise_conprb = mld1->getProb(seqlen) * npro->getProb(seq);
   // set alignment probabilities
   for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].conprb != -1.0) {
-    RefSeq &refseq = refs->getRef(aligns[i].tid);
+    refseq = refs->getRef(aligns[i].tid);
     assert(ag.getAlignment(i)->getCIGAR(cigar));
     aligns[i].conprb = (aligns[i].fragment_length > 0 ? mld1->getProb(seqlen, aligns[i].fragment_length) : mld1->getProb(seqlen)) * \
       seqmodel->getProb('+', aligns[i].pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
@@ -168,27 +170,25 @@ inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* ali
     if (model_type & 1) assert(ag.getQUAL(qual, 2));
     ag_in_mem->noise_conprb *= mld2->getProb(seqlen) * npro->getProb(seq);
     for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].conprb != -1.0) {
-      RefSeq &refseq = refs->getRef(aligns[i].tid);
+      refseq = refs->getRef(aligns[i].tid);
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
       aligns[i].conprb *= mld2->getProb(seqlen, aligns[i].fragment_length) * \
-	seqmodel->getProb('-', refseq.getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+	seqmodel->getProb('-', refseq->getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 }
 
 inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
-  SEQstring seq;
-  QUALstring qual;
-  CIGARstring cigar;
-
+  RefSeq* refseq;
+  
   assert(ag.getSEQ(seq));
   if (model_type & 1) assert(ag.getQUAL(qual));
   // update noise prob
   npro->update(seq, noise_frac);
   // update alignment probs
   for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac > 0.0) {
-    RefSeq &refseq = refs->getRef(aligns[i].tid);
+    refseq = refs->getRef(aligns[i].tid);
     assert(ag.getAlignment(i)->getCIGAR(cigar));
     seqmodel->update(aligns[i].frac, '+', aligns[i].pos, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
   }
@@ -201,10 +201,10 @@ inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, 
     npro->update(seq, noise_frac);
     // update alignment probs
     for (int i = 0; i < ag_in_mem->size; ++i) if (aligns[i].frac > 0.0) {
-      RefSeq &refseq = refs->getRef(aligns[i].tid);
+      refseq = refs->getRef(aligns[i].tid);
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
-      seqmodel->update(aligns[i].frac, '-', refseq.getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+      seqmodel->update(aligns[i].frac, '-', refseq->getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 } 

@@ -70,6 +70,12 @@ public:
     return bam_is_rev(b2) ? '+' : '-';
   }
 
+  char getMateDir(int mate = 1) const {
+    assert((mate == 1 && bam_is_mapped(b)) || (mate == 2 && is_paired && bam_is_mapped(b2)));
+    tmp = (mate == 1) ? b : b2;
+    return !bam_is_rev(tmp) ? '+' : '-';
+  }
+  
   /*
     @param     fragment_length     The average fragment length, 0 means no fragment length is provided
     @return    If fragment_length == 0, return the leftmost position of two mates. Otherwise, return the leftmost position calculated with fragment length.
@@ -146,6 +152,12 @@ public:
     return true;
   }
 
+  bool getMD(MDstring& mdstr, int mate = 1) {
+    assert(mate == 1 || (is_paired && mate == 2));
+    findTag("MD", 
+    
+  }
+  
   // optional fields
 
   void removeTag(const char tag[2]) {

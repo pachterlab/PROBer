@@ -20,6 +20,8 @@ public:
     return_current = (is_ori ? true : false);
   }
 
+  char getDir() { return (is_ori && return_current || !is_ori && !return_current) ? '+' : '-'; }
+  
   // dir: '+', return original read sequence; '-' return reverse complement sequence
   void setDir(char dir) {
     switch(dir) {
