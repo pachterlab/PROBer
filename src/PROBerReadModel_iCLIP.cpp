@@ -6,11 +6,11 @@
 #include "SequencingModel.hpp"
 #include "PROBerReadModel_iCLIP.hpp"
 
-PROBerReadModel_iCLIP::PROBerReadModel_iCLIP(int model_type, int max_len = -1) : model_type(model_type) {
+PROBerReadModel_iCLIP::PROBerReadModel_iCLIP(int model_type, int max_len) : model_type(model_type) {
   seqmodel = new SequencingModel((model_type & 1), max_len);
 }
 
-~PROBerReadModel_iCLIP::PROBerReadModel_iCLIP() {
+PROBerReadModel_iCLIP::~PROBerReadModel_iCLIP() {
   delete seqmodel;
 }
 
@@ -36,7 +36,7 @@ void PROBerReadModel_iCLIP::read(const char* modelF) {
   if (verbose) printf("PROBerReadModel_iCLIP::read finished!\n");
 }
 
-void PROBerReadModel_iCLIP:write(const char* modelF) {
+void PROBerReadModel_iCLIP::write(const char* modelF) {
   std::ofstream fout(modelF);
   assert(fout.is_open());
 

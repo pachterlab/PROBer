@@ -47,7 +47,7 @@ void Refs::readFrom(char* inpF) {
   seqs.assign(1, NULL);
   seq = new RefSeq();
   
-  while (seq.read(fin)) {
+  while (seq->read(fin)) {
     seqs.push_back(seq);
     ++M;
     seq = new RefSeq();

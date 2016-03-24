@@ -147,7 +147,7 @@ inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligne
 
 inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
   int seqlen;
-  RefSeq* refseq = NULL;
+  const RefSeq* refseq = NULL;
   
   // Get read sequences and quality scores
   assert(ag.getSEQ(seq));
@@ -174,13 +174,13 @@ inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* ali
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
       aligns[i].conprb *= mld2->getProb(seqlen, aligns[i].fragment_length) * \
-	seqmodel->getProb('-', refseq->getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+	seqmodel->getProb('-', refseq->getLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 }
 
 inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
-  RefSeq* refseq;
+  const RefSeq* refseq;
   
   assert(ag.getSEQ(seq));
   if (model_type & 1) assert(ag.getQUAL(qual));
@@ -204,7 +204,7 @@ inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, 
       refseq = refs->getRef(aligns[i].tid);
       assert(ag.getAlignment(i)->getCIGAR(cigar, 2));
       assert(aligns[i].fragment_length > 0);
-      seqmodel->update(aligns[i].frac, '-', refseq->getTotLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
+      seqmodel->update(aligns[i].frac, '-', refseq->getLen() - aligns[i].pos - aligns[i].fragment_length, refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
     }
   }
 } 
@@ -229,7 +229,7 @@ inline void PROBerReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int f
     }
   }
   else {
-    RefSeq &ref = refs->getRef(tid);
+    const RefSeq* ref = refs->getRef(tid);
     mateL1 = mld1->simulate(sampler, fragment_length);
     if (model_type & 1) qd->simulate(sampler, mateL1, qual1);
     seqmodel->simulate(sampler, mateL1, '+', pos, ref, qual1, cigar1, readseq1);
@@ -237,7 +237,7 @@ inline void PROBerReadModel::simulate(READ_INT_TYPE rid, int tid, int pos, int f
     if (model_type >= 2) {
       mateL2 = mld2->simulate(sampler, fragment_length); 
       if (model_type & 1) qd->simulate(sampler, mateL2, qual2);
-      m2pos = ref.getTotLen() - pos - fragment_length;
+      m2pos = ref->getLen() - pos - fragment_length;
       seqmodel->simulate(sampler, mateL2, '-', m2pos, ref, qual2, cigar2, readseq2);
     }
   }

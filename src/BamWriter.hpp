@@ -10,7 +10,7 @@
 
 class BamWriter {
 public:
-  BamWriter(const char* outF, bam_hdr_t* header, const char* program_id);
+  BamWriter(const char* outF, const bam_hdr_t* header, const char* program_id);
   ~BamWriter();
 
   // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score  
@@ -23,7 +23,7 @@ private:
   samFile* bam_out;
   bam_hdr_t* header;
   
-  bam_hdr_t* header_duplicate_without_text(bam_hdr_t* ori_h);
+  bam_hdr_t* header_duplicate_without_text(const bam_hdr_t* ori_h);
   void header_append_new_text(bam_hdr_t* header, const std::string& new_text);
 };
 

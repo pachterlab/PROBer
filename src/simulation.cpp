@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
   }
 
   sprintf(refF, "%s.seq", argv[1]);
-  refs.loadRefs(refF);
+  refs.readFrom(refF);
   M = refs.getM();
   
   N = atoi(argv[5]);
@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--transcript")) {
       string name = string(argv[i + 1]);
       for (int j = 1; j <= M; ++j) 
-	if (refs.getRef(j).getName() == name) { sim_tid = j; break; }
+	if (refs.getRef(j)->getName() == name) { sim_tid = j; break; }
       if (sim_tid < 0) {
 	fprintf(stderr, "Error: Cannot find transcript name %s from the reference!\n", argv[i + 1]);
 	exit(-1);

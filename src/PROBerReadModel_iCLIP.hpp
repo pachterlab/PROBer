@@ -22,8 +22,9 @@ public:
   /*
     @function   constructor
     @param   model_type   0, SE, no qual; 1, SE qual; 2, PE, no qual; 3 PE, qual
+    @param   max_len      maximum read length
    */
-  PROBerReadModel_iCLIP(int model_type);
+  PROBerReadModel_iCLIP(int model_type, int max_len = -1);
 
   /*
     @function   destructor

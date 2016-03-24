@@ -339,7 +339,7 @@ void writeToDisk(char* refName) {
     sprintf(n2g_idxF, "%s.n2g.idx.fa", refName);
     fout.open(n2g_idxF);
     for (int i = 1; i <= M; ++i) 
-      fout<< '>'<< refs.getRef(i).getName()<< endl<< n2g(refs.getRef(i).getSeq())<< endl;
+      fout<< '>'<< refs.getRef(i)->getName()<< endl<< n2g(refs.getRef(i)->getSeq())<< endl;
     fout.close();
     if (verbose) printf("%s is generated!\n", n2g_idxF);
   }

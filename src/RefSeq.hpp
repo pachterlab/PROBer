@@ -80,14 +80,14 @@ private:
   @param   dir     alignment direction
   @param   cigar   CIGAR string
   @param   mdstr   MD string
-  @param   seq     SEQ string
+  @param   seqstr  SEQ string
  */
-inline void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstring& seq) {
+inline void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstring& seqstr) {
   len = 0; name = seq = "";
 
   char old_dir = cigar.getDir();
   cigar.setDir(dir);
-  seq.setDir(dir);
+  seqstr.setDir(dir);
   
   int pos = -1, cigar_len = cigar.getLen();
   int optype, oplen;
@@ -101,7 +101,7 @@ inline void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstri
       if (optype & 2) {
 	ref_base = mdstr.next();
 	assert(ref_base >= 0);
-	if (ref_base == 0) ref_base = seq.baseAt(pos);
+	if (ref_base == 0) ref_base = seqstr.baseAt(pos);
 	seq += ref_base;
       }
     }
@@ -111,7 +111,7 @@ inline void RefSeq::setUp(char dir, CIGARstring& cigar, MDstring& mdstr, SEQstri
   len = seq.length();
 
   cigar.setDir(old_dir);
-  seq.setDir(old_dir);
+  seqstr.setDir(old_dir);
 }
 
 #endif

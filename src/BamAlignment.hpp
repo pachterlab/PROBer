@@ -14,10 +14,11 @@
 #include "CIGARstring.hpp"
 #include "SEQstring.hpp"
 #include "QUALstring.hpp"
+#include "MDstring.hpp"
 
 class BamAlignment {
 public:
-  BamAlignment() : is_paired(false), is_aligned(-1), b(NULL), b2(NULL), tmp(NULL) {
+  BamAlignment() : is_paired(false), is_aligned(-1), b(NULL), b2(NULL) {
   }
 
   BamAlignment(const BamAlignment& o) : b(NULL), b2(NULL) {
@@ -72,23 +73,23 @@ public:
 
   char getMateDir(int mate = 1) const {
     assert((mate == 1 && bam_is_mapped(b)) || (mate == 2 && is_paired && bam_is_mapped(b2)));
-    tmp = (mate == 1) ? b : b2;
-    return !bam_is_rev(tmp) ? '+' : '-';
+    if (mate == 1) return bam_is_rev(b) ? '-' : '+';
+    else return bam_is_rev(b2) ? '-' : '+';
   }
   
   /*
     @param     fragment_length     The average fragment length, 0 means no fragment length is provided
     @return    If fragment_length == 0, return the leftmost position of two mates. Otherwise, return the leftmost position calculated with fragment length.
                If the calculated position < 0, set it to 0
-    @comment   bam_calend gives the right-most position + 1 
+    @comment   bam_endpos gives the right-most position + 1 
    */
   int getLeftMostPos(int fragment_length = 0) const {
     assert(is_aligned > 0);
     if (is_aligned == 3) return std::min(b->core.pos, b2->core.pos);
-    if (fragment_length <= 0) return (is_aligned == 2 ? b->core.pos : b2->core.pos);
+    if (fragment_length <= 0) return (is_aligned & 1) ? b->core.pos : b2->core.pos;
 
-    tmp = (is_aligned & 1) ? b : b2;
-    return (!bam_is_rev(tmp) ? tmp->core.pos : std::max(0, bam_endpos(tmp) - fragment_length));
+    if (is_aligned & 1) return bam_is_rev(b) ? std::max(0, bam_endpos(b) - fragment_length) : b->core.pos;
+    else return bam_is_rev(b2) ? std::max(0, bam_endpos(b2) - fragment_length) : b2->core.pos;
   }
   
   // if length = 2k, midpoint is k - 1
@@ -97,7 +98,7 @@ public:
     return (is_aligned == 3 ? getLeftMostPos() + (getInsertSize() - 1) / 2 : getLeftMostPos(fragment_length) + (fragment_length - 1) / 2);
   }
   
-  int getMapQ() const { return ((is_aligned & 1) ? b->core.qual : b2->core.qual); }
+  int getMapQ() const { return (is_aligned & 1) ? b->core.qual : b2->core.qual; }
   
   void setMapQ(int MapQ) { 
     b->core.qual = (bam_is_mapped(b) ? MapQ : 255);
@@ -113,8 +114,8 @@ public:
    */
   int getDirPos(int mate, int target_len) const {
     assert(is_aligned > 0 && (mate == 1 || mate == 2 && is_paired));
-    tmp = (mate == 1 ? b : b2);
-    return !bam_is_rev(tmp) ? tmp->core.pos : target_len - bam_endpos(tmp);
+    if (mate == 1) return bam_is_rev(b) ? target_len - bam_endpos(b) : b->core.pos;
+    else return bam_is_rev(b2) ? target_len - bam_endpos(b2) : b2->core.pos;
   }
 
   // mate = 0, the name of the read; 1, mate 1; 2, mate 2
@@ -135,7 +136,7 @@ public:
     else ci.setUp(bam_get_cigar(b2), b2->core.n_cigar, is_ori(b2));
     return true;
   }
-
+  
   bool getSEQ(SEQstring& si, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
     assert(((mate == 1) && (b->core.l_qseq > 0)) || ((mate == 2) && (b2->core.l_qseq > 0)));
@@ -151,15 +152,17 @@ public:
     else qi.setUp(bam_get_qual(b2), b2->core.l_qseq, is_ori(b2));
     return true;
   }
-
+  
   bool getMD(MDstring& mdstr, int mate = 1) {
+    uint8_t* p;    
     assert(mate == 1 || (is_paired && mate == 2));
-    findTag("MD", 
-    
+    p = bam_aux_get((mate == 1 ? b : b2), "MD");
+    assert(p != NULL && *p++ == 'Z');
+    mdstr.setUp((char*)p);
+    return true;
   }
   
   // optional fields
-
   void removeTag(const char tag[2]) {
     uint8_t *p_tag = NULL;
 
@@ -203,8 +206,8 @@ public:
   // no check, must guarantee the type is consistent
   char tag2A(uint8_t* p) { return bam_aux2A(p); }
   int tag2i(uint8_t* p) { return bam_aux2i(p); }
-  float tag2f(uint8_t* p) { return bam_aux2f(p); }
-  double tag2d(uint8_t* p) { return bam_aux2d(p); }
+  float tag2f(uint8_t* p) { return *(float*)(p + 1); } 
+  double tag2d(uint8_t* p) { return bam_aux2f(p); }
   char* tag2Z(uint8_t* p) { return bam_aux2Z(p); }
   char* tag2H(uint8_t* p) { return bam_aux2Z(p); }
   char* tag2B(uint8_t* p) { return (char*)(p + 1); }
@@ -212,7 +215,7 @@ public:
   // If no ZW field, return -1.0
   float getFrac() {
     uint8_t *p_tag = bam_aux_get(((is_aligned & 1) ? b : b2), "ZW");
-    return p_tag != NULL ? bam_aux2f(p_tag) : -1.0;
+    return p_tag != NULL ? *(float*)(p_tag + 1) : -1.0;
   }
   
   void setFrac(float frac) {
@@ -245,15 +248,15 @@ protected:
   bool is_paired;
   char is_aligned; // 2 bits, from left to right, the first bit represents first mate and the second bit represents the second mate
                    // Thus, 0, unalignable; 1, only first mate; 2, only second mate; 3, both mates
-  bam1_t *b, *b2, *tmp;
+  bam1_t *b, *b2;
 
 
-  bool bam_is_paired(const bam1_t* b) { return (b->core.flag & BAM_FPAIRED); }
-  bool bam_is_proper(const bam1_t* b) { return (b->core.flag & BAM_FPROPER_PAIR); }
-  bool bam_is_mapped(const bam1_t* b) { return !(b->core.flag & BAM_FUNMAP); }
-  bool bam_is_unmapped(const bam1_t* b) { return (b->core.flag & BAM_FUNMAP); }
-  bool bam_is_read1(const bam1_t* b) { return (b->core.flag & BAM_FREAD1); }
-  bool bam_is_read2(const bam1_t* b) { return (b->core.flag & BAM_FREAD2); }
+  bool bam_is_paired(const bam1_t* b) const { return (b->core.flag & BAM_FPAIRED); }
+  bool bam_is_proper(const bam1_t* b) const { return (b->core.flag & BAM_FPROPER_PAIR); }
+  bool bam_is_mapped(const bam1_t* b) const { return !(b->core.flag & BAM_FUNMAP); }
+  bool bam_is_unmapped(const bam1_t* b) const { return (b->core.flag & BAM_FUNMAP); }
+  bool bam_is_read1(const bam1_t* b) const { return (b->core.flag & BAM_FREAD1); }
+  bool bam_is_read2(const bam1_t* b) const { return (b->core.flag & BAM_FREAD2); }
   
   int bam_aux_type2size(char x) {
     if (x == 'C' || x == 'c' || x == 'A') return 1;
@@ -270,7 +273,7 @@ protected:
   }
 
   bool is_ori(bam1_t* b) {
-    return ((bam_is_unmapped(b) || !bam_is_rev(b)) ? : true : false);
+    return ((bam_is_unmapped(b) || !bam_is_rev(b)) ? true : false);
   }
 
   void compress(bam1_t* b) {
@@ -312,7 +315,7 @@ protected:
     b->core.l_qseq = other->core.l_qseq;
     b->l_data = b->core.l_qname + b->core.n_cigar * 4 + (b->core.l_qseq + 1) / 2 + b->core.l_qseq + l_aux;
     expand_data_size(b);
-    memmove(bam_get_aux(b), b->data + 1 + b->core.n_cigar * 4, b->l_aux); // move aux options
+    memmove(bam_get_aux(b), b->data + 1 + b->core.n_cigar * 4, l_aux); // move aux options
     memmove(bam_get_cigar(b), b->data + 1, b->core.n_cigar * 4); // move cigar string
     memcpy(bam_get_qname(b), bam_get_qname(other), b->core.l_qname); // copy qname
 

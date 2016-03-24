@@ -6,7 +6,6 @@
 #include<fstream>
 #include<pthread.h>
 
-#include "sam/bam.h"
 #include "utils.h"
 #include "my_assert.h"
 #include "Transcript.hpp"

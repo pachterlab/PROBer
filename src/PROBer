@@ -604,9 +604,9 @@ if args.command == "estimate":
     if args.bam != None or args.sam != None:
         command.extend(["PROBer-parse-alignments", args.ref_name, imdName, statName, "minus", str(args.num_threads)])
         if args.bam != None:
-            command.extend(["b", args.bam[0]])
+            command.append(args.bam[0])
         else:
-            command.extend(["s", args.sam[0]])
+            command.append(args.sam[0])
         pos = len(command) - 1
         command.extend(["-m", "200"])
         if args.read_length != None and args.size_selection_min < args.read_length:
@@ -644,7 +644,7 @@ if args.command == "estimate":
         else:
             assert False
 
-        command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "minus", str(args.num_threads), "s", "-", "-m", "200"]
+        command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "minus", str(args.num_threads), "-", "-m", "200"]
         if args.read_length != None and args.size_selection_min < args.read_length:
             command2.extend(["--shorter-than", str(args.size_selection_min)])
         if args.quiet:

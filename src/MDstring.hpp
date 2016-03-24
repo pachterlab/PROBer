@@ -16,14 +16,14 @@ public:
   }
 
   // return next reference base
-  char next() const {
+  char next() {
     if (counter > 0) { --counter; return 0; } // MATCH
-    if (*mdstr == 0) return -1; // end of the MD string
     if (isdigit(*mdstr)) {
-      counter = *mdstr - '0', ++ mdstr;
-      while (isdigit(*mdstr)) counter = counter * 10 + (*mdstr - '0');
-      --counter; return 0;
+      counter = *mdstr - '0', ++mdstr;
+      while (isdigit(*mdstr)) counter = counter * 10 + (*mdstr - '0'), ++mdstr;
+      if (counter > 0) { --counter; return 0; }
     }
+    if (*mdstr == 0) return -1; // end of the MD string
     while (*mdstr == '^') ++mdstr;
     assert(isalpha(*mdstr));
     return *mdstr++;

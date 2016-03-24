@@ -97,7 +97,7 @@ void preprocessAlignments(int channel) {
 
   // Preprocess unalignable reads
   sprintf(bamF, "%s_%s_N0.bam", imdName, channelStr[channel]);
-  parser = new SamParser('b', bamF, NULL);
+  parser = new SamParser(bamF);
 
   N0[channel] = 0;
   while (parser->next(ag)) {
@@ -134,7 +134,7 @@ void preprocessAlignments(int channel) {
     paramsVecs[channel][i] = new InMemParams(i, whole_model, read_models[channel], nreads, nlines);
 
     sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
-    parser = new SamParser('b', bamF, NULL);
+    parser = new SamParser(bamF);
     rid = 0;
     ag.clear();
     while (parser->next(ag)) {
@@ -189,7 +189,7 @@ void init() {
 
   // Load references
   sprintf(refF, "%s.seq", refName);
-  refs.loadRefs(refF);
+  refs.readFrom(refF);
   M = refs.getM();
   
   sprintf(tiF, "%s.ti", refName);
@@ -237,7 +237,7 @@ void* E_STEP(void* arg) {
   if (needCalcConPrb || updateReadModel) {
     char bamF[STRLEN];
     sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[whole_model->getChannel()], params->no);
-    parser = new SamParser('b', bamF, NULL); 
+    parser = new SamParser(bamF); 
   }
   if (updateReadModel) estimator->init();
 
@@ -372,14 +372,14 @@ void outputBamFiles(int channel) {
   sprintf(inp0F, "%s_%s_N0.bam", imdName, channelStr[channel]);
   sprintf(outF, "%s_%s.bam", sampleName, channelStr[channel]);
   
-  SamParser* parser0 = new SamParser('b', inp0F, NULL);
+  SamParser* parser0 = new SamParser(inp0F);
   BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "PROBer");
   AlignmentGroup ag;
   READ_INT_TYPE cnt = 0;
   
   for (int i = 0; i < num_threads; ++i) {
     sprintf(inpF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
-    SamParser* parser = new SamParser('b', inpF, NULL);
+    SamParser* parser = new SamParser(inpF);
     InMemChunk *chunk = paramsVecs[channel][i]->chunk;
     READ_INT_TYPE nreads = chunk->nreads;
     InMemAlignG *a_read = NULL;
@@ -409,7 +409,7 @@ void outputBamFiles(int channel) {
   
   // write out filtered reads
   sprintf(inp2F, "%s_%s_N2.bam", imdName, channelStr[channel]);
-  SamParser* parser2 = new SamParser('b', inp2F, NULL);
+  SamParser* parser2 = new SamParser(inp2F);
   ag.clear();
   while (parser2->next(ag)) {
     ag.markAsFiltered(); // Mark each alignment as filtered by append a "ZF:A:!" field

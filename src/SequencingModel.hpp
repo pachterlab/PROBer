@@ -180,14 +180,14 @@ inline void SequencingModel::simulate(Sampler *sampler, int len, char dir, int p
   int readpos = 0;
   char opchr, last_opchr;
   int oplen;
-  int totLen = refseq->getTotLen();
+  int refLen = refseq->getLen();
 
   cigar.clear();
   seq.clear();
 
   last_opchr = 0; oplen = 0;
   while (readpos < len) {
-    if (pos >= totLen) opchr = 'I';
+    if (pos >= refLen) opchr = 'I';
     else if (last_opchr == 0) opchr = markov->simulate(sampler);
     else opchr = markov->simulate(sampler, last_opchr);
     

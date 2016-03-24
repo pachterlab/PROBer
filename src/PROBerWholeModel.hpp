@@ -6,7 +6,6 @@
 #include<vector>
 #include<pthread.h>
 
-#include "sam/bam.h"
 #include "sampling.hpp"
 #include "Transcripts.hpp"
 #include "InMemoryStructs.hpp"

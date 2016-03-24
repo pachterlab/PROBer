@@ -11,9 +11,7 @@
 #include "BamWriter.hpp"
 
 // If header == NULL, just create an empty header with one target (to avoid free non null pointer due to calloc) and paste the program_id line
-BamWriter::BamWriter(const char* outF, bam_hdr_t* header, const char* program_id) {
-
-
+BamWriter::BamWriter(const char* outF, const bam_hdr_t* header, const char* program_id) {
   if (header != NULL) {
     this->header = header_duplicate_without_text(header);
   }
@@ -29,7 +27,7 @@ BamWriter::BamWriter(const char* outF, bam_hdr_t* header, const char* program_id
   
   std::ostringstream strout;
   strout<< "@HD\tVN:1.4\tSO:unknown\n@PG\tID:"<< program_id<< std::endl;
-  header_append_new_text(out_header, strout.str());
+  header_append_new_text(this->header, strout.str());
 
   bam_out = sam_open(outF, "wb");
   general_assert(bam_out != 0, "Cannot write to " + cstrtos(outF) + "!");
@@ -41,8 +39,8 @@ BamWriter::~BamWriter() {
   sam_close(bam_out);
 }
 
-bam_header_t* BamWriter::header_duplicate_without_text(const bam_header_t *ori_h) {
-  bam_header_t *h = bam_hdr_init();
+bam_hdr_t* BamWriter::header_duplicate_without_text(const bam_hdr_t *ori_h) {
+  bam_hdr_t *h = bam_hdr_init();
   h->n_targets = ori_h->n_targets;
   h->target_len = new uint32_t[h->n_targets];
   h->target_name = new char*[h->n_targets];
@@ -54,7 +52,7 @@ bam_header_t* BamWriter::header_duplicate_without_text(const bam_header_t *ori_h
   return h;
 }
 
-void BamWriter::header_append_new_text(bam_header_t* header, const std::string& new_text) {
+void BamWriter::header_append_new_text(bam_hdr_t* header, const std::string& new_text) {
   if (new_text == "") return;
   int len = new_text.length();
   int max_size = (header->text == NULL ? 0 : header->l_text + 1);

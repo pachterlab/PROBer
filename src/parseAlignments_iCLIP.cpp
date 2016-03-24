@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
   }
 
-  parser = new SamParser(argv[2], NULL);
+  parser = new SamParser(argv[2]);
 
   const char* program_id = parser->getProgramID();
   if (!strcmp(program_id, "Bowtie") || !strcmp(program_id, "bowtie")) bowtie_filter = true;
@@ -97,11 +97,11 @@ int main(int argc, char* argv[]) {
       // Read is alignable
       if (ag.size() == 1) {
 	++N11;
-	write11->write(ag);
+	writer11->write(ag);
       }
       else {
 	++N12;
-	write12->write(ag);
+	writer12->write(ag);
       }
       
       nHits += (HIT_INT_TYPE)ag.size();

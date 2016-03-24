@@ -30,7 +30,7 @@ bool BamAlignment::read(samFile* in, bam_hdr_t* header, BamAlignment* o) {
 		   ((b->core.flag & 0x00C0) == 0x0080 && (b2->core.flag & 0x00C0) == 0x0040), 
 		   "Cannot detect both mates of a paired-end alignment!");
     
-    if (bam_is_read2(b)) { tmp = b; b = b2; b2 = tmp; }
+    if (bam_is_read2(b)) { bam1_t *tmp = b; b = b2; b2 = tmp; }
   }
 
   // calculate is_aligned
@@ -68,7 +68,7 @@ bool BamAlignment::write(samFile* out, bam_hdr_t* header, int choice, BamAlignme
   }
 
   general_assert(sam_write1(out, header, b) >= 0, "Fail to write alignments to BAM file!");
-  if (is_paired) general_assert(samwrite(out, header, b2) >= 0, "Fail to write alignments to BAM file!");
+  if (is_paired) general_assert(sam_write1(out, header, b2) >= 0, "Fail to write alignments to BAM file!");
 
   return true;
 }

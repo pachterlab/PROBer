@@ -25,7 +25,7 @@ private:
   samFile* sam_in;
   bam_hdr_t* header;
 
-  const char program_id[1005];
+  char program_id[1005];
 };
 
 #endif

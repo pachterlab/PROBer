@@ -21,7 +21,7 @@ public:
     return_current = (is_ori ? true : false);
   }
 
-  char getDir() { return (is_ori && return_current || !is_ori && !return_current) ? '+' : '-'; }
+  char getDir() { return ((is_ori && return_current) || (!is_ori && !return_current)) ? '+' : '-'; }
   
   // '+' returns CIGAR string in original read sequence's order; '-' returns the reverse CIGAR
   void setDir(char dir) { 
@@ -59,7 +59,7 @@ public:
   std::string toString(char dir = '+') {
     setDir(dir);
     std::ostringstream strout;
-    for (int i = 0; i < len; ++i) strout<< opAt(i)<< oplenAt(i);
+    for (int i = 0; i < len; ++i) strout<< oplenAt(i)<< opchrAt(i); 
     return strout.str();
   }
 
