@@ -76,6 +76,12 @@ public:
     if (mate == 1) return bam_is_rev(b) ? '-' : '+';
     else return bam_is_rev(b2) ? '-' : '+';
   }
+
+  // designed for iCLIP, return pos in forward strand
+  int getPos() const {
+    assert(is_aligned & 1);
+    return b->core.pos;
+  }
   
   /*
     @param     fragment_length     The average fragment length, 0 means no fragment length is provided

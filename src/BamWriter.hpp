@@ -10,7 +10,8 @@
 
 class BamWriter {
 public:
-  BamWriter(const char* outF, const bam_hdr_t* header, const char* program_id);
+  // if program_id is NULL, use the full header
+  BamWriter(const char* outF, const bam_hdr_t* header, const char* program_id = NULL);
   ~BamWriter();
 
   // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score  

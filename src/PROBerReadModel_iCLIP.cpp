@@ -2,12 +2,14 @@
 #include<string>
 #include<fstream>
 
-#include "utils.h"
 #include "SequencingModel.hpp"
 #include "PROBerReadModel_iCLIP.hpp"
 
+PROBerReadModel_iCLIP::PROBerReadModel_iCLIP() : model_type(-1), seqmodel(NULL) {}
+
 PROBerReadModel_iCLIP::PROBerReadModel_iCLIP(int model_type, int max_len) : model_type(model_type) {
   seqmodel = new SequencingModel((model_type & 1), max_len);
+  seqmodel->init(); // initialize seqmodel for updates
 }
 
 PROBerReadModel_iCLIP::~PROBerReadModel_iCLIP() {

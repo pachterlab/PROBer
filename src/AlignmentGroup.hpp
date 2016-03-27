@@ -6,12 +6,21 @@
 #include<cstdlib>
 #include<cassert>
 #include<vector>
+#include<algorithm>
 
 #include "htslib/sam.h"
 
 #include "SEQstring.hpp"
 #include "QUALstring.hpp"
 #include "BamAlignment.hpp"
+
+
+// comparison function for iCLIP
+bool cmp_iCLIP(const BamAlignment* a, const BamAlignment* b) {
+  if a->getTid() != b->getTid() return a->getTid() < b->getTid();
+  if a->getDir() != b->getDir() return a->getDir() < b->getDir();
+  return a->getPos() < b->getPos();
+}
 
 // One alignment group associates with one file. 
 class AlignmentGroup {
@@ -30,10 +39,8 @@ public:
     @func   clear the alignment group so that we can use it for next SAM/BAM file
    */
   void clear() {
-    for (int i = 0; i < max_size; ++i) delete alignments[i];
-    alignments.clear();
     leftover = -1;
-    s = max_size = 0;
+    s = 0;
   }
 
   bool isFiltered() const { return (s > 0) && alignments[0]->isFiltered(); }
@@ -76,6 +83,11 @@ public:
     return alignments[id];
   }
 
+  void sort_alignments() {
+    assert(s > 1);
+    sort(alignments.begin(), alignments.begin() + s, cmp_iCLIP);
+  }
+  
 private:
   char leftover; // if has next read. -1, initial value, stands for not called; 0, no next read; 1, has next read, which is the last alignment
   int s, max_size; // s, total number of alignments; max_size, max capacity
