@@ -7,6 +7,7 @@
 #include<vector>
 #include<fstream>
 #include<iostream>
+#include<sstream>
 #include<algorithm>
 #include<pthread.h>
 #include<unordered_map>
@@ -42,19 +43,29 @@ struct KeyType {
     if (dir != o.dir) return dir < o.dir; // '+' < '-'
     return pos < o.pos;
   }
+
+  // this function is used to find appropriate window for each site
+  int cmp(const KeyType& o, int w) const {
+    if (cid != o.cid) return cid < o.cid ? -w - 1 : w + 1;
+    if (dir != o.dir) return dir < o.dir ? -w - 1 : w + 1;
+    return pos - o.pos;
+  }
 };
 
 // read count weight, value for map
 struct ValueType {
-  double weight, ww; // weight, expected read counts at this position; ww, sum of weights in the window
+  int c; // number of unique reads
+  double weight; // weight, expected read counts at this position from multi-mapping reads
   vector<double*> aligns; // point to expected weight from each alignment
 
-  ValueType() : id(-1), weight(0), ww(0) { aligns.clear(); }
+  ValueType() : c(0), weight(0) { aligns.clear(); }
 };
 
+typedef map<KeyType, ValueType> MapType;
+typedef map<KeyType, ValueType>::iterator IterType;
+
 int n_pos; // number of distinct positions
-map<KeyType, ValueType> posMap; // position map
-map<KeyType, ValueType>::iterator iter; // iterator for posMap
+MapType posMap; // position map
 
 int n_mhits; // number of multi-mapping reads' hits
 double *fracs, *conprbs; // arrays storing multi-mapping reads expected weights and normalized sequencing error probabilities
@@ -71,10 +82,42 @@ struct MultiType {
 int n_multi; // number of multi-mapping reads
 vector<MultiType> multis; // multi-mapping reads
 
-unordered_map<string, int> hash;
+typedef unordered_map<string, int> HashType;
+typedef unordered_map<string, int>::iterator HashIterType;
+
+HashType hash;
+
+// for M step use 
+struct SiteType {
+  ValueType *v; // pointer to ValueType in posMap
+  int uc; // unique reads within window size for this site
+  int left, right; // window is [left, right]
+
+  SiteType() : v(NULL), uc(0), left(0), right(0) {}
+};
+
+int n_msites; // number of multi-read sites
+vector<SiteType> sites;
+
+// parameter type, used for multi-threading
+struct ParamType {
+  int no; // thread number
+
+  int sp, ep; // the start and end position in multis for this thread, [sp, ep)
+
+  int ss, es; // the start and end site in sites [ss, es)
+  
+};
+
+ParamType* params;
+pthread_t* threads;
+pthread_attr_t attr;
+int rc;
 
 
 int model_type;
+int w; // half window size
+int num_threads; // number of threads we can use
 
 BamAlignment* ba;
 AlignmentGroup ag;
@@ -165,7 +208,7 @@ void parseAlignments(const char* alignF) {
 	my_pair.first.cid = ba->getTid();
 	my_pair.first.dir = ba->getDir();
 	my_pair.first.pos = ba->getPos();
-	posMap.insert(my_pair).first->second.weight += 1.0;
+	posMap.insert(my_pair).first->second.c += 1;
       }
       else {
 	++N12;
@@ -197,61 +240,193 @@ void parseAlignments(const char* alignF) {
 void processMultiReads() {
   SamParser *parser = new SamParser(multiF);
 
+  int offset, size;
+  double *p;
+  
   pair<KeyType, ValueType> my_pair;
+  MultiType multi(0, 0, 1);
 
+  vector<IterType> iters;
+
+  ostringstream key;
+
+  pair<HashIterType, bool> ret;
   
   ag.clear();
 
   fracs = new double[n_mhits];
   conprbs = new double[n_mhits];
+  
+  hash.clear();
 
   n_multi = 0; multis.clear();
+  
+  offset = 0; iters.clear();
+
+  READ_INT_TYPE cnt = 0;
+
   while (parser->next(ag)) {
-  }
+    size = ag.size();
+    p = conprbs + offset;
+    
+    model->calcProbs(ag, p);
 
-  delete parser;
-  
+    key.str("");
+    iters.resize(size);
+    for (int i = 0; i < size; ++i) {
+      	ba = ag.getAlignment(i);
+	my_pair.first.cid = ba->getTid();
+	my_pair.first.dir = ba->getDir();
+	my_pair.first.pos = ba->getPos();
+	
+	iters[i] = posMap.insert(my_pair).first;
 
-  
-  n_multi = multis.size();
-  for (int i = 0; i < n_multi; ++i) {
-    assert(parser->next(ag));
-    model->calcProbs(ag, multis[i].aligns);
-    if (verbose && (i + 1) % 1000000 == 0) cout<< i + 1<< " multi-mapping reads are processed!"<< endl;
-  }
-  delete parser;
-
-  cout<< "Setting up probabilities is done!"<< endl;
-
-  for (int i = 0; i < n_multi; ++i) multis[i].sort_alignments();
-  sort(multis.begin(), multis.end());
-
-  cout<< "Sorting is finished."<< endl;
-
-  char tmpF[STRLEN];
-  sprintf(tmpF, "%s.tmp", imdName);
-  FILE *fo = fopen(tmpF, "w");
-  
-  int pos = 0;
-  for (int i = 1; i < n_multi; ++i)
-    if (multis[pos] != multis[i]) {
-      if (i - pos > 1) {
-	for (int j = pos; j < i; ++j) {
-	  for (int k = 0; k < multis[j].s; ++k) fprintf(fo, "%.6g ", multis[j].aligns[k].conprb);
-	  fprintf(fo, "%c", j == i - 1 ? '\n' : '\t');
-	}
-      }
-      pos = i;
+	// generate hash key
+	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< int(p[i] * 10.0 + 0.5) + 'A';
     }
-  if (n_multi - pos > 1) {
-    for (int j = pos; j < n_multi; ++j) {
-      for (int k = 0; k < multis[j].s; ++k) fprintf(fo, "%.6g ", multis[j].aligns[k].conprb);
-      fprintf(fo, "%c", j == n_multi - 1 ? '\n' : '\t');
+
+    ret = hash.insert(make_pair<string, int>(key.str(), n_multi));
+    if (ret.second) {
+      p = fracs + offset;
+      for (int i = 0; i < size; ++i)
+	iters[i]->second.aligns.push_back(p + i);
+      
+      multi.offset = offset;
+      multi.s = size;
+      multis.push_back(multi);
+
+      ++n_multi;
+      offset += size;
+      
     }
+    else ++multis[ret.first->second].c;
+
+    ++cnt;
+    if (verbose && cnt % 1000000 == 0) cout<< cnt<< "multi-reads are processed!"<< endl;
   }
-  fclose(fo);
-  cout<< "Done!"<< endl;
+
+  n_mhits = offset; // after reduction, total number of alignments
+  
+  delete parser;
 }
+
+
+/****************************************************************************************************/
+// Distribute tasks to differen threads
+
+
+void distributeTasks() {
+  params = new ParamType[num_threads];
+  threads = new pthread_t[num_threads];
+
+  
+  int quo, res, left; // quotient, residule
+  vector<int> lefts;
+
+  quo = n_mhits / num_threads;
+  res = n_mhits % num_threads;
+  left = n_mhits;
+  lefts.assign(num_threads, quo);
+  for (int i = 0; i < num_threads; ++i) {
+    left -= lefts[i];
+    if (i < res) --left;
+    lefts[i] = left;
+  }
+
+  // distribute multi-mapping reads as evenly as possible
+  int cp = 0; // current pointer 
+  left = n_mhits;
+  for (int i = 0; i < num_threads; ++i) {
+    params[i].sp = cp;
+    while (cp < n_multi && left > lefts[i]) left -= multis[cp++].s;
+    if (cp - 1 > params[i].sp && (left + multis[cp - 1].s - lefts[i]) < (lefts[i] - left))
+      left += multis[--cp].s;
+    else if (params[i].sp == cp && cp < n_multi)
+      left -= multis[cp++].s;
+    params[i].ep = cp;
+  }
+
+
+  // prepare for the MS step
+  SiteType site;
+  IterType iter, lb, ub; // left bound, right bound: [lb, ub)
+  int lb_pos, ub_pos; // the maximum multi-site pos smaller < lb and <= ub: (lb_pos, ub_pos]
+  int sumc; // sum of unique counts within [lb, ub - 1]
+  
+  assert(posMap.size() > 0);
+  
+  lb = posMap.begin(); ub = lb + 1;
+  lb_pos = -1;
+  ub_pos = (lb->second.aligns.size() > 0 ? 0 : -1);
+  sumc = lb->second.c;
+  
+  sites.clear();
+  for (iter = posMap.begin(); iter != posMap.end(); ++iter)
+    if (iter->second.aligns.size() > 0) {
+      site.v = &iter->second;
+      
+      while (lb != ub && lb->first.cmp(iter->first, w) < -w) {
+	sumc -= lb->second.c;
+	if (lb->second.aligns.size() > 0) ++lb_pos;
+	++lb;
+      }
+
+      if (lb == ub) {
+	while (lb != iter && lb->first.cmp(iter->first, w) < -w) {
+	  if (lb->second.aligns.size() > 0) ++lb_pos;
+	  ++lb;
+	}
+
+	ub = lb + 1;
+	ub_pos = lb_pos + (lb->second.aligns.size() > 0 ? 1 : 0);
+	sumc = lb->second.c;
+      }
+
+      while (ub != posMap.end() && ub->first.cmp(iter->first, w) <= w) {
+	sumc += ub->second.c;
+	if (ub->second.aligns.size() > 0) ++ub_pos;
+	++ub;
+      }
+
+      site.nc = sumc;
+      site.left = lb_pos + 1;
+      site.right = ub_pos;
+      sites.push_back(site);
+    }
+  n_msites = sites.size();
+  
+  // distribute aligned positions as evenly as possible
+  int cs = 0, ps = -1; // current site and previous site
+  int psum = 0; // partial sum
+  left = n_mhits;
+  for (int i = 0; i < num_threads; ++i) {
+    params[i].ss = cs;
+    if (cs == n_msites) { params[i].es = cs; continue; }
+    
+    while (cs < n_msites && sites[cs].right != cs) left -= sites[cs++].v->aligns.size();
+    assert(cs < n_msites);
+    left -= sites[cs++].v->aligns.size();
+
+    ps = -1;
+    while (cs < n_msites && left > lefts[i]) {
+      ps = cs; psum = 0;
+      do { psum += sites[cs++].v->aligns.size(); } while (cs < n_msites && sites[cs].right != cs);
+      assert(cs < n_msites);
+      psum += sites[cs++].v->aligns.size();
+      left -= psum;
+    }
+
+    if (ps >= 0 && (left + psum - lefts[i]) < (lefts[i] - left)) {
+      left += psum; cs = ps;
+    }
+    params[i].es = cs;
+  }
+  
+  // initialize pthreads
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+}
+
 
 
 /****************************************************************************************************/
@@ -272,6 +447,9 @@ void release() {
 
   delete[] fracs;
   delete[] conprbs;
+
+  delete[] params;
+  delete[] threads;
 }
 
 
@@ -279,13 +457,17 @@ void release() {
 
 
 int main(int argc, char* argv[]) {
-  if (argc < 4) { 
-    printf("PROBer-analyze-iCLIP model_type imdName alignF [-m max_hit_allowed][--shorter-than min_len] [--keep-alignments] [--max-len max_len] [-q]\n");
+  // n_threads here
+  if (argc < 6) { 
+    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed][--shorter-than min_len] [--keep-alignments] [--max-len max_len] [-q]\n");
     exit(-1);
   }
 
   model_type = atoi(argv[1]);
   strcpy(imdName, argv[2]);
+  w = atoi(argv[4]);
+  num_threads = atoi(argv[5]);
+
   
   bowtie_filter = false;
   max_hit_allowed = 2147483647; // 2^31 - 1
@@ -293,7 +475,7 @@ int main(int argc, char* argv[]) {
   max_len = -1;
   keep_alignments = false;
   
-  for (int i = 4; i < argc; i++) {
+  for (int i = 6; i < argc; i++) {
     if (!strcmp(argv[i], "-q")) verbose = false;
     if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
@@ -305,6 +487,8 @@ int main(int argc, char* argv[]) {
   parseAlignments(argv[3]);
   model->finish();
   processMultiReads();
+  distributeTasks();
+  EMS();
   release();
 
   return 0;
