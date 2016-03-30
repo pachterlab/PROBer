@@ -16,7 +16,7 @@
 
 
 // comparison function for iCLIP
-static inline bool cmp_iCLIP(const BamAlignment* a, const BamAlignment* b) {
+inline bool cmp_iCLIP(const BamAlignment* a, const BamAlignment* b) {
   if (a->getTid() != b->getTid()) return a->getTid() < b->getTid();
   if (a->getDir() != b->getDir()) return a->getDir() < b->getDir();
   return a->getPos() < b->getPos();

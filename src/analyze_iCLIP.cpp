@@ -358,7 +358,7 @@ void distributeTasks() {
   // prepare for the MS step
   SiteType site;
   IterType iter, lb, ub; // left bound, right bound: [lb, ub)
-  int lb_pos, ub_pos; // the maximum multi-site pos smaller < lb and <= ub: (lb_pos, ub_pos]
+  int lb_pos, ub_pos; // the maximum multi-site pos smaller than lb and ub
   int sumc; // sum of unique counts within [lb, ub - 1]
   
   assert(posMap.size() > 0);
@@ -436,6 +436,8 @@ void distributeTasks() {
   // initialize pthreads
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+  if (verbose) cout<< "distributeTasks is finished."<< endl;
 }
 
 
@@ -520,7 +522,7 @@ void EMS(int ROUNDS) {
     }
   }
 
-  if (verbose) cout<< "EMS algorithm is finished!"<< endl;
+  if (verbose) cout<< "EMS algorithm is finished."<< endl;
 }
 
 
@@ -537,6 +539,8 @@ void output() {
     fprintf(fo, "%d %c %d\t%d\t%.2f\n", iter->first.cid, iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
 
   fclose(fo);
+
+  if (verbose) cout<< "output is finished."<< endl;
 }
 
 
