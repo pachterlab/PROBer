@@ -80,7 +80,7 @@ public:
   // designed for iCLIP, return pos in forward strand
   int getPos() const {
     assert(is_aligned & 1);
-    return b->core.pos;
+    return bam_is_rev(b) ? bam_endpos(b) - 1 : b->core.pos;
   }
   
   /*

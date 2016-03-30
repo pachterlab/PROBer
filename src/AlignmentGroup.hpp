@@ -16,9 +16,9 @@
 
 
 // comparison function for iCLIP
-bool cmp_iCLIP(const BamAlignment* a, const BamAlignment* b) {
-  if a->getTid() != b->getTid() return a->getTid() < b->getTid();
-  if a->getDir() != b->getDir() return a->getDir() < b->getDir();
+static inline bool cmp_iCLIP(const BamAlignment* a, const BamAlignment* b) {
+  if (a->getTid() != b->getTid()) return a->getTid() < b->getTid();
+  if (a->getDir() != b->getDir()) return a->getDir() < b->getDir();
   return a->getPos() < b->getPos();
 }
 
@@ -85,7 +85,7 @@ public:
 
   void sort_alignments() {
     assert(s > 1);
-    sort(alignments.begin(), alignments.begin() + s, cmp_iCLIP);
+    std::sort(alignments.begin(), alignments.begin() + s, cmp_iCLIP);
   }
   
 private:

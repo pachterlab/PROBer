@@ -24,7 +24,6 @@
 
 #include "PROBerReadModel_iCLIP.hpp"
 
-#include "iCLIP_structs.hpp"
 using namespace std;
 
 bool verbose = true; // define verbose
@@ -58,7 +57,7 @@ struct ValueType {
   double weight; // weight, expected read counts at this position from multi-mapping reads
   vector<double*> aligns; // point to expected weight from each alignment
 
-  ValueType() : c(0), weight(0) { aligns.clear(); }
+  ValueType() : c(0), weight(0.0) { aligns.clear(); }
 
   void collect() {
     int s = aligns.size();
@@ -75,7 +74,6 @@ struct ValueType {
 typedef map<KeyType, ValueType> MapType;
 typedef map<KeyType, ValueType>::iterator IterType;
 
-int n_pos; // number of distinct positions
 MapType posMap; // position map
 
 int n_mhits; // number of multi-mapping reads' hits
@@ -96,7 +94,7 @@ vector<MultiType> multis; // multi-mapping reads
 typedef unordered_map<string, int> HashType;
 typedef unordered_map<string, int>::iterator HashIterType;
 
-HashType hash;
+HashType my_hash;
 
 // for M step use 
 struct SiteType {
@@ -122,6 +120,7 @@ pthread_t* threads;
 pthread_attr_t attr;
 int rc;
 
+// important variables
 
 int model_type;
 int w; // half window size
@@ -132,10 +131,6 @@ BamAlignment* ba;
 AlignmentGroup ag;
 
 PROBerReadModel_iCLIP* model;
-
-
-
-
 
 /***  string variables  ***/
 
@@ -151,7 +146,6 @@ int min_len; // minimum read length required
 int max_len; // maximum read length
 bool keep_alignments; // if keep the BAM file
 bool last_round;
-
 
 
 /****************************************************************************************************/
@@ -235,7 +229,7 @@ void parseAlignments(const char* alignF) {
     if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
   }
   
-  cout<< "N0 = "<< N0<< ", N11 = "<< N11<< ", N12 = "<< N12<< ", N2 = "<< N2<< ", n_mhits = "<< n_mhits<< endl;
+  if (verbose) cout<< "N0 = "<< N0<< ", N11 = "<< N11<< ", N12 = "<< N12<< ", N2 = "<< N2<< ", n_mhits = "<< n_mhits<< endl<< "parseAlignments is finished."<< endl;
 
   delete parser;
   delete writer;
@@ -267,7 +261,7 @@ void processMultiReads() {
   fracs = new double[n_mhits];
   conprbs = new double[n_mhits];
   
-  hash.clear();
+  my_hash.clear();
 
   n_multi = 0; multis.clear();
   
@@ -295,9 +289,10 @@ void processMultiReads() {
 	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< int(p[i] * 10.0 + 0.5) + 'A';
     }
 
-    ret = hash.insert(make_pair<string, int>(key.str(), n_multi));
+    ret = my_hash.insert(make_pair<string, int>(key.str(), n_multi));
     if (ret.second) {
-      for (int i = 0, p = fracs + offset; i < size; ++i, ++p) {
+      p = fracs + offset;
+      for (int i = 0; i < size; ++i, ++p) {
 	*p = 1.0;
 	iters[i]->second.aligns.push_back(p);
       }
@@ -319,6 +314,8 @@ void processMultiReads() {
   n_mhits = offset; // after reduction, total number of alignments
   
   delete parser;
+
+  if (verbose) cout<< "n_multi = "<< n_multi<< ", n_mhits = "<< n_mhits<< endl<< "processMultiReads is finished."<< endl;
 }
 
 
@@ -366,7 +363,7 @@ void distributeTasks() {
   
   assert(posMap.size() > 0);
   
-  lb = posMap.begin(); ub = lb + 1;
+  lb = posMap.begin(); ub = lb; ++ub;
   lb_pos = -1;
   ub_pos = (lb->second.aligns.size() > 0 ? 0 : -1);
   sumc = lb->second.c;
@@ -388,7 +385,7 @@ void distributeTasks() {
 	  ++lb;
 	}
 
-	ub = lb + 1;
+	ub = lb; ++ub;
 	ub_pos = lb_pos + (lb->second.aligns.size() > 0 ? 1 : 0);
 	sumc = lb->second.c;
       }
@@ -399,7 +396,7 @@ void distributeTasks() {
 	++ub;
       }
 
-      site.nc = sumc;
+      site.uc = sumc;
       site.left = lb_pos + 1;
       site.right = ub_pos;
       sites.push_back(site);
@@ -471,8 +468,7 @@ void* E_STEP(void* arg) {
 void* MS_STEP(void* arg) {
   ParamType *param = (ParamType*)arg;
   int l, r;
-  double psum, value;
-  ValueType *v;
+  double psum;
 
   if (last_round) {
     for (int i = param->ss; i < param->es; ++i)
@@ -492,7 +488,7 @@ void* MS_STEP(void* arg) {
       ++l;
     }
     assert(l == sites[i].left && r == sites[i].right);
-    sites[i].v->push(psum + sites[i].nc);
+    sites[i].v->push(psum + sites[i].uc);
   }
   
   return NULL;
@@ -502,7 +498,7 @@ void EMS(int ROUNDS) {
   for (int ROUND = 1; ROUND <= ROUNDS; ++ROUND) {
     // E step
     for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_create(&threads[i], &attr, E_STEP, (void*)params[i]);
+      rc = pthread_create(&threads[i], &attr, E_STEP, (void*)&params[i]);
       pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for E_STEP at ROUND " + itos(ROUND) + "!");
     }
 
@@ -514,7 +510,7 @@ void EMS(int ROUNDS) {
     // M-S step
     last_round = ROUND == ROUNDS;
     for (int i = 0; i < num_threads; ++i) {
-      rc = pthread_create(&threads[i], &attr, MS_STEP, (void*)params[i]);
+      rc = pthread_create(&threads[i], &attr, MS_STEP, (void*)&params[i]);
       pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for MS_STEP at ROUND " + itos(ROUND) + "!");
     }
 
@@ -551,8 +547,7 @@ void output() {
 void init() {
   model = new PROBerReadModel_iCLIP(model_type, max_len);
 
-  n_pos = 0; posMap.clear();
-
+  posMap.clear();
   fracs = conprbs = NULL;
 }
 
@@ -575,7 +570,7 @@ void release() {
 int main(int argc, char* argv[]) {
   // n_threads here
   if (argc < 6) { 
-    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed][--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [-q]\n");
+    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [-q]\n");
     exit(-1);
   }
 
@@ -592,7 +587,7 @@ int main(int argc, char* argv[]) {
   keep_alignments = false;
   rounds = 100; // default is 100 rounds
   
-  for (int i = 6; i < argc; i++) {
+  for (int i = 6; i < argc; ++i) {
     if (!strcmp(argv[i], "-q")) verbose = false;
     if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
@@ -606,7 +601,7 @@ int main(int argc, char* argv[]) {
   model->finish();
   processMultiReads();
   distributeTasks();
-  EMS();
+  EMS(rounds);
   output();
   release();
 
