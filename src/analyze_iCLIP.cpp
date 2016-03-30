@@ -59,6 +59,17 @@ struct ValueType {
   vector<double*> aligns; // point to expected weight from each alignment
 
   ValueType() : c(0), weight(0) { aligns.clear(); }
+
+  void collect() {
+    int s = aligns.size();
+    weight = 0.0;
+    for (int i = 0; i < s; ++i) weight += *aligns[i];
+  }
+
+  void push(double value) {
+    int s = aligns.size();
+    for (int i = 0; i < s; ++i) *aligns[i] = value;
+  }
 };
 
 typedef map<KeyType, ValueType> MapType;
@@ -102,11 +113,8 @@ vector<SiteType> sites;
 // parameter type, used for multi-threading
 struct ParamType {
   int no; // thread number
-
   int sp, ep; // the start and end position in multis for this thread, [sp, ep)
-
-  int ss, es; // the start and end site in sites [ss, es)
-  
+  int ss, es; // the start and end site in sites [ss, es)  
 };
 
 ParamType* params;
@@ -118,6 +126,7 @@ int rc;
 int model_type;
 int w; // half window size
 int num_threads; // number of threads we can use
+int rounds; // number of iterations
 
 BamAlignment* ba;
 AlignmentGroup ag;
@@ -132,7 +141,7 @@ PROBerReadModel_iCLIP* model;
 
 char imdName[STRLEN], statName[STRLEN];
 char multiF[STRLEN], allF[STRLEN]; // multi-mapping reads, all reads
-char modelF[STRLEN];
+char outF[STRLEN], modelF[STRLEN];
 
 /***  optional arguments and auxiliary variables ***/  
 
@@ -141,7 +150,7 @@ int max_hit_allowed; // maximum number of alignments allowed
 int min_len; // minimum read length required
 int max_len; // maximum read length
 bool keep_alignments; // if keep the BAM file
-
+bool last_round;
 
 
 
@@ -237,6 +246,7 @@ void parseAlignments(const char* alignF) {
 /****************************************************************************************************/
 // Estimate multi-mapping reads sequencing error probabilities
 
+
 void processMultiReads() {
   SamParser *parser = new SamParser(multiF);
 
@@ -287,9 +297,10 @@ void processMultiReads() {
 
     ret = hash.insert(make_pair<string, int>(key.str(), n_multi));
     if (ret.second) {
-      p = fracs + offset;
-      for (int i = 0; i < size; ++i)
-	iters[i]->second.aligns.push_back(p + i);
+      for (int i = 0, p = fracs + offset; i < size; ++i, ++p) {
+	*p = 1.0;
+	iters[i]->second.aligns.push_back(p);
+      }
       
       multi.offset = offset;
       multi.s = size;
@@ -396,17 +407,20 @@ void distributeTasks() {
   n_msites = sites.size();
   
   // distribute aligned positions as evenly as possible
-  int cs = 0, ps = -1; // current site and previous site
+  int cs = 0, ps = -1, ns = -1; // current, previous, and next site
   int psum = 0; // partial sum
   left = n_mhits;
   for (int i = 0; i < num_threads; ++i) {
     params[i].ss = cs;
     if (cs == n_msites) { params[i].es = cs; continue; }
-    
-    while (cs < n_msites && sites[cs].right != cs) left -= sites[cs++].v->aligns.size();
-    assert(cs < n_msites);
-    left -= sites[cs++].v->aligns.size();
 
+    if (ns >= 0) { left -= psum; cs = ns; ns = -1; }
+    else {
+      while (cs < n_msites && sites[cs].right != cs) left -= sites[cs++].v->aligns.size();
+      assert(cs < n_msites);
+      left -= sites[cs++].v->aligns.size();
+    }
+    
     ps = -1;
     while (cs < n_msites && left > lefts[i]) {
       ps = cs; psum = 0;
@@ -417,7 +431,7 @@ void distributeTasks() {
     }
 
     if (ps >= 0 && (left + psum - lefts[i]) < (lefts[i] - left)) {
-      left += psum; cs = ps;
+      left += psum; ns = cs; cs = ps;
     }
     params[i].es = cs;
   }
@@ -428,8 +442,110 @@ void distributeTasks() {
 }
 
 
+/****************************************************************************************************/
+// The Expectation-Maximization-Smooth algorithm
+
+// Expectation step
+void* E_STEP(void* arg) {
+  ParamType *param = (ParamType*)arg;
+  double *my_fracs, *my_conprbs;
+  double sum;
+  
+  for (int i = param->sp; i < param->ep; ++i) {
+    my_fracs = fracs + multis[i].offset;
+    my_conprbs = conprbs + multis[i].offset;
+    sum = 0.0;
+    for (int j = 0; j < multis[i].s; ++j) {
+      my_fracs[j] *= my_conprbs[j];
+      sum += my_fracs[j];
+    }
+    assert(sum > 0.0);
+    for (int j = 0; j < multis[i].s; ++j)
+      my_fracs[j] = my_fracs[j] / sum * multis[i].c;
+  }
+
+  return NULL;
+}
+
+// Maximization-smooth step
+void* MS_STEP(void* arg) {
+  ParamType *param = (ParamType*)arg;
+  int l, r;
+  double psum, value;
+  ValueType *v;
+
+  if (last_round) {
+    for (int i = param->ss; i < param->es; ++i)
+      sites[i].v->collect();
+    return NULL;
+  }
+  
+  l = param->ss; r = param->ss - 1; psum = 0.0;
+  for (int i = param->ss; i < param->es; ++i) {
+    while (r < sites[i].right) {
+      ++r;
+      sites[r].v->collect();
+      psum += sites[r].v->weight;
+    }
+    while (l < sites[i].left) {
+      psum -= sites[l].v->weight;
+      ++l;
+    }
+    assert(l == sites[i].left && r == sites[i].right);
+    sites[i].v->push(psum + sites[i].nc);
+  }
+  
+  return NULL;
+}
+
+void EMS(int ROUNDS) {
+  for (int ROUND = 1; ROUND <= ROUNDS; ++ROUND) {
+    // E step
+    for (int i = 0; i < num_threads; ++i) {
+      rc = pthread_create(&threads[i], &attr, E_STEP, (void*)params[i]);
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for E_STEP at ROUND " + itos(ROUND) + "!");
+    }
+
+    for (int i = 0; i < num_threads; ++i) {
+      rc = pthread_join(threads[i], NULL);
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for E_STEP at ROUND " + itos(ROUND) + "!");
+    }
+    
+    // M-S step
+    last_round = ROUND == ROUNDS;
+    for (int i = 0; i < num_threads; ++i) {
+      rc = pthread_create(&threads[i], &attr, MS_STEP, (void*)params[i]);
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for MS_STEP at ROUND " + itos(ROUND) + "!");
+    }
+
+    for (int i = 0; i < num_threads; ++i) {
+      rc = pthread_join(threads[i], NULL);
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for MS_STEP at ROUND " + itos(ROUND) + "!");
+    }
+  }
+
+  if (verbose) cout<< "EMS algorithm is finished!"<< endl;
+}
+
 
 /****************************************************************************************************/
+
+
+void output() {
+  sprintf(outF, "%s.site_info", imdName);
+  FILE *fo = fopen(outF, "w");
+
+  IterType iter;
+
+  for (iter = posMap.begin(); iter != posMap.end(); ++iter)
+    fprintf(fo, "%d %c %d\t%d\t%.2f\n", iter->first.cid, iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
+
+  fclose(fo);
+}
+
+
+/****************************************************************************************************/
+// initialization and final release of resource
 
 
 void init() {
@@ -459,7 +575,7 @@ void release() {
 int main(int argc, char* argv[]) {
   // n_threads here
   if (argc < 6) { 
-    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed][--shorter-than min_len] [--keep-alignments] [--max-len max_len] [-q]\n");
+    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed][--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [-q]\n");
     exit(-1);
   }
 
@@ -474,6 +590,7 @@ int main(int argc, char* argv[]) {
   min_len = -1;
   max_len = -1;
   keep_alignments = false;
+  rounds = 100; // default is 100 rounds
   
   for (int i = 6; i < argc; i++) {
     if (!strcmp(argv[i], "-q")) verbose = false;
@@ -481,6 +598,7 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--keep-alignments")) keep_alignments = true;
     if (!strcmp(argv[i], "--max-len")) max_len = atoi(argv[i + 1]);
+    if (!strcmp(argv[i], "--rounds")) rounds = atoi(argv[i + 1]);
   }
 
   init();  
@@ -489,6 +607,7 @@ int main(int argc, char* argv[]) {
   processMultiReads();
   distributeTasks();
   EMS();
+  output();
   release();
 
   return 0;
