@@ -289,7 +289,7 @@ void processMultiReads() {
 	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< char(int(p[i] * 10.0 + 0.5) + 'A');
     }
 
-    ret = my_hash.insert(make_pair<string, int>(key.str(), n_multi));
+    ret = my_hash.insert(make_pair(key.str(), n_multi));
     if (ret.second) {
       p = fracs + offset;
       for (int i = 0; i < size; ++i, ++p) {
