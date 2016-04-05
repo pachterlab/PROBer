@@ -286,7 +286,7 @@ void processMultiReads() {
 	iters[i] = posMap.insert(my_pair).first;
 
 	// generate hash key
-	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< int(p[i] * 10.0 + 0.5) + 'A';
+	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< char(int(p[i] * 10.0 + 0.5) + 'A');
     }
 
     ret = my_hash.insert(make_pair<string, int>(key.str(), n_multi));
@@ -327,7 +327,6 @@ void distributeTasks() {
   params = new ParamType[num_threads];
   threads = new pthread_t[num_threads];
 
-  
   int quo, res, left; // quotient, residule
   vector<int> lefts;
 
@@ -340,21 +339,21 @@ void distributeTasks() {
     if (i < res) --left;
     lefts[i] = left;
   }
-
+  
   // distribute multi-mapping reads as evenly as possible
   int cp = 0; // current pointer 
   left = n_mhits;
   for (int i = 0; i < num_threads; ++i) {
     params[i].sp = cp;
     while (cp < n_multi && left > lefts[i]) left -= multis[cp++].s;
-    if (cp - 1 > params[i].sp && (left + multis[cp - 1].s - lefts[i]) < (lefts[i] - left))
+    if (cp - 1 > params[i].sp && (left + multis[cp - 1].s - lefts[i]) < (lefts[i] - left)) {
       left += multis[--cp].s;
+    }
     else if (params[i].sp == cp && cp < n_multi)
       left -= multis[cp++].s;
     params[i].ep = cp;
   }
-
-
+  
   // prepare for the MS step
   SiteType site;
   IterType iter, lb, ub; // left bound, right bound: [lb, ub)
@@ -421,7 +420,7 @@ void distributeTasks() {
     ps = -1;
     while (cs < n_msites && left > lefts[i]) {
       ps = cs; psum = 0;
-      do { psum += sites[cs++].v->aligns.size(); } while (cs < n_msites && sites[cs].right != cs);
+      while (cs < n_msites && sites[cs].right != cs) psum += sites[cs++].v->aligns.size();
       assert(cs < n_msites);
       psum += sites[cs++].v->aligns.size();
       left -= psum;
@@ -430,6 +429,7 @@ void distributeTasks() {
     if (ps >= 0 && (left + psum - lefts[i]) < (lefts[i] - left)) {
       left += psum; ns = cs; cs = ps;
     }
+    
     params[i].es = cs;
   }
   
@@ -443,6 +443,7 @@ void distributeTasks() {
 
 /****************************************************************************************************/
 // The Expectation-Maximization-Smooth algorithm
+
 
 // Expectation step
 void* E_STEP(void* arg) {
@@ -458,7 +459,10 @@ void* E_STEP(void* arg) {
       my_fracs[j] *= my_conprbs[j];
       sum += my_fracs[j];
     }
-    assert(sum > 0.0);
+    
+    //assert(sum > 0.0);
+    if (sum <= 0.0) sum = 1.0;
+    
     for (int j = 0; j < multis[i].s; ++j)
       my_fracs[j] = my_fracs[j] / sum * multis[i].c;
   }
@@ -490,6 +494,7 @@ void* MS_STEP(void* arg) {
       ++l;
     }
     assert(l == sites[i].left && r == sites[i].right);
+    if (psum < 0.0) psum = 0.0;
     sites[i].v->push(psum + sites[i].uc);
   }
   
@@ -520,6 +525,8 @@ void EMS(int ROUNDS) {
       rc = pthread_join(threads[i], NULL);
       pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for MS_STEP at ROUND " + itos(ROUND) + "!");
     }
+
+    if (verbose && ROUND % 10 == 0) cout<< ROUND<< " iterations are done."<< endl;
   }
 
   if (verbose) cout<< "EMS algorithm is finished."<< endl;

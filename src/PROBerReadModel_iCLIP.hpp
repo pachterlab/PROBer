@@ -118,7 +118,10 @@ inline void PROBerReadModel_iCLIP::calcProbs(AlignmentGroup& ag, double* conprbs
 
   double sum = 0.0;
   for (int i = 0; i < size; ++i) sum += conprbs[i];
-  assert(sum > 0.0);
+
+  //assert(sum > 0.0);
+  if (sum <= 0.0) sum = 1.0;
+  
   for (int i = 0; i < size; ++i) conprbs[i] /= sum;  
 }
 
