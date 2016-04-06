@@ -309,7 +309,7 @@ void processMultiReads() {
     else ++multis[ret.first->second].c;
 
     ++cnt;
-    if (verbose && cnt % 1000000 == 0) cout<< cnt<< "multi-reads are processed!"<< endl;
+    if (verbose && cnt % 1000000 == 0) cout<< cnt<< " multi-reads are processed!"<< endl;
   }
 
   n_mhits = offset; // after reduction, total number of alignments
