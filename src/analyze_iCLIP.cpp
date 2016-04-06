@@ -147,6 +147,7 @@ int max_len; // maximum read length
 bool keep_alignments; // if keep the BAM file
 bool last_round;
 
+bool isNaive;
 
 /****************************************************************************************************/
 // Parse alignments
@@ -286,7 +287,7 @@ void processMultiReads() {
 	iters[i] = posMap.insert(my_pair).first;
 
 	// generate hash key
-	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< char(int(p[i] * 10.0 + 0.5) + 'A');
+	key<< my_pair.first.cid<< my_pair.first.dir<< my_pair.first.pos<< char( (isNaive ? 0 : int(p[i] * 10.0 + 0.5)) + 'A');
     }
 
     ret = my_hash.insert(make_pair(key.str(), n_multi));
@@ -456,7 +457,9 @@ void* E_STEP(void* arg) {
     my_conprbs = conprbs + multis[i].offset;
     sum = 0.0;
     for (int j = 0; j < multis[i].s; ++j) {
-      my_fracs[j] *= my_conprbs[j];
+      
+      if (!isNaive) my_fracs[j] *= my_conprbs[j];
+      
       sum += my_fracs[j];
     }
     
@@ -502,7 +505,7 @@ void* MS_STEP(void* arg) {
 }
 
 void EMS(int ROUNDS) {
-  for (int ROUND = 1; ROUND <= ROUNDS; ++ROUND) {
+  for (int ROUND = 0; ROUND <= ROUNDS; ++ROUND) {
     // E step
     for (int i = 0; i < num_threads; ++i) {
       rc = pthread_create(&threads[i], &attr, E_STEP, (void*)&params[i]);
@@ -526,7 +529,7 @@ void EMS(int ROUNDS) {
       pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for MS_STEP at ROUND " + itos(ROUND) + "!");
     }
 
-    if (verbose && ROUND % 10 == 0) cout<< ROUND<< " iterations are done."<< endl;
+    if (verbose && ROUND > 0 && ROUND % 10 == 0) cout<< ROUND<< " iterations are done."<< endl;
   }
 
   if (verbose) cout<< "EMS algorithm is finished."<< endl;
@@ -581,7 +584,7 @@ void release() {
 int main(int argc, char* argv[]) {
   // n_threads here
   if (argc < 6) { 
-    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [-q]\n");
+    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [-q]\n");
     exit(-1);
   }
 
@@ -597,6 +600,8 @@ int main(int argc, char* argv[]) {
   max_len = -1;
   keep_alignments = false;
   rounds = 100; // default is 100 rounds
+
+  isNaive = false;
   
   for (int i = 6; i < argc; ++i) {
     if (!strcmp(argv[i], "-q")) verbose = false;
@@ -605,7 +610,14 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--keep-alignments")) keep_alignments = true;
     if (!strcmp(argv[i], "--max-len")) max_len = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--rounds")) rounds = atoi(argv[i + 1]);
+
+    if (!strcmp(argv[i], "--naive")) isNaive = true;
+
   }
+
+
+  if (isNaive) rounds = 0;
+
 
   init();  
   parseAlignments(argv[3]);
