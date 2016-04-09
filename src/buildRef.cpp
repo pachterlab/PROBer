@@ -347,7 +347,7 @@ void writeToDisk(char* refName) {
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
-    printf("Usage: rsem-build-reference refName [--gtf gtfF] [--mapping mappingF] [--allele-specific] [--files num_of_files file_1 file_2 ...] [--n2g-index] [-q]\n");
+    printf("Usage: PROBer-build-reference refName [--gtf gtfF] [--mapping mappingF] [--allele-specific] [--files num_of_files file_1 file_2 ...] [--n2g-index] [-q]\n");
     exit(-1);
   }
 

@@ -188,7 +188,7 @@ void init() {
   char configF[STRLEN];
 
   // Load references
-  sprintf(refF, "%s.seq", refName);
+  sprintf(refF, "%s.transcripts.fa", refName);
   refs.readFrom(refF);
   M = refs.getM();
   

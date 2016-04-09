@@ -111,10 +111,6 @@ private:
   Sampler *sampler;
 
   int read_length; // the minimum read length, if read_length is set (not -1), all mates have a same length.
-
-  SEQstring seq;
-  QUALstring qual;
-  CIGARstring cigar;
 };
 
 inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligned) {
@@ -147,6 +143,9 @@ inline void PROBerReadModel::update_preprocess(AlignmentGroup& ag, bool isAligne
 
 inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag) {
   int seqlen;
+  SEQstring seq; // seq, qual and cigar must be in each function since we have multiple threads!
+  QUALstring qual;
+  CIGARstring cigar;
   const RefSeq* refseq = NULL;
   
   // Get read sequences and quality scores
@@ -180,7 +179,10 @@ inline void PROBerReadModel::setConProbs(InMemAlignG* ag_in_mem, InMemAlign* ali
 }
 
 inline void PROBerReadModel::update(InMemAlignG* ag_in_mem, InMemAlign* aligns, AlignmentGroup& ag, double noise_frac) {
-  const RefSeq* refseq;
+  SEQstring seq;
+  QUALstring qual;
+  CIGARstring cigar;
+  const RefSeq* refseq = NULL;
   
   assert(ag.getSEQ(seq));
   if (model_type & 1) assert(ag.getQUAL(qual));

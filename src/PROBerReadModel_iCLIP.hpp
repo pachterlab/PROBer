@@ -49,6 +49,7 @@ private:
   int model_type;
   SequencingModel* seqmodel;
 
+  // we can only put these variables here provided this piece of code will not run in parallel
   SEQstring seq;
   QUALstring qual;
   CIGARstring cigar;

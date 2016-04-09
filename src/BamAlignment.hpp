@@ -119,7 +119,7 @@ public:
     @comment: This function returns the smallest position of the mate from its strand
    */
   int getDirPos(int mate, int target_len) const {
-    assert(is_aligned > 0 && (mate == 1 || mate == 2 && is_paired));
+    assert(is_aligned > 0 && (mate == 1 || (is_paired && mate == 2)));
     if (mate == 1) return bam_is_rev(b) ? target_len - bam_endpos(b) : b->core.pos;
     else return bam_is_rev(b2) ? target_len - bam_endpos(b2) : b2->core.pos;
   }

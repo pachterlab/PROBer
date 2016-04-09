@@ -304,15 +304,13 @@ parser_estimate = subparsers.add_parser("estimate", help = "This command is used
                                                  "  sample_name.temp\n"
                                                  "    This is a temporary folder contains intermediate files.\n\n")
                   
-parser_estimate.add_argument("ref_name", help = "The name of the reference used. Users should have run 'dms-seq-prepare-reference' with this name before running this program.", type = expand, metavar = "reference_name")
+parser_estimate.add_argument("ref_name", help = "The name of the reference used. Users should have run 'PROBer prepare' with this name before running this program.", type = expand, metavar = "reference_name")
 parser_estimate.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
 group = parser_estimate.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 
-group.add_argument("--bam", help = "Input are BAM files containing alignment results.", nargs = '+', action = nargs_range([2]), type = expandAll,
-                   metavar = "input_minus.bam input_plus.bam")
-group.add_argument("--sam", help = "Input are SAM files containing alignment results.", nargs = '+', action = nargs_range([2]), type = expandAll,
-                   metavar = "input_minus.sam input_plus.bam")
+group.add_argument("--alignments", help = "Input are alignments in either SAM/BAM/CRAM formats.", nargs = '+', action = nargs_range([2]), type = expandAll,
+                   metavar = "input_minus.[sam/bam/cram] input_plus.[sam/bam/cram]")
 group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
                                      "minus_mate2_read_file(s) and plus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
                                      "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
@@ -377,6 +375,21 @@ parser_simulate.add_argument("output_name", help = "Output files' prefix", type 
 
 parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", type = check_seed, metavar = "<uint32>")
  
+
+#################################################
+
+
+###################   iCLIP   ###################
+
+
+parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to allocate multi-mapping reads for iCLIP data.", formatter_class = MyFormatter,
+                                     description = "This program allocates multi-mapping reads for iCLIP data.",
+                                     epilog = "OUTPUT:\n"
+                                     "  sample_name.site_info\n"
+                                     "  sample_name.model\n"
+                                     "  sample_name."
+
+
 
 #################################################
 
@@ -468,8 +481,6 @@ if args.command == "prepare":
     if not os.path.exists(dir_):
         os.makedirs(dir_)
 
-    command = []
-
     # Prepare GTF file
     gtf_file = None
     if args.gff3 != None:
@@ -495,30 +506,17 @@ if args.command == "prepare":
         print("reference_fasta_file(s) is empty! Please check if the directory name is correct or sequence files are sufficed with either '.fa' or '.fasta'.")
         sys.exit(-1)
 
-    # Extract references        
-    command = []
-
+    # Build reference        
+    command = ["PROBer-build-reference", args.ref_name]
     if gtf_file != None:
-        command.extend(["PROBer-extract-reference-transcripts", args.ref_name, ("1" if args.quiet else "0"), gtf_file])
-        if args.tran2gene != None:
-            command.extend(["1", args.tran2gene])
-        else:
-            command.append("0")
-        command.extend(fasta_files)
-    else:
-        command.extend(["PROBer-synthesis-reference-transcripts", args.ref_name, ("1" if args.quiet else "0")])
-        if args.tran2gene != None:
-            command.extend(["1", args.tran2gene])
-        else:
-            command.append("0")
-        command.extend(fasta_files)
-
-    runProg(command)
-
-    # Prepare references
-    command = ["PROBer-preref", "{}.transcripts.fa".format(args.ref_name), "1", args.ref_name]
+        command.extend(["--gtf", gtf_file])
+    if args.tran2gene != None:
+        command.extend(["--mapping", args.tran2gene])
+    # --n2g-index might need to be set if we allow N -> G for building Bowtie indices
     if args.quiet:
         command.append("-q")
+    command.extend(["--files", str(len(fasta_files))])
+    command.extend(fasta_files)
     runProg(command)
 
     # Build aligner indices
@@ -528,7 +526,7 @@ if args.command == "prepare":
         if args.quiet:
             command.append("-q")
        # command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
-        command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name]) # Do not convert N to G for bowtie indices, comment this line out for future releases
+        command.extend(["{}.transcripts.fa".format(args.ref_name), args.ref_name]) # Do not convert N to G for bowtie indices, comment this line out for future releases
         runProg(command)
 
     if args.bowtie2:
@@ -536,7 +534,7 @@ if args.command == "prepare":
         command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
         if args.quiet:
             command.append("-q")
-        command.extend(["{}.idx.fa".format(args.ref_name), args.ref_name])
+        command.extend(["{}.transcripts.fa".format(args.ref_name), args.ref_name])
         runProg(command)
 
     sys.exit(0)
