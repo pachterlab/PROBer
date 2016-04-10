@@ -25,7 +25,7 @@ except NameError:
 ############### Utility classes, functions, and etc. ###############
 
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 demo = False
 
@@ -177,6 +177,15 @@ def expandAll(input):
         res.append(os.path.realpath(os.path.expanduser(afile)))
     return ",".join(res)
 
+def check_mutually_exclusive(parser, values, options, required = False):
+    """ Check if only one of the options is set """
+    value = sum([1 if x != None else 0 for x in values])
+    if value > 1:
+        parser.error("Input options ({}) are mutually exclusive")
+
+    if required and value == 0:
+        parser.error("There must be at least one input option ({}) enabled".format(options))
+         
 def runProg(command, command2 = None, catch_stderr = None):
     """ Run command using a subprocess, if command2 != None, use Pipe """
 
@@ -312,9 +321,9 @@ parser_estimate.add_argument("ref_name", help = "The name of the reference used.
 parser_estimate.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
 
-group = parser_estimate.add_mutually_exclusive_group(required = True, title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
+group = parser_estimate.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 
-group.add_argument("--alignments", help = "Input are alignments in either SAM/BAM/CRAM formats.", nargs = '+', action = nargs_range([2]), type = expandAll,
+group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM formats.", nargs = '+', action = nargs_range([2]), type = expandAll,
                    metavar = "input_minus.[sam/bam/cram] input_plus.[sam/bam/cram]")
 group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
                                      "minus_mate2_read_file(s) and plus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
@@ -397,8 +406,8 @@ parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to al
                                               "    chr ori pos    n_unique    n_multi\n"
                                               "    \n"
                                               "    chr is the chromosome name, ori is the orientation (+/-) and pos gives the genomic coordinate in the '+' strand of chromosome chr. "
-                                              "    chr, ori, and pos together define the genomic location of the crosslink site and they are separated by single spaces. "
-                                              "    Then separated by single tabs, n_unique gives the number of uniquely mapped reads, "
+                                                   "chr, ori, and pos together define the genomic location of the crosslink site and they are separated by single spaces. "
+                                                   "Then separated by single tabs, n_unique gives the number of uniquely mapped reads, "
                                                    "and n_multi provides the expected number of multi-mapping reads at this site.\n\n"
                                               "  sample_name.alignments.bam\n"
                                               "    Only generated when '--keep-alignments' option is set.\n\n"
@@ -411,50 +420,38 @@ parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to al
                                                    "It will be deleted automatically after the program finishes unless '--keep-intermediate-files' option is on.\n\n")
 
                                                                                                                                                                                                          
-parser_iCLIP.add_argument("ref_name", help = "The name of the reference used. Users should have run 'PROBer prepare' with this name before running this program.", type = expand, metavar = "reference_name")
 parser_iCLIP.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
-
-group = parser_iCLIP.add_mutually_exclusive_group(required = True, title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
-
-group.add_argument("--alignments", help = "Input are alignments in either SAM/BAM/CRAM formats.", nargs = '+', action = nargs_range([2]), type = expandAll,
-                   metavar = "input_minus.[sam/bam/cram] input_plus.[sam/bam/cram]")
-group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
-                                     "minus_mate2_read_file(s) and plus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
+group = parser_iCLIP.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
+group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM format.", type = expand, metavar = "alignment_file.[sam/bam/cram]")
+group.add_argument("--reads", help = "Input are comma-separated lists of files containing single-end or paired-end reads. If input are single-end reads, only one list is required. "
+                                     "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists for first and second mates. "
                                      "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
-                   nargs = '+', action = nargs_range([2, 4]), type = expandAll, metavar = "mate_read_file(s)")
-
+                   nargs = '+', action = nargs_range([1, 2]), type = expandAll, metavar = "mate_read_file(s)")
 
 group = parser_iCLIP.add_argument_group(title = "Basic options")
-
 group.add_argument("--no-quality-scores", help = "Input reads do not contain quality scores.", action = "store_true", dest = "no_qual")
 group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
 group.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
-group.add_argument("--output-bam", help = "Output transcript BAM file.", action = "store_true")
-group.add_argument("--output-logMAP", help = "Output the log MAP probability, which can be used to select priors.", action = "store_true")
 group.add_argument("--keep-intermediate-files", help = "If PROBer should keep intermediate files.", action = "store_true", dest = "keep")
 
-group = parser_iCLIP.add_argument_group(title = "Structure-seq related", description = "Set necessary parameters for generating a config file.")
-group.add_argument("--primer-length", help = "Random primer length.", type = int, default = 6, metavar = "<int>")
-group.add_argument("--size-selection-min", help = "The minimum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--size-selection-max", help = "The maximum fragment length that can pass the size selection step.", type = int, required = True, metavar = "<int>")
-group.add_argument("--gamma-init", help = "Initial value for all gammas.", type = float, default = 0.0001, metavar = "<float>")
-group.add_argument("--beta-init", help = "Initial value for all betas.", type = float, default = 0.0001, metavar = "<float>")
+group = parser_iCLIP.add_argument_group(title = "iCLIP options")
+group.add_argument("--half-window-size", help = "PROBer will borrow information from adjacent crosslink sites within plus/minus half window size to help allocating multi-mapping reads.",
+                   type = int, default = 25, dest = "w", metavar = "<int>")
+group.add_argument("--rounds", help = "Number of EMS iterations to run.", type = int, default = 100, metavar = "<int>")
+group.add_argument("--maximum-read-length", help = "The maximum possible read length. You may set this option only if '--no-qualities' is set.",
+                   type = int, default = 1000, dest = "max_len", metavar = "<int>")
 
-group.add_argument("--read-length", help = "Read length before trimming adaptors.", type = int, metavar = "<int>")
-group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estimates.", action = "store_true", dest = "ml_est")
-
-
-group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
+group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 100 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
+group.add_argument("--index-name", help = "The base name for Bowtie/Bowtie2 indices", type = expand, metavar = "<name>")
+group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
 
-parser_iCLIP.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
-parser_iCLIP.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_iCLIP.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 
@@ -625,7 +622,8 @@ if args.command == "prepare":
 
 
 if args.command == "estimate":
-    #Run programs
+    check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
+ 
     dir_ = os.path.dirname(args.sample_name)
     if dir_ != "":
         dir_ += os.sep
@@ -778,6 +776,94 @@ if args.command == "simulate":
     if args.seed != None:
         command.extend(["--seed", args.seed])
     runProg(command)
+    
+    sys.exit(0)
+
+
+
+####################################################################
+
+
+
+#####################  Process iCLIP  ##############################
+
+
+
+if args.command == "iCLIP":
+    check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
+    if args.reads != None and args.index_name == None:
+        parser.error("If input are reads, '--index-name' option must be set")
+    
+    dir_ = os.path.dirname(args.sample_name)
+    if dir_ != "":
+        dir_ += os.sep
+    base_ = os.path.basename(args.sample_name)
+    temp_dir = dir_ + base_ + ".temp" 
+    imdName = temp_dir + os.sep + base_
+    stat_dir = dir_ + base_ + ".stat"
+    statName = stat_dir + os.sep + base_
+
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    if not os.path.exists(stat_dir):
+        os.makedirs(stat_dir)
+
+    model_type = None
+    if args.paired_end:
+        if args.no_qual:
+            model_type = 2
+        else:
+            model_type = 3
+    else:
+        if args.no_qual:
+            model_type = 0
+        else:
+            model_type = 1
+
+    # run Analysis
+    command = []
+    if args.alignments != None:
+        command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w)])
+        command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+        if args.quiet:
+            command.append("-q")
+        runProg(command)
+    else:
+        if args.bowtie2:
+            args.bowtie = False
+
+        if args.bowtie:        
+            command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-p", str(args.num_threads)])
+            command.extend("-a -m 100 -S --chunkmbs 1024".split())  
+
+            if not args.paired_end:
+                command.extend([args.index_name, args.reads[0]])
+            else:
+                command.extend("-I 1 -X 1000".split())
+                command.extend([args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
+        elif args.bowtie2:
+            command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-p", str(args.num_threads), "-k", "101"])
+            if not args.paired_end:
+                command.extend(["-x", args.index_name, "-U", args.reads[0]])
+            else:
+                command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+                command.extend(["-x", args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
+        else:
+            assert False
+
+
+        command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w)])
+        command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+        if args.keep_alignments:
+            command.append("--keep-alignments")
+        if args.quiet:
+            command.append("-q")
+        runProg(command, command2, "{}.err".format(statName))  # Run aligner and then analyze iCLIP data
+
+    if not args.keep:
+        command = ["rm", "-rf", temp_dir]
+        runProg(command)
     
     sys.exit(0)
 
