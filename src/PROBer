@@ -442,6 +442,9 @@ group.add_argument("--rounds", help = "Number of EMS iterations to run.", type =
 group.add_argument("--maximum-read-length", help = "The maximum possible read length. You may set this option only if '--no-qualities' is set.",
                    type = int, default = 1000, dest = "max_len", metavar = "<int>")
 
+group.add_argument("--naive", help = argparse.SUPPRESS, action = "store_true")
+
+
 group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 100 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
@@ -824,10 +827,14 @@ if args.command == "iCLIP":
     # run Analysis
     command = []
     if args.alignments != None:
-        command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w)])
+        command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w), str(args.num_threads)])
         command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
         if args.quiet:
             command.append("-q")
+
+        if args.naive:
+            command.append("--naive")
+
         runProg(command)
     else:
         if args.bowtie2:

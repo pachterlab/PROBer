@@ -134,7 +134,8 @@ PROBerReadModel_iCLIP* model;
 
 /***  string variables  ***/
 
-char imdName[STRLEN], statName[STRLEN];
+char sampleName[STRLEN], imdName[STRLEN], statName[STRLEN];
+char alignF[STRLEN];
 char multiF[STRLEN], allF[STRLEN]; // multi-mapping reads, all reads
 char outF[STRLEN], modelF[STRLEN];
 
@@ -184,7 +185,7 @@ void parseAlignments(const char* alignF) {
   sprintf(multiF, "%s_multi.bam", imdName);
   writer = new BamWriter(multiF, header, "PROBer iCLIP intermediate");
   if (keep_alignments) {
-    sprintf(allF, "%s_alignments.bam", imdName);
+    sprintf(allF, "%s_alignments.bam", sampleName);
     writerBam = new BamWriter(allF, header);
   }
     
@@ -540,7 +541,7 @@ void EMS(int ROUNDS) {
 
 
 void output() {
-  sprintf(outF, "%s.site_info", imdName);
+  sprintf(outF, "%s.site_info", sampleName);
   FILE *fo = fopen(outF, "w");
 
   IterType iter;
@@ -566,7 +567,7 @@ void init() {
 }
 
 void release() {
-  sprintf(modelF, "%s.model", imdName);
+  sprintf(modelF, "%s.model", statName);
   model->write(modelF);
   delete model;
 
@@ -583,15 +584,18 @@ void release() {
 
 int main(int argc, char* argv[]) {
   // n_threads here
-  if (argc < 6) { 
-    printf("PROBer-analyze-iCLIP model_type imdName alignF w num_threads [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [-q]\n");
+  if (argc < 8) { 
+    printf("PROBer-analyze-iCLIP model_type sampleName imdName statName alignF w num_threads [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [-q]\n");
     exit(-1);
   }
 
   model_type = atoi(argv[1]);
-  strcpy(imdName, argv[2]);
-  w = atoi(argv[4]);
-  num_threads = atoi(argv[5]);
+  strcpy(sampleName, argv[2]);
+  strcpy(imdName, argv[3]);
+  strcpy(statName, argv[4]);
+  strcpy(alignF, argv[5]);
+  w = atoi(argv[6]);
+  num_threads = atoi(argv[7]);
 
   
   bowtie_filter = false;
@@ -603,7 +607,7 @@ int main(int argc, char* argv[]) {
 
   isNaive = false;
   
-  for (int i = 6; i < argc; ++i) {
+  for (int i = 8; i < argc; ++i) {
     if (!strcmp(argv[i], "-q")) verbose = false;
     if (!strcmp(argv[i], "-m")) max_hit_allowed = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--shorter-than")) min_len = atoi(argv[i + 1]);
@@ -620,7 +624,7 @@ int main(int argc, char* argv[]) {
 
 
   init();  
-  parseAlignments(argv[3]);
+  parseAlignments(alignF);
   model->finish();
   processMultiReads();
   distributeTasks();
