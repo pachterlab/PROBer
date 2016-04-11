@@ -149,6 +149,8 @@ bool keep_alignments; // if keep the BAM file
 bool last_round;
 
 bool isNaive;
+vector<string> chr_names;
+
 
 /****************************************************************************************************/
 // Parse alignments
@@ -182,6 +184,11 @@ void parseAlignments(const char* alignF) {
   
   const bam_hdr_t* header = parser->getHeader();
 
+  // store chromosome names from BAM header to vector chr_names
+  chr_names.clear();
+  for (int i = 0; i < header->n_targets; ++i)
+    chr_names.push_back(header->target_name[i]);
+  
   sprintf(multiF, "%s_multi.bam", imdName);
   writer = new BamWriter(multiF, header, "PROBer iCLIP intermediate");
   if (keep_alignments) {
@@ -547,7 +554,7 @@ void output() {
   IterType iter;
 
   for (iter = posMap.begin(); iter != posMap.end(); ++iter)
-    fprintf(fo, "%d %c %d\t%d\t%.2f\n", iter->first.cid, iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
+    fprintf(fo, "%s %c %d\t%d\t%.2f\n", chr_names[iter->first.cid].c_str(), iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
 
   fclose(fo);
 

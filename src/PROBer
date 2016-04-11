@@ -181,7 +181,7 @@ def check_mutually_exclusive(parser, values, options, required = False):
     """ Check if only one of the options is set """
     value = sum([1 if x != None else 0 for x in values])
     if value > 1:
-        parser.error("Input options ({}) are mutually exclusive")
+        parser.error("Input options ({}) are mutually exclusive".format(options))
 
     if required and value == 0:
         parser.error("There must be at least one input option ({}) enabled".format(options))
@@ -244,7 +244,7 @@ parser_prepare.add_argument("--gff3-RNA-pattern", help = "<pattern> is a comma-s
 
 parser_prepare.add_argument("--transcript-to-gene-map", help = "L:Use information from <file> to map from transcript (isoform) ids to gene ids.\nEach line of <file> should be of the form:\n\ntranscript_id\tgene_id\n\nwith the two fields separated by a tab character.", type = expand, metavar = "<file>", dest = "tran2gene")
 
-parser_prepare.add_argument("--genome", help = "Turn on this option for iCLIP data, then PROBer will only call Bowtie/Bowtie2 to build their indices.", action = "store_true")
+parser_prepare.add_argument("--genome", help = "This option is required and only used for iCLIP data; it allows PROBer to call Bowtie/Bowtie2 to build their indices.", action = "store_true")
 
 parser_prepare.add_argument("--bowtie", help = "Build Bowtie indices.", action = "store_true")
 parser_prepare.add_argument("--bowtie-path", help = "The path to the Bowtie executables.", type = expand, metavar = "<path>")
@@ -405,7 +405,7 @@ parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to al
                                               "    \n"
                                               "    chr ori pos    n_unique    n_multi\n"
                                               "    \n"
-                                              "    chr is the chromosome name, ori is the orientation (+/-) and pos gives the genomic coordinate in the '+' strand of chromosome chr. "
+                                              "    chr is the chromosome name, ori is the orientation (+/-) and pos gives the 0-based genomic coordinate in the '+' strand of chromosome chr. "
                                                    "chr, ori, and pos together define the genomic location of the crosslink site and they are separated by single spaces. "
                                                    "Then separated by single tabs, n_unique gives the number of uniquely mapped reads, "
                                                    "and n_multi provides the expected number of multi-mapping reads at this site.\n\n"
@@ -425,7 +425,7 @@ parser_iCLIP.add_argument("sample_name", help = "The output name of this run. Al
 group = parser_iCLIP.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM format.", type = expand, metavar = "alignment_file.[sam/bam/cram]")
 group.add_argument("--reads", help = "Input are comma-separated lists of files containing single-end or paired-end reads. If input are single-end reads, only one list is required. "
-                                     "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists for first and second mates. "
+                                     "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists --- one for the first mates and the other for the second mates. "
                                      "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
                    nargs = '+', action = nargs_range([1, 2]), type = expandAll, metavar = "mate_read_file(s)")
 
@@ -446,14 +446,14 @@ group.add_argument("--naive", help = argparse.SUPPRESS, action = "store_true")
 
 
 group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 100 alignments will be filtered by this script.")
-group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
-                   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
+group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"-p number_of_threads -a -m 100 -S --chunkmbs 1024\"."
+                   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = expand, metavar = "<path>")
-group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
+group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"-p number_of_threads -k 101\"."
                    " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 group.add_argument("--index-name", help = "The base name for Bowtie/Bowtie2 indices", type = expand, metavar = "<name>")
-group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
+group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of aligner-produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
 
 parser_iCLIP.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
@@ -609,7 +609,7 @@ if args.command == "prepare":
         command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
         if args.quiet:
             command.append("-q")
-        command.extend([reference_in.forma, args.ref_name])
+        command.extend([reference_in, args.ref_name])
         runProg(command)
 
     sys.exit(0)
@@ -795,7 +795,7 @@ if args.command == "simulate":
 if args.command == "iCLIP":
     check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
     if args.reads != None and args.index_name == None:
-        parser.error("If input are reads, '--index-name' option must be set")
+        parser.error("If input are reads, '--index-name' must be set")
     
     dir_ = os.path.dirname(args.sample_name)
     if dir_ != "":
