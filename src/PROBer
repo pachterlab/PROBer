@@ -261,7 +261,7 @@ parser_prepare.add_argument("-q", "--quiet", help = "Suppress the output of logg
 
 
 parser_estimate = subparsers.add_parser("estimate", help = "This command is used to estimate RNA structure parameters from probing data.", formatter_class = MyFormatter,
-                                        usage = "PROBer estimate [options] reference_name sample_name {--bam input_minus.bam input_plus.bam | --sam input_minus.sam input_plus.sam | "
+                                        usage = "PROBer estimate [options] reference_name sample_name {--alignments input_minus.[sam/bam/cram] input_plus.[sam/bam/cram] | "
                                                 "--reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}",
                                         description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.",
                                         epilog = "L:OUTPUTS:\n"
@@ -398,6 +398,7 @@ parser_simulate.add_argument("--seed", help = "The seed initializing the random 
 
 
 parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to allocate multi-mapping reads for iCLIP data.", formatter_class = MyFormatter,
+                                     usage = "PROBer iCLIP [options] sample_name {--alignments input_alignments.[sam/bam/cram] | --reads mate1_read_file(s) [mate2_read_file(s)]}",
                                      description = "This program allocates multi-mapping reads for iCLIP data.",
                                      epilog = "L:OUTPUT:\n"
                                               "  sample_name.site_info\n"
@@ -860,12 +861,13 @@ if args.command == "iCLIP":
             assert False
 
 
-        command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w)])
-        command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+        command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w), str(args.num_threads)])
+        command2.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
         if args.keep_alignments:
-            command.append("--keep-alignments")
+            command2.append("--keep-alignments")
         if args.quiet:
-            command.append("-q")
+            command2.append("-q")
+
         runProg(command, command2, "{}.err".format(statName))  # Run aligner and then analyze iCLIP data
 
     if not args.keep:
