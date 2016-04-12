@@ -8,18 +8,25 @@
 #include "my_assert.h"
 #include "SamParser.hpp"
 
-SamParser::SamParser(const char* inpF) {
+SamParser::SamParser(const char* inpF, bam_hdr_t* input_header) {
   sam_in = sam_open(inpF, "r");
   general_assert(sam_in != 0, "Cannot open " + cstrtos(inpF) + "! It may not exist.");
 
+  delete_header = true;
   header = sam_hdr_read(sam_in);
   general_assert(header != 0, "Fail to parse the header!");
+
+  if (input_header != NULL) {
+    bam_hdr_destroy(header);
+    header = input_header;
+    delete_header = false;
+  }
 
   memset(program_id, 0, sizeof(program_id));
 }
 
 SamParser::~SamParser() {
-  bam_hdr_destroy(header);
+  if (delete_header) bam_hdr_destroy(header);
   sam_close(sam_in);
 }
 

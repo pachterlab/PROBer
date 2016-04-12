@@ -9,6 +9,8 @@
 #include<iostream>
 #include<pthread.h>
 
+#include "htslib/sam.h"
+
 #include "utils.h"
 #include "my_assert.h"
 
@@ -87,6 +89,8 @@ int rc;
 
 bool output_bam, output_logMAP;
 
+bam_hdr_t *hdr;
+
 // Preprocess reads and alignments
 void preprocessAlignments(int channel) {
   char bamF[STRLEN], partitionF[STRLEN];
@@ -104,6 +108,7 @@ void preprocessAlignments(int channel) {
     read_models[channel]->update_preprocess(ag, false);
     ++N0[channel];
   }
+  hdr = parser->pass_header();
   delete parser;
   if (verbose) { printf("Unalignable reads are preprocessed!\n"); }
 
@@ -134,7 +139,7 @@ void preprocessAlignments(int channel) {
     paramsVecs[channel][i] = new InMemParams(i, whole_model, read_models[channel], nreads, nlines);
 
     sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
-    parser = new SamParser(bamF);
+    parser = new SamParser(bamF, hdr);
     rid = 0;
     ag.clear();
     while (parser->next(ag)) {
@@ -237,7 +242,7 @@ void* E_STEP(void* arg) {
   if (needCalcConPrb || updateReadModel) {
     char bamF[STRLEN];
     sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[whole_model->getChannel()], params->no);
-    parser = new SamParser(bamF); 
+    parser = new SamParser(bamF, hdr); 
   }
   if (updateReadModel) estimator->init();
 
@@ -463,6 +468,8 @@ void release() {
   delete whole_model;
   delete read_models[0];
   delete read_models[1];
+
+  bam_hdr_destroy(hdr);
 }
 
 int main(int argc, char* argv[]) {

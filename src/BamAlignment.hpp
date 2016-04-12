@@ -35,7 +35,7 @@ public:
   
   /*
     @param   in       input SAM/BAM/CRAM file handler
-    @param   header   input file header
+    @param   header   input file header // consider change bam_hdr_t* to const bam_hdr_t* later
     @param   o        optional BAM alignment
    */
   bool read(samFile* in, bam_hdr_t* header, BamAlignment* o = NULL);
@@ -46,7 +46,7 @@ public:
     @param   choice   0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score
     @param   o        optional BAM alignment
    */
-  bool write(samFile* out, bam_hdr_t* header, int choice = 0, BamAlignment* o = NULL);
+  bool write(samFile* out, const bam_hdr_t* header, int choice = 0, BamAlignment* o = NULL);
   
   // overall stats
   

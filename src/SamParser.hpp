@@ -10,10 +10,12 @@
 
 class SamParser {
 public:
-  SamParser(const char* inpF);
+  SamParser(const char* inpF, bam_hdr_t* input_header = NULL);
   ~SamParser();
 
   const bam_hdr_t* getHeader() const { return header; }
+
+  bam_hdr_t* pass_header() { delete_header = false; return header; } // pass the header to an outside variable, then it is the outside variable's responsibility to delete header
 
   const char* getProgramID(); // scan header to look up program ID, slow
 
@@ -26,6 +28,7 @@ private:
   bam_hdr_t* header;
 
   char program_id[1005];
+  bool delete_header;
 };
 
 #endif

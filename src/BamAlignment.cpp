@@ -47,7 +47,7 @@ bool BamAlignment::read(samFile* in, bam_hdr_t* header, BamAlignment* o) {
 }
 
 // choice: 0, do nothing; 1, delete read sequence and qual score; 2, add read sequence and qual score. o, the alignment that contain read sequence and quality score information
-bool BamAlignment::write(samFile* out, bam_hdr_t* header, int choice, BamAlignment* o) {
+bool BamAlignment::write(samFile* out, const bam_hdr_t* header, int choice, BamAlignment* o) {
   assert(is_aligned >= 0 && b != NULL && (!is_paired || b2 != NULL));
 
   if (b->core.l_qname == 1) b->core.l_qseq = 0;
