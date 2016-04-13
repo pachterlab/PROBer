@@ -189,10 +189,10 @@ void parseAlignments(const char* alignF) {
   for (int i = 0; i < header->n_targets; ++i)
     chr_names.push_back(header->target_name[i]);
   
-  sprintf(multiF, "%s_multi.bam", imdName);
+  sprintf(multiF, "%s.multi.bam", imdName);
   writer = new BamWriter(multiF, header, "PROBer iCLIP intermediate");
   if (keep_alignments) {
-    sprintf(allF, "%s_alignments.bam", sampleName);
+    sprintf(allF, "%s.alignments.bam", sampleName);
     writerBam = new BamWriter(allF, header);
   }
     
