@@ -292,9 +292,10 @@ inline void PROBerTransModel::solveQuadratic2(double& gamma, double& beta, doubl
   assert(gamma > 0.0 && gamma < 1.0);
 }
 
-void PROBerTransModel::EM_step(double N_tot) {
+void PROBerTransModel::EM_step() {
   int channel = getChannel();
-
+  double N_tot;
+  
   int max_end_i;
   double psum, value;
 
@@ -335,6 +336,8 @@ void PROBerTransModel::EM_step(double N_tot) {
     }
   }
   else {
+    N_tot = N_obs[channel] / prob_pass[channel]; 
+      
     //E step, if we have reads that do not know their start positions, infer start from end
     if (!isZero(N_se)) {
       double prev, curr;

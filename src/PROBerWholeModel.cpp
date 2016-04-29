@@ -35,7 +35,6 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
   theta.clear();
   transcripts.clear();
 
-  N_tot = 0.0;
   threads.clear();
 
   paramsVecEM.clear();
@@ -169,22 +168,24 @@ void PROBerWholeModel::EM_step(double count0) {
   int state = PROBerTransModel::getState();
   int channel = PROBerTransModel::getChannel();
   int size = paramsVecEM.size();
-  double N_obs, sum, sum2, value;
+  double sum, sum2, value;
 
+  
+  double p_pass; // temp variable
+
+  
   // Update counts
   update(count0);
-
-  // Calculate total number of observed reads
-  N_obs = 0.0;
-  for (int i = 0; i <= M; ++i) 
-    if (!isZero(counts[channel][i])) N_obs += counts[channel][i];
-  N_tot = N_obs / prob_pass[channel];
 
   // Calculate expected hidden reads to each transcript
   for (int i = 0; i <= M; ++i) {
     unobserved[channel][i] = 0.0;
     // If no counts, force the unobserved counts to be 0!
-    if (i > 0 && !isZero(counts[channel][i])) unobserved[channel][i] = N_tot * prob_noise[channel][1] * theta[i] * (1.0 - transcripts[i]->getProbPass(channel)); 
+    if (i > 0 && !isZero(counts[channel][i])) {
+      p_pass = transcripts[i]->getProbPass(channel);
+      assert(p_pass > 0.0);
+      unobserved[channel][i] = counts[channel][i] / p_pass * (1.0 - p_pass);
+    }
   }
 
   // Estimate new gamma/beta parameters

@@ -240,10 +240,9 @@ public:
   void update();
 
   /*
-    @param   N_tot   expected total counts for this transcript
     @comment: Run one iteration of EM algorithm for a single transcript
    */
-  void EM_step(double N_tot);
+  void EM_step();
 
   /*
     @param   fin   input stream
