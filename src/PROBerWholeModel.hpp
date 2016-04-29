@@ -236,7 +236,7 @@ private:
 
   void run_EM_step(Params* params) {
     int channel = PROBerTransModel::getChannel();
-    for (int i = 0; i < params->num_trans; ++i) { 
+    for (int i = 0; i < params->num_trans; ++i)
       params->trans[i]->EM_step();
   }
 
