@@ -336,7 +336,7 @@ void PROBerTransModel::EM_step() {
     }
   }
   else {
-    N_tot = N_obs[channel] / prob_pass[channel]; 
+    //    N_tot = N_obs[channel] / prob_pass[channel]; 
       
     //E step, if we have reads that do not know their start positions, infer start from end
     if (!isZero(N_se)) {
@@ -368,6 +368,8 @@ void PROBerTransModel::EM_step() {
 
     // E step, calculate hidden reads
     // Calculate end2
+    /*
+
     psum = 1.0;
     for (int i = len; i >= 0; --i) {
       if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
@@ -394,17 +396,18 @@ void PROBerTransModel::EM_step() {
       }
     }
 
+    */
+
+
     // M step
     double dc, cc; // dc: drop-off count; cc: covering count
     
-    start2[0] += start[0];
-    end2[0] += end[0];
+    start2[0] = start[0]; end2[0] = end[0];
     for (int i = 1; i <= len; ++i) {
-      start2[i] += start[i] + start2[i - 1];
-      end2[i] += end[i] + end2[i - 1];
-      
-      dc = std::max(0.0, end2[i] - end2[i - 1]); // drop-off count
-      cc = std::max(0.0, end2[i] - start2[i - 1] - dc); // covering cout
+      dc = std::max(0.0, end[i]); // drop-off count
+      cc = std::max(0.0, end2[i - 1] - start2[i - 1]); // covering count
+      end2[i] = end2[i - 1] + end[i];
+      start2[i] = start2[i - 1] + start[i];
       
       switch(getState()) {
       case 0: 

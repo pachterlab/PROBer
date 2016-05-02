@@ -155,7 +155,7 @@ void preprocessAlignments(int channel) {
 	aligns[j].pos = ba->getLeftMostPos();
 
 	if (is_paired) aligns[j].fragment_length = ba->getInsertSize();
-	else if (seqlen < read_length) aligns[j].fragment_length = seqlen;
+	else if (seqlen < read_length) aligns[j].fragment_length = ba->getAlignedLength();
 	else aligns[j].fragment_length = 0;
 
 	aligns[j].frac = 1.0 / ag.size();

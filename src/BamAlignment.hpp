@@ -136,6 +136,11 @@ public:
     return mate == 1 ? b->core.l_qseq : b2->core.l_qseq;
   } 
   
+  int getAlignedLength(int mate = 1) const {
+    assert(mate == 1 || (is_paired && mate == 2));
+    return mate == 1 ? bam_cigar2rlen(b->core.n_cigar, bam_get_cigar(b)) : bam_cigar2rlen(b2->core.n_cigar, bam_get_cigar(b2));
+  }
+
   bool getCIGAR(CIGARstring& ci, int mate = 1) {
     assert(mate == 1 || (is_paired && mate == 2));
     if (mate == 1) ci.setUp(bam_get_cigar(b), b->core.n_cigar, is_ori(b));
