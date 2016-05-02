@@ -41,7 +41,7 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
 
   for (int i = 0; i < 2; ++i) {
     counts[i].clear();
-    unobserved[i].clear();
+    //unobserved[i].clear();
     prob_noise[i][0] = prob_noise[i][1] = 0.0;
     prob_pass[i] = 0.0;
     paramsVecUp[i].clear();
@@ -88,11 +88,11 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
     
     int channel = PROBerTransModel::getChannel();
     counts[channel].assign(M + 1, 0.0);
-    unobserved[channel].assign(M + 1, 0.0);
+    //unobserved[channel].assign(M + 1, 0.0);
 
     if (PROBerTransModel::isJoint()) {
       counts[channel ^ 1].assign(M + 1, 0.0);
-      unobserved[channel ^ 1].assign(M + 1, 0.0);
+      //unobserved[channel ^ 1].assign(M + 1, 0.0);
     }
   }
 }
@@ -169,15 +169,13 @@ void PROBerWholeModel::EM_step(double count0) {
   int channel = PROBerTransModel::getChannel();
   int size = paramsVecEM.size();
   double sum, sum2, value;
-
-  
-  double p_pass; // temp variable
-
   
   // Update counts
   update(count0);
 
+  /*
   // Calculate expected hidden reads to each transcript
+  double p_pass; // temp variable
   for (int i = 0; i <= M; ++i) {
     unobserved[channel][i] = 0.0;
     // If no counts, force the unobserved counts to be 0!
@@ -187,6 +185,7 @@ void PROBerWholeModel::EM_step(double count0) {
       unobserved[channel][i] = counts[channel][i] / p_pass * (1.0 - p_pass);
     }
   }
+  */
 
   // Estimate new gamma/beta parameters
   // create threads
@@ -203,9 +202,9 @@ void PROBerWholeModel::EM_step(double count0) {
   // Estimate new theta and prob_noise
   sum = sum2 = 0.0;  
   for (int i = 1; i <= M; ++i) {
-    value = counts[channel][i] + unobserved[channel][i];
+    value = counts[channel][i];// + unobserved[channel][i];
     sum += value;
-    if (state == 3) value += counts[channel ^ 1][i] + unobserved[channel ^ 1][i]; 
+    if (state == 3) value += counts[channel ^ 1][i];// + unobserved[channel ^ 1][i]; 
     if (state != 2) { theta[i] = value; sum2 += theta[i]; }
   }
 
@@ -224,15 +223,12 @@ void PROBerWholeModel::EM_step(double count0) {
 }
 
 void PROBerWholeModel::wrapItUp(double count0) {
-  int state = PROBerTransModel::getState();
-  int channel = PROBerTransModel::getChannel();
-
   // Update counts
   update(count0);
 
-  if (state == 2) {
+  if (PROBerTransModel::getState() == 2) {
     int size = paramsVecEM.size();
-    channel_to_calc = channel ^ 1;
+    channel_to_calc = PROBerTransModel::getChannel() ^ 1;
 
     // create threads
     for (int i = 0; i < size; ++i) {

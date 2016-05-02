@@ -147,7 +147,7 @@ private:
   std::vector<double> theta; // M + 1 elements. If we learn parameters, theta[0] = 0 and sum_{i=1}^{M} theta[i] = 1, the actual fraction of i is prob_noise[channel][i] * theta[i]; However, if we simulate, theta[0] > 0, theta[i] represents the actual fraction of reads coming from transcript i and sum_{i=0}^{M} theta[i] = 1.
   std::vector<PROBerTransModel*> transcripts; // PROBer models for individual transcripts
 
-  std::vector<double> counts[2], unobserved[2]; // number of observed/unobserved reads fall into each transcript for two channels
+  std::vector<double> counts[2]; //, unobserved[2]; // number of observed/unobserved reads fall into each transcript for two channels
   
   double prob_noise[2][2]; // the first dimension represent state, the second dimension: 0, probability of generating a noise read; 1, probability of generating a read from transcripts.
   double prob_pass[2]; // probability of generating a read that pass the size selection step
@@ -235,7 +235,6 @@ private:
   }
 
   void run_EM_step(Params* params) {
-    int channel = PROBerTransModel::getChannel();
     for (int i = 0; i < params->num_trans; ++i)
       params->trans[i]->EM_step();
   }

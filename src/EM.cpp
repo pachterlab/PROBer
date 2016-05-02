@@ -313,7 +313,7 @@ void one_EM_iteration(int channel, int ROUND) {
     count0[channel] += paramsVecs[channel][i]->count0;
     logprob[channel] += paramsVecs[channel][i]->loglik;
   }
-  logprob[channel] -= N_eff[channel] * log(whole_model->getProbPass());
+  //  logprob[channel] -= N_eff[channel] * log(whole_model->getProbPass());
   
   if (!keepGoing) whole_model->wrapItUp(count0[channel]);
   else {
