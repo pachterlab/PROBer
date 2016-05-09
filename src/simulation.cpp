@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  sprintf(refF, "%s.seq", argv[1]);
+  sprintf(refF, "%s.transcripts.fa", argv[1]);
   refs.readFrom(refF);
   M = refs.getM();
   
