@@ -9,8 +9,7 @@
 #include<fstream>
 #include<pthread.h>
 
-#include "sam/sam.h"
-#include "sam/bam.h"
+#include "htslib/sam.h"
 
 #include "utils.h"
 #include "my_assert.h"
@@ -49,6 +48,7 @@ struct TransVecPerThread {
 
 
 bool isJoint;
+bool turnOnHidden;
 
 int read_length;
 int rounds;
@@ -78,12 +78,12 @@ void setupConfig(char* configF) {
 
   assert(isJoint && isMAP);
   PROBerTransModelS::setGlobalParams(primer_length, min_frag_len, max_frag_len, 2);
-  PROBerTransModelS::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP);
+  PROBerTransModelS::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP, turnOnHidden);
 }
 
 void assignTranscripts(char* inpBamF, char* listF) {
-  samfile_t *in;
-  bam_header_t *header;
+  samFile *in;
+  bam_hdr_t *header;
   set<string> inList;
   MyHeap aheap;
   ATranscript *atran;
@@ -99,8 +99,10 @@ void assignTranscripts(char* inpBamF, char* listF) {
     fin.close();
   }
 
-  in = samopen(inpBamF, "rb", NULL);
-  header = in->header;
+  in = sam_open(inpBamF, "r");
+  assert(in != 0);
+  header = sam_hdr_read(in);
+  assert(header != 0);
 
   // Initialize parallel computing required data structures
   threads.assign(nthreads, pthread_t());
@@ -123,21 +125,25 @@ void assignTranscripts(char* inpBamF, char* listF) {
       ++transvec[pid].s;
     }
 
-  samclose(in);
+  bam_hdr_destroy(header);
+  sam_close(in);
 }
 
 void parseAlignments(char *inpF, int channel) {
-  samfile_t *in;
+  samFile *in;
+  bam_hdr_t *header;
+
   bam1_t *b;
   InMemAlign ima;
   bool is_paired;
 
   int cnt = 0;
 
-  in = samopen(inpF, "rb", NULL);
+  in = sam_open(inpF, "r");
+  header = sam_hdr_read(in);
   b = bam_init1();
 
-  while (samread(in, b) >= 0) {
+  while (sam_read1(in, header, b) >= 0) {
     ++cnt;
     if (cnt % 1000000 == 0) printf("Loaded %d lines for %s channel!\n", cnt, channelStr[channel]);
     
@@ -171,7 +177,8 @@ void parseAlignments(char *inpF, int channel) {
     if (trans[i] != NULL) trans[i]->model->flipState();
 
   bam_destroy1(b);
-  samclose(in);
+  bam_hdr_destroy(header);
+  sam_close(in);
 }
 
 void* runEM(void* arg) {
@@ -259,11 +266,12 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 5) {
-    printf("Usage: PROBer_single_transcript_batch config_file minus_channel.bam plus_channel.bam output_name [--read-length read_length] [--paired-end] [--input input_list.txt] [-p number_of_threads] [--maximum-likelihood]\n");
+    printf("Usage: PROBer_single_transcript_batch config_file minus_channel.bam plus_channel.bam output_name [--read-length read_length] [--paired-end] [--input input_list.txt] [-p number_of_threads] [--maximum-likelihood] [--turn-on-hidden]\n");
     exit(-1);
   }
 
   isJoint = true;
+  turnOnHidden = false;
 
   read_length = -1;
   paired_end = false;
@@ -286,6 +294,9 @@ int main(int argc, char* argv[]) {
     }
     if (!strcmp(argv[i], "--maximum-likelihood")) {
       isMAP = false;
+    }
+    if (!strcmp(argv[i], "--turn-on-hidden")) {
+      turnOnHidden = true;
     }
   }
 

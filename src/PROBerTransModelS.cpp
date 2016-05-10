@@ -30,6 +30,9 @@ bool PROBerTransModelS::isMAP = true; // default is true
 bool PROBerTransModelS::learning = false; // default is simulation
 int PROBerTransModelS::init_state = 0;
 
+bool PROBerTransModelS::turnOnHidden = false; // default is not to turn on
+
+
 void PROBerTransModelS::setGlobalParams(int primer_length, int min_frag_len, int max_frag_len, int init_state) { 
   assert(primer_length <= min_frag_len && min_frag_len <= max_frag_len);
   PROBerTransModelS::primer_length = primer_length;
@@ -38,7 +41,7 @@ void PROBerTransModelS::setGlobalParams(int primer_length, int min_frag_len, int
   PROBerTransModelS::init_state = init_state;
 }
 
-void PROBerTransModelS::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP) {
+void PROBerTransModelS::setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP, bool turnOnHidden) {
   learning = true;
 
   PROBerTransModelS::gamma_init = gamma_init;
@@ -46,6 +49,7 @@ void PROBerTransModelS::setLearningRelatedParams(double gamma_init, double beta_
   PROBerTransModelS::base = base;
   PROBerTransModelS::min_alloc_len = (read_length < min_frag_len ? min_frag_len : read_length) - primer_length;
   PROBerTransModelS::isMAP = isMAP;
+  PROBerTransModelS::turnOnHidden = turnOnHidden;
 
   if (isMAP) {
     dgamma = gamma_init * base;
@@ -92,8 +96,8 @@ PROBerTransModelS::PROBerTransModelS(int tid, const std::string& name, int trans
 
   len = transcript_length - primer_length;
   efflen = len - min_frag_len + 1;
-  delta = 1.0 / (len + 1.0);
-  
+  delta = 1.0 / (len + (primer_length > 0 ? 1.0 : 0.0));  
+
   // If a transcript is excluded from analysis, all its gamma/beta values become 0
   gamma = new double[len + 1];
   memset(gamma, 0, sizeof(double) * (len + 1));
@@ -266,7 +270,7 @@ void PROBerTransModelS::calcAuxiliaryArrays(int channel) {
     }
   }
   // normalizing factor
-  if (N_obs[channel] > 0.0) {
+  if (turnOnHidden && N_obs[channel] > 0.0) {
     assert(prob_pass[channel] > 0.0 && prob_pass[channel] < 1.0);
     log_prob[channel] -= N_obs[channel] * log(prob_pass[channel]);
   }
@@ -385,32 +389,40 @@ void PROBerTransModelS::EM_step(double N_tot) {
       }
     }
 
-    // E step, calculate hidden reads
-    // Calculate end2
-    psum = 1.0;
-    for (int i = len; i >= 0; --i) {
-      if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
-      else end2[i] = psum;
-      if (i > 0) end2[i] *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
-      end2[i] *= delta * N_tot;
-      if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
-    }
-    
-    // Calculate start2
-    for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
-    psum = 1.0;
-    for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
-      start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
-      start2[i] *= delta * N_tot;
-      if (i < len) {
-	max_end_i = i - max_frag_len;
-	if (max_end_i >= 0) {
-	  value = exp(logsum[pos] - logsum[max_end_i]);
-	  if (max_end_i > 0) value *= (channel == 0 ? gamma[max_end_i] : gamma[max_end_i] + beta[max_end_i] - gamma[max_end_i] * beta[max_end_i]);
-	  psum = std::max(psum - value, 0.0);
-	}
-	psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
+    if (turnOnHidden) {
+      
+      // E step, calculate hidden reads
+      // Calculate end2
+      psum = 1.0;
+      for (int i = len; i >= 0; --i) {
+        if (i < efflen) end2[i] = std::max(psum - exp(logsum[i + min_frag_len] - logsum[i]) * margin_prob[i], 0.0);
+        else end2[i] = psum;
+        if (i > 0) end2[i] *= (channel == 0 ? gamma[i] : gamma[i] + beta[i] - gamma[i] * beta[i]);
+        end2[i] *= delta * N_tot;
+        if (i > 0) psum = 1.0 + psum * (channel == 0 ? (1.0 - gamma[i]) : (1.0 - gamma[i]) * (1.0 - beta[i]));
       }
+    
+      // Calculate start2
+      for (int i = 0; i < min_frag_len; ++i) start2[i] = delta * N_tot;
+      psum = 1.0;
+      for (int i = min_frag_len, pos = 0; i <= len; ++i, ++pos) {
+        start2[i] = std::max(1.0 - psum * exp(logsum[i] - logsum[pos]), 0.0);
+        start2[i] *= delta * N_tot;
+        if (i < len) {
+          max_end_i = i - max_frag_len;
+          if (max_end_i >= 0) {
+            value = exp(logsum[pos] - logsum[max_end_i]);
+            if (max_end_i > 0) value *= (channel == 0 ? gamma[max_end_i] : gamma[max_end_i] + beta[max_end_i] - gamma[max_end_i] * beta[max_end_i]);
+            psum = std::max(psum - value, 0.0);
+          }
+          psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
+        }
+      }
+
+    }
+    else {
+      memset(start2, 0, sizeof(double) * (len + 1));
+      memset(end2, 0, sizeof(double) * (len + 1));
     }
 
     // M step

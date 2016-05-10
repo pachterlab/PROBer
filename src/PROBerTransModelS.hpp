@@ -47,7 +47,7 @@ public:
     @param   isMAP        if we want MAP estimates
     @comment: This function sets learning related parameters shared by all transcripts, calling this function means that we want to learn parameters from data.
   */
-  static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP);
+  static void setLearningRelatedParams(double gamma_init, double beta_init, double base, int read_length, bool isMAP, bool turnOnHidden);
 
   /*
     @return   primer length
@@ -255,6 +255,8 @@ private:
   static double base, dgamma, cgamma, dbeta, cbeta; // if MAP, gamma ~ Beta(dgamma + 1, cgamma + 1), beta ~ Beta(dbeta + 1, cbeta + 1); base = dgamma + cgamma = dbeta + cbeta
 
   static bool learning; // true if learning parameters, false if simulation
+
+  static bool turnOnHidden; // if have hidden reads calculated
 
   int tid; // transcript id
   std::string name; // transcript name
