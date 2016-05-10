@@ -29,6 +29,7 @@ target_link_libraries(PROBer-simulate-reads PROBer_core ${HTSLIB_DIR}/libhts.a $
 target_link_libraries(PROBer-analyze-iCLIP PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
 
 target_link_libraries(PROBer-single-transcript-batch PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
+configure_file(utils.py utils.py COPYONLY)
 configure_file(PROBer-single-batch-estimate PROBer-single-batch-estimate COPYONLY)
 
 configure_file(PROBer PROBer COPYONLY)

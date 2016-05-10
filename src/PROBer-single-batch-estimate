@@ -60,7 +60,7 @@ parser.add_argument("-q", "--quiet", help = "Suppress the output of logging info
 
 args = parser.parse_args()
 
-if args.reads != None and args.alignments != None or args.reads == None and args.bam == None:
+if args.reads != None and args.alignments != None or args.reads == None and args.alignments == None:
     parser.error("One of --reads and --alignments must be set!")
 if args.reads != None and ((args.paired_end and len(args.reads) != 4) or (not args.paired_end and len(args.reads) != 2)):
     parser.error("Number of Read/Mate files does not match!")
@@ -89,8 +89,8 @@ command.extend(["--strand-specific", "-p", str(args.num_threads), "--seed-length
 if args.paired_end:
     command.append("--paired-end")
     
-if args.bam != None:
-    command.extend(["--bam", args.bam[0]])
+if args.alignments != None:
+    command.extend(["--alignments", args.alignments[0]])
     pos = len(command) - 1
 elif not args.paired_end:
     # Use Bowtie for RSEM
@@ -110,8 +110,8 @@ command.extend([args.ref_name, "{}_minus".format(args.sample_name)])
 
 runProg(command)
 
-if args.bam != None:
-    command[pos] = args.bam[1]
+if args.alignments != None:
+    command[pos] = args.alignments[1]
 elif not args.paired_end:
     command[pos] = args.reads[1]
 else:
