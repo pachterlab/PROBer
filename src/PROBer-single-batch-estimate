@@ -128,7 +128,7 @@ fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_select
 fh.close()
 
 # Run EM    
-command = ["PROBer_single_transcript_batch", "{}.config".format(args.sample_name), "{}_minus.transcript.bam".format(args.sample_name), "{}_plus.transcript.bam".format(args.sample_name), args.sample_name]
+command = ["PROBer-single-transcript-batch", "{}.config".format(args.sample_name), "{}_minus.transcript.bam".format(args.sample_name), "{}_plus.transcript.bam".format(args.sample_name), args.sample_name]
 
 command.extend(["-p", str(args.num_threads)])
 if not args.paired_end:
