@@ -320,7 +320,7 @@ void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
     fpkm[i] = tpm[i] * 1e3 / l_bar;
   }
 
-  if (state == 2 || state == 0 && !has_control)
+  if (state == 2 || (state == 0 && !has_control))
     sprintf(exprF, "%s.expr", output_name);
   else {
     switch(state) {

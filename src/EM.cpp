@@ -201,7 +201,7 @@ void init() {
   sprintf(tiF, "%s.ti", refName);
   transcripts.readFrom(tiF);
   char imd_name[STRLEN];
-  sprintf(imd_name, "%s_minus", imdName);
+  sprintf(imd_name, "%s_plus", imdName);
   transcripts.buildMappings(imd_name);
 
   // Create PROBerWholeModel
@@ -457,8 +457,8 @@ void writeResults() {
     if (has_control) outputBamFiles(0);
     // Bam files for (+) channel
     outputBamFiles(1);
-    time_t b = time(NULL);
 
+    time_t b = time(NULL);
     char timeF[STRLEN];
     sprintf(timeF, "%s.bam.time", sampleName);
     FILE *fo = fopen(timeF, "w");
@@ -473,12 +473,12 @@ void release() {
   pthread_attr_destroy(&attr);
 
   for (int i = 0; i < num_threads; ++i) {
-    if (!has_control) delete paramsVecs[0][i];
+    if (has_control) delete paramsVecs[0][i];
     delete paramsVecs[1][i];
   }
 
   delete whole_model;
-  if (!has_control) delete read_models[0];
+  if (has_control) delete read_models[0];
   delete read_models[1];
 
   bam_hdr_destroy(hdr);
