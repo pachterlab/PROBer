@@ -72,6 +72,7 @@ int model_type;
 int num_threads;
 int read_length;
 bool isMAP;
+bool has_control;
 
 char refName[STRLEN], sampleName[STRLEN], imdName[STRLEN], statName[STRLEN], channel[STRLEN];
 
@@ -185,7 +186,7 @@ void preprocessAlignments(int channel) {
   if (verbose) { printf("Bam preprocessing is done for channel %s!\n", channelStr[channel]); }
 
   // change to the other state for further analysis
-  whole_model->flipState();
+  if (has_control) whole_model->flipState();
 }
 
 void init() {
@@ -205,14 +206,20 @@ void init() {
 
   // Create PROBerWholeModel
   sprintf(configF, "%s.config", imdName);
-  whole_model = new PROBerWholeModel(configF, 2, &transcripts, num_threads, read_length, isMAP);
+  whole_model = new PROBerWholeModel(configF, (has_control ? 2 : 0), has_control, &transcripts, num_threads, read_length, isMAP);
 
   // Create PROBerReadModels
-  read_models[0] = new PROBerReadModel(model_type, &refs, read_length);
+  read_models[0] = has_control ? new PROBerReadModel(model_type, &refs, read_length) : NULL;
   read_models[1] = new PROBerReadModel(model_type, &refs, read_length);
 
+  memset(N0, 0, sizeof(N0));
+  memset(N_eff, 0, sizeof(N_eff));
+
+  memset(count0, 0, sizeof(count0));
+  memset(logprob, 0, sizeof(logprob));
+  
   // Preprocess data for (-)
-  preprocessAlignments(0);
+  if (has_control) preprocessAlignments(0);
   // Preprocess data for (+)
   preprocessAlignments(1);
 
@@ -241,7 +248,7 @@ void* E_STEP(void* arg) {
 
   if (needCalcConPrb || updateReadModel) {
     char bamF[STRLEN];
-    sprintf(bamF, "%s_%s_%d.bam", imdName, channelStr[whole_model->getChannel()], params->no);
+    sprintf(bamF, "%s_%s_%d.bam", imdName, whole_model->get_channel_string(whole_model->getChannel()), params->no);
     parser = new SamParser(bamF, hdr); 
   }
   if (updateReadModel) estimator->init();
@@ -288,8 +295,6 @@ inline bool needUpdateReadModel(int ROUND) {
 }
 
 void one_EM_iteration(int channel, int ROUND) {
-  assert(whole_model->getChannel() == channel);
-
   // init
   if (ROUND == 1) whole_model->init();
 
@@ -346,12 +351,14 @@ void EM() {
     keepGoing = (ROUND <= MAX_ROUND) && (ROUND <= 2 || (curr_logprob - prev_logprob) / (N_eff[0] + N_eff[1]) > deltaChange);
 
     // (-) channel
-    one_EM_iteration(0, ROUND);
-    whole_model->flipState();
-
+    if (has_control) {
+      one_EM_iteration(0, ROUND);
+      whole_model->flipState();
+    }
+    
     // (+) channel
     one_EM_iteration(1, ROUND);
-    whole_model->flipState();
+    if (has_control) whole_model->flipState();
 
     prev_logprob = curr_logprob;
     curr_logprob = logprob[0] + logprob[1];
@@ -430,10 +437,15 @@ void outputBamFiles(int channel) {
 void writeResults() {
   // output read model parameters
   char readModelF[STRLEN];
-  for (int i = 0; i < 2; ++i) {
-    sprintf(readModelF, "%s_%s.read_model", statName, channelStr[i]);
-    read_models[i]->write(readModelF);
+
+  if (has_control) {
+    sprintf(readModelF, "%s_%s.read_model", statName, channelStr[0]);
+    read_models[0]->write(readModelF);
   }
+
+  sprintf(readModelF, "%s_%s.read_model", statName, channelStr[1]);
+  read_models[1]->write(readModelF);
+
   
   // output whole model parameters
   whole_model->write(sampleName, statName);
@@ -442,7 +454,7 @@ void writeResults() {
   if (output_bam) {
     time_t a = time(NULL);
     // Bam files for (-) channel
-    outputBamFiles(0);
+    if (has_control) outputBamFiles(0);
     // Bam files for (+) channel
     outputBamFiles(1);
     time_t b = time(NULL);
@@ -461,12 +473,12 @@ void release() {
   pthread_attr_destroy(&attr);
 
   for (int i = 0; i < num_threads; ++i) {
-    delete paramsVecs[0][i];
+    if (!has_control) delete paramsVecs[0][i];
     delete paramsVecs[1][i];
   }
 
   delete whole_model;
-  delete read_models[0];
+  if (!has_control) delete read_models[0];
   delete read_models[1];
 
   bam_hdr_destroy(hdr);
@@ -474,7 +486,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [-q]\n");
+    printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [--no-control] [-q]\n");
     exit(-1);
   }
 
@@ -489,11 +501,13 @@ int main(int argc, char* argv[]) {
   output_logMAP = false;
   read_length = -1;
   isMAP = true;
+  has_control = true;
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--read-length")) read_length = atoi(argv[i + 1]);
     if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
     if (!strcmp(argv[i], "--output-bam")) output_bam = true;
     if (!strcmp(argv[i], "--output-logMAP")) output_logMAP = true;
+    if (!strcmp(argv[i], "--no-control")) has_control = false;
     if (!strcmp(argv[i], "-q")) verbose = false;
   }
 

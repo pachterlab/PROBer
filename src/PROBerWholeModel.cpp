@@ -13,7 +13,7 @@
 #include "MyHeap.hpp"
 #include "PROBerWholeModel.hpp"
 
-PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
+PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, bool has_control, const Transcripts* trans, int num_threads, int read_length, bool isMAP) {
   // set PROBerTransModel static member values
   int primer_length, min_frag_len, max_frag_len;
   double gamma_init, beta_init;
@@ -29,6 +29,8 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, cons
   fclose(fi);
 
   // initialize data members
+  this->has_control = has_control;
+  
   this->num_threads = 0;
 
   M = 0; 
@@ -152,12 +154,12 @@ void PROBerWholeModel::init() {
     // create threads
     for (int i = 0; i < size; ++i) {
       rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
-      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(get_channel_string(channel_to_calc)) + " channel!");
     }
     // join threads
     for (int i = 0; i < size; ++i) {
       rc = pthread_join(threads[i], NULL);
-      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(get_channel_string(channel_to_calc)) + " channel!");
     }  
 
     calcProbPass(channel_to_calc);
@@ -191,12 +193,12 @@ void PROBerWholeModel::EM_step(double count0) {
   // create threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_create(&threads[i], &attr, run_EM_step_per_thread, (void*)(paramsVecEM[i]));
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_EM_step_per_thread at " + cstrtos(get_channel_string(channel)) + " channel!");
   }
   // join threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + "(numbered from 0) for run_EM_step_per_thread at " + cstrtos(get_channel_string(channel)) + " channel!");
   }
 
   // Estimate new theta and prob_noise
@@ -233,12 +235,12 @@ void PROBerWholeModel::wrapItUp(double count0) {
     // create threads
     for (int i = 0; i < size; ++i) {
       rc = pthread_create(&threads[i], &attr, run_calcAuxiliaryArrays_per_thread, (void*)paramsVecEM[i]);
-      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+      pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(get_channel_string(channel_to_calc)) + " channel!");
     }
     // join threads
     for (int i = 0; i < size; ++i) {
       rc = pthread_join(threads[i], NULL);
-      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(channelStr[channel_to_calc]) + " channel!");
+      pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_calcAuxiliaryArrays_per_thread at " + cstrtos(get_channel_string(channel_to_calc)) + " channel!");
     }  
     calcProbPass(channel_to_calc);
   }
@@ -256,7 +258,7 @@ void PROBerWholeModel::read(const char* input_name, const char* statName) {
 
   // load gamma
   if (!learning || (learning && state == 1)) {
-    sprintf(input_param, "%s.gamma", input_name);
+    sprintf(input_param, "%s.%s", input_name, (state == 0 && !has_control) ? "beta" : "gamma");
     fin.open(input_param);
     assert(fin.is_open());
 
@@ -289,7 +291,7 @@ void PROBerWholeModel::read(const char* input_name, const char* statName) {
   // load theta
   if (!learning) {
     assert(statName != NULL);
-    sprintf(input_theta, "%s_%s.theta", statName, channelStr[state & 1]);
+    sprintf(input_theta, "%s_%s.theta", statName, get_channel_string(state & 1));
     fin.open(input_theta);
     assert(fin.is_open());
       
@@ -318,11 +320,14 @@ void PROBerWholeModel::writeExprRes(int state, const char* output_name) {
     fpkm[i] = tpm[i] * 1e3 / l_bar;
   }
 
-  switch(state) {
-  case 0: sprintf(exprF, "%s_minus.expr", output_name); break;
-  case 1: sprintf(exprF, "%s_plus.expr", output_name); break;
-  case 2: sprintf(exprF, "%s.expr", output_name); break;
-  default: assert(false);
+  if (state == 2 || state == 0 && !has_control)
+    sprintf(exprF, "%s.expr", output_name);
+  else {
+    switch(state) {
+    case 0: sprintf(exprF, "%s_minus.expr", output_name); break;
+    case 1: sprintf(exprF, "%s_plus.expr", output_name); break;
+    default: assert(false);
+    }
   }
 
   std::ofstream fout(exprF);
@@ -354,7 +359,7 @@ void PROBerWholeModel::write(const char* output_name, const char* statName) {
   assert(state < 3); 
 
   if (state == 0 || state == 2) {
-    sprintf(output_param, "%s.gamma", output_name);
+    sprintf(output_param, "%s.%s", output_name, (state == 0 && !has_control) ? "beta" : "gamma");
     fout.open(output_param);
     assert(fout.is_open());
 
@@ -366,7 +371,7 @@ void PROBerWholeModel::write(const char* output_name, const char* statName) {
 
     fout.close();
 
-    sprintf(output_theta, "%s_minus.theta", statName);
+    sprintf(output_theta, "%s_%s.theta", statName, get_channel_string(0));
     fout.open(output_theta);
     assert(fout.is_open());
 
@@ -526,12 +531,12 @@ void PROBerWholeModel::update(double count0) {
   // create threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_create(&threads[i], &attr, run_makeUpdates_per_thread, (void*)(paramsVecU[i]));
-    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_create", "Cannot create thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(get_channel_string(channel)) + " channel!");
   }
   // join threads
   for (int i = 0; i < size; ++i) {
     rc = pthread_join(threads[i], NULL);
-    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(channelStr[channel]) + " channel!");
+    pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0) for run_makeUpdates_per_thread at " + cstrtos(get_channel_string(channel)) + " channel!");
   }    
 
   // Set counts

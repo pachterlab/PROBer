@@ -37,9 +37,11 @@ char statName[STRLEN];
 char refF[STRLEN], readModelF[STRLEN], outF1[STRLEN], outF2[STRLEN];
 ofstream out1, out2;
 
+bool has_control;
+
 int main(int argc, char* argv[]) {
   if (argc < 7) {
-    printf("Usage: PROBer-simulate-reads reference_name config_file sample_name channel('minus' or 'plus') number_of_reads output_name [--seed seed] [--transcript name] [--read-model-file read_model_file]\n\n");
+    printf("Usage: PROBer-simulate-reads reference_name config_file sample_name channel('minus' or 'plus') number_of_reads output_name [--seed seed] [--transcript name] [--read-model-file read_model_file] [--no-control]\n\n");
     printf("Description:\n");
     printf("  This program simulate reads using parameters learned from data by 'PROBer-estimate-parameters'.\n\n");
     printf("Arguments:\n");
@@ -52,6 +54,7 @@ int main(int argc, char* argv[]) {
     printf("  [--seed seed]: Optional argument, the seed used for simulation.\n");
     printf("  [--transcript name]: Optional argument, if set, only simulate reads from one transcript, the transcript name is 'name'.\n");
     printf("  [--read-model-file read_model_file]: Optional argument, use the read_model_file provided instead the one in stat folder of the 'sample_name'.\n");
+    printf("  [--no-control]: Optional argument, indicate that there is no control.\n");
     return 0;
   }
 
@@ -63,6 +66,7 @@ int main(int argc, char* argv[]) {
   seed = time(NULL);
   sim_tid = -1;
   readModelF[0] = 0;
+  has_control = true;
   for (int i = 7; i < argc; ++i) {
     if (!strcmp(argv[i], "--seed")) {
       seed = 0;
@@ -82,8 +86,10 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--read-model-file")) {
       strcpy(readModelF, argv[i + 1]);
     }
+    if (!strcmp(argv[i], "--no-control")) has_control = false;
   }
 
+  general_assert(has_control || !strcmp(argv[4], "plus"), "If no control data, only plus channel can be simulated!");
 
   // generate statName and readModelF (if necessary)
   string tmpStr = string(argv[3]);
@@ -99,7 +105,7 @@ int main(int argc, char* argv[]) {
 
   sampler = new Sampler(seed);
   
-  whole_model = new PROBerWholeModel(argv[2], (!strcmp(argv[4], "minus") ? 0 : 1));
+  whole_model = new PROBerWholeModel(argv[2], (!strcmp(argv[4], "plus") && has_control ? 1 : 0), has_control);
   whole_model->read(argv[3], statName);
 
   read_model = new PROBerReadModel(&refs, sampler);

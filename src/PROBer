@@ -261,9 +261,10 @@ parser_prepare.add_argument("-q", "--quiet", help = "Suppress the output of logg
 
 
 parser_estimate = subparsers.add_parser("estimate", help = "This command is used to estimate RNA structure parameters from probing data.", formatter_class = MyFormatter,
-                                        usage = "PROBer estimate [options] reference_name sample_name {--alignments input_minus.[sam/bam/cram] input_plus.[sam/bam/cram] | "
-                                                "--reads minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)] plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)]}",
-                                        description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters.",
+                                        usage = "PROBer estimate [options] reference_name sample_name (--alignments input_plus.(sam|bam|cram) [input_minus.(sam|bam|cram)] | "
+                                                "--reads plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)] [minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)]])",
+                                        description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters. "
+                                                      "By default, it requires data from both control and treatment groups. But it works with only treatment data as well.",
                                         epilog = "L:OUTPUTS:\n"
                                                  "  sample_name.expr\n"
                                                  "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
@@ -286,9 +287,9 @@ parser_estimate = subparsers.add_parser("estimate", help = "This command is used
                                                       "Then each line describes estimated parameters for a different transcript. "
                                                       "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
                                                       "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"
-                                                 "  sample_name_minus.bam\n"
+                                                 "  sample_name_plus.bam\n"
                                                  "    Only generated when '--output-bam' option is set.\n\n"
-                                                 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
+                                                 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
                                                       "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), "
                                                       "where w is the posterior probability of that alignment being the true mapping of a read. "
                                                       "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
@@ -298,10 +299,10 @@ parser_estimate = subparsers.add_parser("estimate", help = "This command is used
                                                       "unless the input BAM file is produced by PROBer and alignment/filtering criteria are not changed. "
                                                       "Because this file contains all alignment lines produced by the aligner, "
                                                       "it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
-                                                 "  sample_name_plus.bam\n"
+                                                 "  sample_name_minus.bam\n"
                                                  "    Only generated when '--output-bam' option is set.\n\n"
-                                                 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
-                                                      "The annotation format is exactly the same as the one used in 'sample_name_minus.bam'.\n\n"
+                                                 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
+                                                      "The annotation format is exactly the same as the one used in 'sample_name_plus.bam'.\n\n"
                                                  "  sample_name.logMAP\n"
                                                  "    Only generated when '--output-logMAP' option is set.\n\n"
                                                  "    This file contains the log MAP probability of the observed data given current parameter settings, "
@@ -323,12 +324,14 @@ parser_estimate.add_argument("sample_name", help = "The output name of this run.
 
 group = parser_estimate.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 
-group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM formats.", nargs = '+', action = nargs_range([2]), type = expandAll,
-                   metavar = "input_minus.[sam/bam/cram] input_plus.[sam/bam/cram]")
-group.add_argument("--reads", help = "L:Input are read files.\nminus_channel_mate1_read_file(s) and plus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
-                                     "minus_mate2_read_file(s) and plus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
-                                     "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
-                   nargs = '+', action = nargs_range([2, 4]), type = expandAll, metavar = "mate_read_file(s)")
+group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM formats. If only one alignment file is provided, PROBer assumes control data are not available.",
+                   nargs = '+', action = nargs_range([1,2]), type = expandAll, metavar = "input_plus.(sam/bam/cram) [input_minus.(sam/bam/cram)]")
+group.add_argument("--reads", help = "L:Input are read files.\n"
+                   "plus_channel_mate1_read_file(s) and minus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
+                   "plus_mate2_read_file(s) and minus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
+                   "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.\n"
+                   "Minus channel reads may be omitted if no control data are available.\n",
+                   nargs = '+', action = nargs_range([1, 2, 4]), type = expandAll, metavar = "mate_read_file(s)")
 
 
 group = parser_estimate.add_argument_group(title = "Basic options")
@@ -373,8 +376,8 @@ parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of log
 parser_simulate = subparsers.add_parser("simulate", help = "This command is used to simulate reads.", formatter_class = MyFormatter,
                                         description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
                                         epilog = "OUTPUT:\n"
-                                        "  If single-end reads are simulated, this program produces 'output_name_[minus/plus].[fa/fq]'. "
-                                           "If paired-end reads are simulated, this program produces 'output_name_[minus/plus]_1.[fa/fq]' and 'output_name_[minus/plus]_2.[fa/fq].")
+                                        "  If single-end reads are simulated, this program produces 'output_name_(minus|plus).(fa|fq)'. "
+                                           "If paired-end reads are simulated, this program produces 'output_name_(minus|plus)_1.(fa|fq)' and 'output_name_(minus|plus)_2.(fa|fq).")
 
 parser_simulate.add_argument("ref_name", help = "The reference's name, should be same as the one used in programs 'prepare' and 'estimate'.", type = expand, metavar = "reference_name")
 parser_simulate.add_argument("config_file", help = "A configuration file containting primer length, size selection min and max fragment size etc. "
@@ -389,7 +392,7 @@ parser_simulate.add_argument("nreads", help = "Number of reads to simulate.", ty
 parser_simulate.add_argument("output_name", help = "Output files' prefix", type = expand, metavar = "output_name")
 
 parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in the simulation.", type = check_seed, metavar = "<uint32>")
- 
+parser_simulate.add_argument("--no-control", help = "Indicate if the data used to learn simulation parameters do not have a control.", action = "store_true")
 
 #################################################
 
@@ -655,6 +658,27 @@ if args.command == "estimate":
         else:
             model_type = 1
 
+
+
+
+
+    args.has_control = True
+    if args.alignments != None:
+        args.has_control = len(args.alignments) == 2
+    else:
+        if args.paired_end:
+            if len(args.reads) == 1:
+                parser.error("You need to provide at least 2 files for paired-end data!")
+            args.has_control = len(args.reads) == 4
+        else:
+            if len(args.reads) == 4:
+                parser.error("You cannot provide 4 files for single-end data!")
+            args.has_control = len(args.reads) == 2
+
+
+
+
+            
     t1 = t2 = t3 = 0.00
 
     if args.time:
@@ -662,7 +686,7 @@ if args.command == "estimate":
 
     detectMem = None
     if args.memory:
-        detectMem = DetectMem(args.sample_name, "unknown" if args.bam != None or args.sam != None else "bowtie2" if args.bowtie2 else "bowtie")
+        detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
         detectMem.start()
 
     # Parse alignments
@@ -670,7 +694,7 @@ if args.command == "estimate":
     posChannel = 4
 
     if args.alignments != None:
-        command.extend(["PROBer-parse-alignments", args.ref_name, imdName, statName, "minus", str(args.num_threads), args.alignments[0]])
+        command.extend(["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), args.alignments[0]])
         pos = len(command) - 1
         command.extend(["-m", "200"])
         if args.read_length != None and args.size_selection_min < args.read_length:
@@ -680,9 +704,10 @@ if args.command == "estimate":
 
         runProg(command)  # Run PROBer-parse-alignments on (-) channel
 
-        command[posChannel] = "plus"
-        command[pos] = args.alignments[1]
-        runProg(command)  # Run PROBer-parse-alignments on (+) channel
+        if args.has_control:
+            command[posChannel] = "minus"
+            command[pos] = args.alignments[1]
+            runProg(command)  # Run PROBer-parse-alignments on (+) channel
      
     else:
         if args.bowtie2:
@@ -708,22 +733,23 @@ if args.command == "estimate":
         else:
             assert False
 
-        command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "minus", str(args.num_threads), "-", "-m", "200"]
+        command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), "-", "-m", "200"]
         if args.read_length != None and args.size_selection_min < args.read_length:
             command2.extend(["--shorter-than", str(args.size_selection_min)])
         if args.quiet:
             command2.append("-q")
-        runProg(command, command2, "{}_minus.err".format(statName))  # Run aligner and then parse for (-) channel data
-
-        pos = len(command) - 1
-        if not args.paired_end:
-            command[pos] = args.reads[1]
-        else:
-            command[pos - 2] = args.reads[2]
-            command[pos] = args.reads[3]
-        command2[posChannel] = "plus"
-
         runProg(command, command2, "{}_plus.err".format(statName))  # Run aligner and then parse for (+) channel data
+
+        if args.has_control:
+            pos = len(command) - 1
+            if not args.paired_end:
+                command[pos] = args.reads[1]
+            else:
+                command[pos - 2] = args.reads[2]
+                command[pos] = args.reads[3]
+            command2[posChannel] = "minus"
+            
+            runProg(command, command2, "{}_minus.err".format(statName))  # Run aligner and then parse for (-) channel data
 
     if args.time:
         t2 = time.time()
@@ -743,6 +769,8 @@ if args.command == "estimate":
         command.append("--output-bam")
     if args.output_logMAP:
         command.append("--output-logMAP")
+    if not args.has_control:
+        command.append("--no-control")
     if args.quiet:
         command.append("-q")
     runProg(command)
@@ -779,6 +807,8 @@ if args.command == "simulate":
     command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, str(args.nreads), args.output_name]
     if args.seed != None:
         command.extend(["--seed", args.seed])
+    if args.no_control:
+        command.append("--no-control")
     runProg(command)
     
     sys.exit(0)

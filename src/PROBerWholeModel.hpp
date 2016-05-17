@@ -17,12 +17,13 @@ public:
     @function   constructor function
     @param   config_file   Configuration file for PROBerTransModel static members
     @param   init_state    the initial state (if (-) or (+) channel, if learn jointly or not)
+    @param   has_control   if the experiment has a control
     @param   trans         We obtain transcript names and lengths from trans
     @param   num_threads   Number of threads allowed to use
     @param   read_length   If set, assuming all reads < read_length are due to adaptor trimming
     @param   isMAP         Use MAP estimates if true
    */
-  PROBerWholeModel(const char* config_file, int init_state, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
+  PROBerWholeModel(const char* config_file, int init_state, bool has_control, const Transcripts* trans = NULL, int num_threads = 1, int read_length = -1, bool isMAP = true);
 
   /*
     @function   destructor function, release contents of threads and transcripts
@@ -38,6 +39,11 @@ public:
     @comment: get channel information from PROBerTransModel
    */
   int getChannel() const { return PROBerTransModel::getChannel(); }
+
+  // return the right channel string
+  const char* get_channel_string(int channel) {
+    return channelStr[(channel == 0 && has_control) ? 0 : 1];
+  }
 
   /*
     @param   alignG   An alignment group, representing a single read's all alignments
@@ -160,6 +166,8 @@ private:
 
   int channel_to_calc; // the channel to calculate auxiliary arrays
 
+  bool has_control; // if the experiment has a control
+  
 
   // Params, used for multi-threading
   struct Params {
