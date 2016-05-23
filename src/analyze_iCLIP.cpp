@@ -219,7 +219,7 @@ void parseAlignments(const char* alignF) {
 	ba = ag.getAlignment(0);
 	my_pair.first.cid = ba->getTid();
 	my_pair.first.dir = ba->getDir();
-	my_pair.first.pos = ba->getPos();
+	my_pair.first.pos = ba->getCrosslinkSite();
 	posMap.insert(my_pair).first->second.c += 1;
       }
       else {
@@ -290,7 +290,7 @@ void processMultiReads() {
       	ba = ag.getAlignment(i);
 	my_pair.first.cid = ba->getTid();
 	my_pair.first.dir = ba->getDir();
-	my_pair.first.pos = ba->getPos();
+	my_pair.first.pos = ba->getCrosslinkSite();
 	
 	iters[i] = posMap.insert(my_pair).first;
 
