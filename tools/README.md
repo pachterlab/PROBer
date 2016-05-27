@@ -44,7 +44,7 @@ The first argument is the annotation name you fed into `parseGTF`,
 i.e. `yeast`. The second argument is the PROBer produced site_info
 file, i.e. `yeast_PROBer.site_info`. The third argument is a
 threshold: only crosslink sites with >= threshold total reads (unique
-+ multi) will be considered. This argument should be set according to
+\+ multi) will be considered. This argument should be set according to
 your sequencing depth. The last argument is the output file.
 
 For example, we can type
