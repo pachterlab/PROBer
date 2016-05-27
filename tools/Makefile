@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -I. -O3
 
-PROGRAMS = parseGTF annotateSite showGeneNames
+PROGRAMS = parseGTF annotateSite showGeneNames showSite
 
 .PHONY : all clean
 
@@ -13,6 +13,7 @@ $(PROGRAMS) :
 parseGTF : parseGTF.cpp GTFItem.h genome_structs.h
 annotateSite : annotateSite.cpp genome_structs.h
 showGeneNames : showGeneNames.cpp genome_structs.h
+showSite : showSite.cpp genome_structs.h
 
 clean :
 	rm -f $(PROGRAMS) *~

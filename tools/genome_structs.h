@@ -308,6 +308,29 @@ struct BinValueType {
     fout<< units.size()<< std::endl;
     for (auto&& unit : units) fout<< unit.toString()<< std::endl;
   }
+
+  std::string unitToString(int uid) {
+    std::string res = "";
+    for (auto&& anno : units[uid].annotations) {
+      res += "[" + std::to_string(units[uid].start) + ", " + std::to_string(units[uid].end) + ", ";
+      res += genes[anno.gid].gene_id;
+      if (genes[anno.gid].gene_name != "") res += "(" + genes[anno.gid].gene_name + ")";
+      res += ", " + genes[anno.gid].transcript_ids[anno.tid];
+      if (genes[anno.gid].transcript_names[anno.tid] != "") res += "(" + genes[anno.gid].transcript_names[anno.tid] + ")";
+      res += ", ";
+      switch(anno.type) {
+      case 0: res += "exon"; break;
+      case 1: res += "intron"; break;
+      case 2: res += "CDS"; break;
+      case 3: res += "5' UTR"; break;
+      case 4: res += "3' UTR"; break;
+      default: assert(false);
+      }
+      res += "]\t";
+    }
+
+    return res;
+  }
 };
 
 struct Entry {
@@ -376,7 +399,6 @@ struct Dictionary {
     
     return 2;
   }
-
   
   std::string annotateSite(const std::string& chr, char strand, int pos) {
     switch(loadBin(chr, strand)) {
@@ -409,6 +431,25 @@ struct Dictionary {
 
     return res;
   }
+  
+  std::string showSite(const std::string& chr, char strand, int pos) {
+    switch(loadBin(chr, strand)) {
+    case 0: break;
+    case 1: exist = false; break;
+    case 2: exist = true;
+    }
+    
+    if (!exist) return "Bin does not exist!";
+
+    std::string res = "";
+    for (size_t i = 0; i < myBin.units.size() && myBin.units[i].start <= pos; ++i)
+      if (myBin.units[i].end > pos) res += myBin.unitToString(i); 
+    if (res == "") res = "Intergenic";
+    else res.pop_back();
+
+    return res;
+  }
+
 
   // ShowGeneName provides a string with '\t' in front of each gid
   std::string showGeneName(const std::string& chr, char strand, const std::string& anno) {
@@ -426,6 +467,7 @@ struct Dictionary {
 	gids.insert(anno.gid);
       }
     }
+    
     res = "";
     for (auto&& gid : gids) {
       res += "\t" + myBin.genes[gid].gene_id;
