@@ -14,9 +14,9 @@ import threading
 ####### Make this script compatible with both Python 2 and 3 ########
 
 try:
-    xrange
+	xrange
 except NameError:
-    xrange = range
+	xrange = range
 
 ####################################################################
 
@@ -25,190 +25,190 @@ except NameError:
 ############### Utility classes, functions, and etc. ###############
 
 
-VERSION = "0.1.3"
+VERSION = "0.2.0"
 
 demo = False
 
 class MyFormatter(argparse.ArgumentDefaultsHelpFormatter):
-    def _split_lines(self, text, width):
-        if text.startswith("L:"):
-            return text[2:].splitlines()
-        return argparse.ArgumentDefaultsHelpFormatter._split_lines(self, text, width)
-    
-    def _fill_text(self, text, width, indent):
-        if text.startswith("L:"):
-            return ''.join([indent + line for line in text[2:].splitlines(True)])
-        else:
-            text = self._whitespace_matcher.sub(' ', text).strip()
-            return textwrap.fill(text, width, initial_indent=indent,
-                                           subsequent_indent=indent)
+	def _split_lines(self, text, width):
+		if text.startswith("L:"):
+			return text[2:].splitlines()
+		return argparse.ArgumentDefaultsHelpFormatter._split_lines(self, text, width)
+	
+	def _fill_text(self, text, width, indent):
+		if text.startswith("L:"):
+			return ''.join([indent + line for line in text[2:].splitlines(True)])
+		else:
+			text = self._whitespace_matcher.sub(' ', text).strip()
+			return textwrap.fill(text, width, initial_indent=indent,
+										   subsequent_indent=indent)
 
-    def _format_action(self, action):
-        temp = super(argparse.ArgumentDefaultsHelpFormatter, self)._format_action(action)
-        if action.nargs == argparse.PARSER:
-            temp = "\n".join(temp.split("\n")[1:])
-        return temp
+	def _format_action(self, action):
+		temp = super(argparse.ArgumentDefaultsHelpFormatter, self)._format_action(action)
+		if action.nargs == argparse.PARSER:
+			temp = "\n".join(temp.split("\n")[1:])
+		return temp
 
 class MyParser(argparse.ArgumentParser):
-    def error(self, message):
-        sys.stderr.write("{}: error: {}\n".format(os.path.basename(sys.argv[0]), message))
-        self.print_help()
-        sys.exit(-1)
+	def error(self, message):
+		sys.stderr.write("{}: error: {}\n".format(os.path.basename(sys.argv[0]), message))
+		self.print_help()
+		sys.exit(-1)
 
 class DetectMem(threading.Thread):
-    def __init__(self, sample_name, aligner_name):
-        threading.Thread.__init__(self, daemon = True)
-        self.sample_name = sample_name
-        self.aligner_name = aligner_name
-        self.event = threading.Event()
-        self.os = subprocess.check_output("uname -s".split()).decode()[:-1].capitalize()
-        self.usr = subprocess.check_output("id -un".split()).decode()[:-1]
+	def __init__(self, sample_name, aligner_name):
+		threading.Thread.__init__(self, daemon = True)
+		self.sample_name = sample_name
+		self.aligner_name = aligner_name
+		self.event = threading.Event()
+		self.os = subprocess.check_output("uname -s".split()).decode()[:-1].capitalize()
+		self.usr = subprocess.check_output("id -un".split()).decode()[:-1]
 
-        self.nskip = 0
-        self.cmdpos = self.mempos = -1
-        self.command = ""
+		self.nskip = 0
+		self.cmdpos = self.mempos = -1
+		self.command = ""
 
-        if self.os == "Darwin":
-            # If Mac OS
-            mem_keyword = "RPRVT"
-            self.command = "top -r -l 1 -U {}".format(self.usr).split()
-        else:
-            # Linux/Unix
-            mem_keyword = "RES"
-            self.command = "top -b -n 1 -u {}".format(self.usr).split()
+		if self.os == "Darwin":
+			# If Mac OS
+			mem_keyword = "RPRVT"
+			self.command = "top -r -l 1 -U {}".format(self.usr).split()
+		else:
+			# Linux/Unix
+			mem_keyword = "RES"
+			self.command = "top -b -n 1 -u {}".format(self.usr).split()
 
-        lines = subprocess.check_output(self.command).decode().split("\n")            
-        for i in xrange(len(lines) - 1):
-            if lines[i].find("COMMAND") >= 0:
-                self.nskip = i + 1
-                fields = lines[i].split()
-                for j in xrange(len(fields)):
-                    if fields[j] == "COMMAND":
-                        self.cmdpos = j
-                    elif fields[j] == mem_keyword:
-                        self.mempos = j
-                break
-        
-    def run(self):
-        cmds = [self.aligner_name, "PROBer-parse-alignments", "PROBer-run-em"]
+		lines = subprocess.check_output(self.command).decode().split("\n")            
+		for i in xrange(len(lines) - 1):
+			if lines[i].find("COMMAND") >= 0:
+				self.nskip = i + 1
+				fields = lines[i].split()
+				for j in xrange(len(fields)):
+					if fields[j] == "COMMAND":
+						self.cmdpos = j
+					elif fields[j] == mem_keyword:
+						self.mempos = j
+				break
+		
+	def run(self):
+		cmds = [self.aligner_name, "PROBer-parse-alignments", "PROBer-run-em"]
 
-        max_steps = [-1.0] * 2
-        max_evis = [""] * 2
+		max_steps = [-1.0] * 2
+		max_evis = [""] * 2
 
-        with open("{}.raw.mem".format(self.sample_name), "w") as fout:
-            while not self.event.is_set():
-                lines = subprocess.check_output(self.command).decode().split("\n")
+		with open("{}.raw.mem".format(self.sample_name), "w") as fout:
+			while not self.event.is_set():
+				lines = subprocess.check_output(self.command).decode().split("\n")
 
-                is_active = False
-                steps = [-1.0] * 2
-                evis = [""] * 2
+				is_active = False
+				steps = [-1.0] * 2
+				evis = [""] * 2
 
-                for line in lines[self.nskip : -1]:
-                    fields = line.split()
+				for line in lines[self.nskip : -1]:
+					fields = line.split()
 
-                    step_id = -1
-                    if cmds[0].find(fields[self.cmdpos]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
-                        step_id = 0
-                    elif cmds[2].find(fields[self.cmdpos]) >= 0:
-                        step_id = 1
+					step_id = -1
+					if cmds[0].find(fields[self.cmdpos]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
+						step_id = 0
+					elif cmds[2].find(fields[self.cmdpos]) >= 0:
+						step_id = 1
 
-                    if step_id >= 0:
-                        is_active = True
-                        fout.write(line + "\n")
-                        value = self.convert(fields[self.mempos], self.os)
-                        steps[step_id] = max(steps[step_id], 0.0) + value
-                        evis[step_id] += line + "\n"
+					if step_id >= 0:
+						is_active = True
+						fout.write(line + "\n")
+						value = self.convert(fields[self.mempos], self.os)
+						steps[step_id] = max(steps[step_id], 0.0) + value
+						evis[step_id] += line + "\n"
 
-                if is_active:
-                    fout.write("-------------------\n")
-                    for i in xrange(2):
-                        if max_steps[i] < steps[i]:
-                            max_steps[i] = steps[i]
-                            max_evis[i] = evis[i]
+				if is_active:
+					fout.write("-------------------\n")
+					for i in xrange(2):
+						if max_steps[i] < steps[i]:
+							max_steps[i] = steps[i]
+							max_evis[i] = evis[i]
 
-                self.event.wait(3)
+				self.event.wait(3)
 
-        with open("{}.mem".format(self.sample_name), "w") as fout:
-            fout.write("Alignment and Parsing\t{:.2f} GB\n".format(max_steps[0]))
-            fout.write("EM Algorithm\t{:.2f} GB\n".format(max_steps[1]))
-            fout.write("\nEvidence:\n")
-            fout.write(max_evis[0] + "\n")
-            fout.write(max_evis[1])
+		with open("{}.mem".format(self.sample_name), "w") as fout:
+			fout.write("Alignment and Parsing\t{:.2f} GB\n".format(max_steps[0]))
+			fout.write("EM Algorithm\t{:.2f} GB\n".format(max_steps[1]))
+			fout.write("\nEvidence:\n")
+			fout.write(max_evis[0] + "\n")
+			fout.write(max_evis[1])
 
-    def convert(self, memstr, osstr):
-        value = 0
-        pos = len(memstr) - (2 if osstr == "Darwin" else 1)
-        unit = memstr[pos].lower()
-        if unit == 'g':
-            value = float(memstr[:pos])
-        elif unit == 'm':
-            value = float(memstr[:pos]) / 1024.0
-        elif unit == 'k':
-            value = float(memstr[:pos]) / 1024.0 / 1024.0
-        else:
-            value = float(memstr[:pos + 1]) / 1024.0 / 1024.0 / 1024.0
+	def convert(self, memstr, osstr):
+		value = 0
+		pos = len(memstr) - (2 if osstr == "Darwin" else 1)
+		unit = memstr[pos].lower()
+		if unit == 'g':
+			value = float(memstr[:pos])
+		elif unit == 'm':
+			value = float(memstr[:pos]) / 1024.0
+		elif unit == 'k':
+			value = float(memstr[:pos]) / 1024.0 / 1024.0
+		else:
+			value = float(memstr[:pos + 1]) / 1024.0 / 1024.0 / 1024.0
 
-        return value
+		return value
 
 def nargs_range(list_of_range):
-    """ Require number of arguments between n_min and n_max """
-    class _StoreConstraintAction(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string = None):
-            if not (len(values) in list_of_range):
-                raise argparse.ArgumentTypeError("{} needs {} arguments".format(self.dest, list_of_range))
-            setattr(namespace, self.dest, values)
-    return _StoreConstraintAction
+	""" Require number of arguments between n_min and n_max """
+	class _StoreConstraintAction(argparse.Action):
+		def __call__(self, parser, namespace, values, option_string = None):
+			if not (len(values) in list_of_range):
+				raise argparse.ArgumentTypeError("{} needs {} arguments".format(self.dest, list_of_range))
+			setattr(namespace, self.dest, values)
+	return _StoreConstraintAction
 
 def check_seed(value):
-    """ Check if the seed is an integer """
-    if re.match("^[\d]+$", value) == None:
-        raise argparse.ArgumentTypeError("Seed must be an unsigned integer")
-    return value
+	""" Check if the seed is an integer """
+	if re.match("^[\d]+$", value) == None:
+		raise argparse.ArgumentTypeError("Seed must be an unsigned integer")
+	return value
 
 def expand(input):
-    """ Expand input string to remove ~ and resovle symbolic link"""
-    return os.path.realpath(os.path.expanduser(input))
+	""" Expand input string to remove ~ and resovle symbolic link"""
+	return os.path.realpath(os.path.expanduser(input))
 
 def expandAll(input):
-    """ input is a list separated by comma """
-    inputs = input.split(',')
-    res = []
-    for afile in inputs:
-        res.append(os.path.realpath(os.path.expanduser(afile)))
-    return ",".join(res)
+	""" input is a list separated by comma """
+	inputs = input.split(',')
+	res = []
+	for afile in inputs:
+		res.append(os.path.realpath(os.path.expanduser(afile)))
+	return ",".join(res)
 
 def check_mutually_exclusive(parser, values, options, required = False):
-    """ Check if only one of the options is set """
-    value = sum([1 if x != None else 0 for x in values])
-    if value > 1:
-        parser.error("Input options ({}) are mutually exclusive".format(options))
+	""" Check if only one of the options is set """
+	value = sum([1 if x != None else 0 for x in values])
+	if value > 1:
+		parser.error("Input options ({}) are mutually exclusive".format(options))
 
-    if required and value == 0:
-        parser.error("There must be at least one input option ({}) enabled".format(options))
-         
+	if required and value == 0:
+		parser.error("There must be at least one input option ({}) enabled".format(options))
+		 
 def runProg(command, command2 = None, catch_stderr = None):
-    """ Run command using a subprocess, if command2 != None, use Pipe """
+	""" Run command using a subprocess, if command2 != None, use Pipe """
 
-    commandStr = " ".join(command) + (" 2> {}".format(catch_stderr) if catch_stderr != None else "") + (" | " + " ".join(command2) if command2 != None else "")
-    print(commandStr)
+	commandStr = " ".join(command) + (" 2> {}".format(catch_stderr) if catch_stderr != None else "") + (" | " + " ".join(command2) if command2 != None else "")
+	print(commandStr)
 
-    if demo:     
-        return None
-    
-    try:
-        if command2 == None:
-            subprocess.check_call(command)
-        else:
-            fd = open(catch_stderr, "w") if catch_stderr != None else None
-            p1 = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = fd)
-            subprocess.check_call(command2, stdin = p1.stdout)
-            p1.stdout.close()
-            if fd != None:
-                fd.close()
+	if demo:     
+		return None
+	
+	try:
+		if command2 == None:
+			subprocess.check_call(command)
+		else:
+			fd = open(catch_stderr, "w") if catch_stderr != None else None
+			p1 = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = fd)
+			subprocess.check_call(command2, stdin = p1.stdout)
+			p1.stdout.close()
+			if fd != None:
+				fd.close()
 
-    except subprocess.CalledProcessError as error:
-        print("Command \"{}\" failed!".format(commandStr))
-        sys.exit(-1)
+	except subprocess.CalledProcessError as error:
+		print("Command \"{}\" failed!".format(commandStr))
+		sys.exit(-1)
 
 
 ####################################################################
@@ -228,10 +228,10 @@ subparsers.required = True
 
 
 parser_prepare = subparsers.add_parser("prepare", help = "This command is used to prepare PROBer references.", formatter_class = MyFormatter,
-                                        description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices. "
-                                                      "For iCLIP data, users can use this program to build Bowtie/Bowtie2 indices for their genomes",
-                                        epilog = "OUTPUT:\n"
-                                                 "  PROBer reference files prefixed by 'reference_name'.")
+										description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices. "
+													  "For iCLIP data, users can use this program to build Bowtie/Bowtie2 indices for their genomes",
+										epilog = "OUTPUT:\n"
+												 "  PROBer reference files prefixed by 'reference_name'.")
 
 parser_prepare.add_argument("ref_fastas", help = "Either a comma-separated list of Multi-FASTA formatted files OR a directory name. If a directory name is specified, This program will read all files with suffix \".fa\" or \".fasta\" in this directory. The files should contain either the sequences of transcripts or an entire genome, depending on whether the --gtf or --gff3  option is used.", metavar = "reference_fasta_file(s)")
 parser_prepare.add_argument("ref_name", help = "The name of the reference used. This program will generate several reference-related files that are prefixed by this name. This name can contain path information (e.g. /ref/mm9).", type = expand, metavar = "reference_name")
@@ -261,63 +261,63 @@ parser_prepare.add_argument("-q", "--quiet", help = "Suppress the output of logg
 
 
 parser_estimate = subparsers.add_parser("estimate", help = "This command is used to estimate RNA structure parameters from probing data.", formatter_class = MyFormatter,
-                                        usage = "PROBer estimate [options] reference_name sample_name (--alignments input_plus.(sam|bam|cram) [input_minus.(sam|bam|cram)] | "
-                                                "--reads plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)] [minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)]])",
-                                        description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters. "
-                                                      "By default, it requires data from both control and treatment groups. But it works with only treatment data as well.",
-                                        epilog = "L:OUTPUTS:\n"
-                                                 "  sample_name.expr\n"
-                                                 "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
-                                                 "    \n"
-                                                 "    transcript_id length effective_length expected_count_minus expected_count_plus TPM FPKM\n"
-                                                 "    \n"
-                                                 "    transcript_id gives the transcript's name. length is the transcript length. "
-                                                      "effective_length represents the number of positions that can generate a fragment. "
-                                                      "It is equal to length - primer_length + 1. "
-                                                      "expected_count_minus is the sum of posterior probabilities of reads coming from this transcript in the (-) channel. "
-                                                      "expected_count_plus is the counts from (+) channel. TPM is transcript per million. FPKM is fragment per kilobase per millon reads.\n\n"
-                                                 "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
-                                                 "  sample_name.beta\n"  
-                                                 "    Estimated beta parameters for each transcript. The first line contains the total number of transcripts. "
-                                                      "Then each line describes estimated parameters for a different transcript. "
-                                                      "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
-                                                      "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
-                                                 "  sample_name.gamma\n"
-                                                 "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
-                                                      "Then each line describes estimated parameters for a different transcript. "
-                                                      "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
-                                                      "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"
-                                                 "  sample_name_plus.bam\n"
-                                                 "    Only generated when '--output-bam' option is set.\n\n"
-                                                 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
-                                                      "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), "
-                                                      "where w is the posterior probability of that alignment being the true mapping of a read. "
-                                                      "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
-                                                      "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
-                                                      "Please note that 'ZW' and 'ZF' tags are reserved for PROBer "
-                                                      "and users need to make sure the aligner output or input BAM/SAM file does not contain these two tags "
-                                                      "unless the input BAM file is produced by PROBer and alignment/filtering criteria are not changed. "
-                                                      "Because this file contains all alignment lines produced by the aligner, "
-                                                      "it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
-                                                 "  sample_name_minus.bam\n"
-                                                 "    Only generated when '--output-bam' option is set.\n\n"
-                                                 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
-                                                      "The annotation format is exactly the same as the one used in 'sample_name_plus.bam'.\n\n"
-                                                 "  sample_name.logMAP\n"
-                                                 "    Only generated when '--output-logMAP' option is set.\n\n"
-                                                 "    This file contains the log MAP probability of the observed data given current parameter settings, "
-                                                      "which can be used to select appropriate priors.\n\n"
-                                                 "  sample_name.stat\n"
-                                                 "    This folder contains learned model parameters from data. "
-                                                      "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
-                                                      "'sample_name_minus.read_model' contains the estimated sequencing error model from '-' channel. "
-                                                      "'sample_name_plus.theta' contains the estimated read generating probabilities from '+' channel. "
-                                                      "'sample_name_plus.read_model' contains the estimated sequencing error model from '+' channel. "
-                                                      "The files contained in this folder can be used for simulation.\n\n"
-                                                 "  sample_name.temp\n"
-                                                 "    This is a temporary folder contains intermediate files. "
-                                                      "It will be deleted automatically after the program finishes unless '--keep-intermediate-files' option is on.\n\n")
-                  
+										usage = "PROBer estimate [options] reference_name sample_name (--alignments input_plus.(sam|bam|cram) [input_minus.(sam|bam|cram)] | "
+												"--reads plus_channel_mate1_read_file(s) [plus_channel_mate2_read_file(s)] [minus_channel_mate1_read_file(s) [minus_channel_mate2_read_file(s)]])",
+										description = "DESCRIPTION: This program helps users to align reads and estimate RNA structure parameters. "
+													  "By default, it requires data from both control and treatment groups. But it works with only treatment data as well.",
+										epilog = "L:OUTPUTS:\n"
+												 "  sample_name.expr\n"
+												 "    Isoform level expression estimates. The first line contains column names separated by a tab character:\n"
+												 "    \n"
+												 "    transcript_id length effective_length expected_count_minus expected_count_plus TPM FPKM\n"
+												 "    \n"
+												 "    transcript_id gives the transcript's name. length is the transcript length. "
+													  "effective_length represents the number of positions that can generate a fragment. "
+													  "It is equal to length - primer_length + 1. "
+													  "expected_count_minus is the sum of posterior probabilities of reads coming from this transcript in the (-) channel. "
+													  "expected_count_plus is the counts from (+) channel. TPM is transcript per million. FPKM is fragment per kilobase per millon reads.\n\n"
+												 "    In the rest lines of the file, each line describes a transcript according to the defined columns.\n\n"
+												 "  sample_name.beta\n"  
+												 "    Estimated beta parameters for each transcript. The first line contains the total number of transcripts. "
+													  "Then each line describes estimated parameters for a different transcript. "
+													  "Within each line, the first field gives the transcript name, the second field provides the number of estimated beta parameters, "
+													  "which is equal to transcript length - primer length. In the end, estimated beta values at each position were given (from 5' end to 3' end).\n\n"
+												 "  sample_name.gamma\n"
+												 "    Estimated gamma parameters for each transcript. The first line contains the total number of transcripts. "
+													  "Then each line describes estimated parameters for a different transcript. "
+													  "Within each line, the first field gives the transcript name, the second field provides the number of estimated gamma parameters, "
+													  "which is equal to transcript length - primer length. In the end, estimated gamma values at each position were given (from 5' end to 3' end).\n\n"
+												 "  sample_name_plus.bam\n"
+												 "    Only generated when '--output-bam' option is set.\n\n"
+												 "    It is a BAM-formatted file that contains annotated '+' channel read alignments in transcript coordinates. "
+													  "For each alignable BAM line, The MAPQ field is set to min(100, floor(-10 * log10(1.0 - w) + 0.5)), "
+													  "where w is the posterior probability of that alignment being the true mapping of a read. "
+													  "In addition, a new tag ZW:f:value is added, where the value is a single precision floating number representing the posterior probability. "
+													  "All filtered alignment lines has a ZF:A:! tag to identify that it is filtered. "
+													  "Please note that 'ZW' and 'ZF' tags are reserved for PROBer "
+													  "and users need to make sure the aligner output or input BAM/SAM file does not contain these two tags "
+													  "unless the input BAM file is produced by PROBer and alignment/filtering criteria are not changed. "
+													  "Because this file contains all alignment lines produced by the aligner, "
+													  "it can also be used as a replacement of the aligner generated BAM/SAM file.\n\n"
+												 "  sample_name_minus.bam\n"
+												 "    Only generated when '--output-bam' option is set.\n\n"
+												 "    It is a BAM-formatted file that contains annotated '-' channel read alignments in transcript coordinates. "
+													  "The annotation format is exactly the same as the one used in 'sample_name_plus.bam'.\n\n"
+												 "  sample_name.logMAP\n"
+												 "    Only generated when '--output-logMAP' option is set.\n\n"
+												 "    This file contains the log MAP probability of the observed data given current parameter settings, "
+													  "which can be used to select appropriate priors.\n\n"
+												 "  sample_name.stat\n"
+												 "    This folder contains learned model parameters from data. "
+													  "In the folder, 'sample_name_minus.theta' contains the estimated read generating probabilities from '-' channel. "
+													  "'sample_name_minus.read_model' contains the estimated sequencing error model from '-' channel. "
+													  "'sample_name_plus.theta' contains the estimated read generating probabilities from '+' channel. "
+													  "'sample_name_plus.read_model' contains the estimated sequencing error model from '+' channel. "
+													  "The files contained in this folder can be used for simulation.\n\n"
+												 "  sample_name.temp\n"
+												 "    This is a temporary folder contains intermediate files. "
+													  "It will be deleted automatically after the program finishes unless '--keep-intermediate-files' option is on.\n\n")
+				  
 parser_estimate.add_argument("ref_name", help = "The name of the reference used. Users should have run 'PROBer prepare' with this name before running this program.", type = expand, metavar = "reference_name")
 parser_estimate.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
@@ -325,13 +325,13 @@ parser_estimate.add_argument("sample_name", help = "The output name of this run.
 group = parser_estimate.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 
 group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM formats. If only one alignment file is provided, PROBer assumes control data are not available.",
-                   nargs = '+', action = nargs_range([1,2]), type = expandAll, metavar = "input_plus.(sam/bam/cram) [input_minus.(sam/bam/cram)]")
+				   nargs = '+', action = nargs_range([1,2]), type = expandAll, metavar = "input_plus.(sam/bam/cram) [input_minus.(sam/bam/cram)]")
 group.add_argument("--reads", help = "L:Input are read files.\n"
-                   "plus_channel_mate1_read_file(s) and minus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
-                   "plus_mate2_read_file(s) and minus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
-                   "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.\n"
-                   "Minus channel reads may be omitted if no control data are available.\n",
-                   nargs = '+', action = nargs_range([1, 2, 4]), type = expandAll, metavar = "mate_read_file(s)")
+				   "plus_channel_mate1_read_file(s) and minus_channel_mate1_read_file(s) are comma-separated lists of files containing single-end reads or first mates of paired-end reads\n"
+				   "plus_mate2_read_file(s) and minus_mate2_read_file(s), present only if '--paired-end' is enabled, are comma-separated lists of files containing second mates of paired-end reads\n"
+				   "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.\n"
+				   "Minus channel reads may be omitted if no control data are available.\n",
+				   nargs = '+', action = nargs_range([1, 2, 4]), type = expandAll, metavar = "mate_read_file(s)")
 
 
 group = parser_estimate.add_argument_group(title = "Basic options")
@@ -355,16 +355,20 @@ group.add_argument("--maximum-likelihood", help = "Use maximum likelihood estima
 
 
 group = parser_estimate.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 200 alignments will be filtered by this script.")
-group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -v 3 -a -m 200 -S\"."
-                   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
+group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"--norc -p number_of_threads -a -m 200 -S\"."
+				   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000 --chunkmbs 1024\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"--norc -p number_of_threads -k 201\"."
-                   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
+				   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 
 parser_estimate.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
 parser_estimate.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
+
+
+### Hidden options used for PROBer paper analysis snakemake workflow
+parser_estimate.add_argument("--for-paper", help = argparse.SUPPRESS, action = "store_true") # add -v 3 to bowtie
 
 
 #################################################
@@ -374,20 +378,20 @@ parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of log
 
 
 parser_simulate = subparsers.add_parser("simulate", help = "This command is used to simulate reads.", formatter_class = MyFormatter,
-                                        description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
-                                        epilog = "OUTPUT:\n"
-                                        "  If single-end reads are simulated, this program produces 'output_name_(minus|plus).(fa|fq)'. "
-                                           "If paired-end reads are simulated, this program produces 'output_name_(minus|plus)_1.(fa|fq)' and 'output_name_(minus|plus)_2.(fa|fq).")
+										description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
+										epilog = "OUTPUT:\n"
+										"  If single-end reads are simulated, this program produces 'output_name_(minus|plus).(fa|fq)'. "
+										   "If paired-end reads are simulated, this program produces 'output_name_(minus|plus)_1.(fa|fq)' and 'output_name_(minus|plus)_2.(fa|fq).")
 
 parser_simulate.add_argument("ref_name", help = "The reference's name, should be same as the one used in programs 'prepare' and 'estimate'.", type = expand, metavar = "reference_name")
 parser_simulate.add_argument("config_file", help = "A configuration file containting primer length, size selection min and max fragment size etc. "
-                                                   "'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.",
-                             type = expand, metavar = "config_file")
+												   "'sample_name.temp/sample_name_minus.config' and 'sample_name.temp/sample_name_plus.config' can be used here.",
+							 type = expand, metavar = "config_file")
 parser_simulate.add_argument("sample_name", help = "This should be the 'sample_name' used in 'PROBer-estimate-parameters'. No slash should be in the end of this string.",
-                             type = expand, metavar = "sample_name")
+							 type = expand, metavar = "sample_name")
 
 parser_simulate.add_argument("channel", help = "Which channel to simulate. 'minus' stands for the mock-treated channel and 'plus' stands for the modification-treated channel.",
-                             choices = ['plus', 'minus'], metavar = "channel")
+							 choices = ['plus', 'minus'], metavar = "channel")
 parser_simulate.add_argument("nreads", help = "Number of reads to simulate.", type = int, metavar = "number_of_reads")
 parser_simulate.add_argument("output_name", help = "Output files' prefix", type = expand, metavar = "output_name")
 
@@ -401,37 +405,37 @@ parser_simulate.add_argument("--no-control", help = "Indicate if the data used t
 
 
 parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to allocate multi-mapping reads for iCLIP data.", formatter_class = MyFormatter,
-                                     usage = "PROBer iCLIP [options] sample_name {--alignments input_alignments.[sam/bam/cram] | --reads mate1_read_file(s) [mate2_read_file(s)]}",
-                                     description = "This program allocates multi-mapping reads for iCLIP data.",
-                                     epilog = "L:OUTPUT:\n"
-                                              "  sample_name.site_info\n"
-                                              "    This file contains the expected read counts at each unique crosslink site. Each line describes one site and has the following format:\n"
-                                              "    \n"
-                                              "    chr ori pos    n_unique    n_multi\n"
-                                              "    \n"
-                                              "    chr is the chromosome name, ori is the orientation (+/-) and pos gives the 0-based genomic coordinate in the '+' strand of chromosome chr. "
-                                                   "chr, ori, and pos together define the genomic location of the crosslink site and they are separated by single spaces. "
-                                                   "Then separated by single tabs, n_unique gives the number of uniquely mapped reads, "
-                                                   "and n_multi provides the expected number of multi-mapping reads at this site.\n\n"
-                                              "  sample_name.alignments.bam\n"
-                                              "    Only generated when '--keep-alignments' option is set.\n\n"
-                                              "    This file stores the aligner-produced alignments in BAM format.\n\n"
-                                              "  sample_name.stat\n"
-                                              "    This folder contains learned model parameters from data. "
-                                                   "In the folder, 'sample_name.model' contains the estimated sequencing model parameters.\n\n"
-                                              "  sample_name.temp\n"
-                                              "    This is a temporary folder contains intermediate files. "
-                                                   "It will be deleted automatically after the program finishes unless '--keep-intermediate-files' option is on.\n\n")
+									 usage = "PROBer iCLIP [options] sample_name {--alignments input_alignments.[sam/bam/cram] | --reads mate1_read_file(s) [mate2_read_file(s)]}",
+									 description = "This program allocates multi-mapping reads for iCLIP data.",
+									 epilog = "L:OUTPUT:\n"
+											  "  sample_name.site_info\n"
+											  "    This file contains the expected read counts at each unique crosslink site. Each line describes one site and has the following format:\n"
+											  "    \n"
+											  "    chr ori pos    n_unique    n_multi\n"
+											  "    \n"
+											  "    chr is the chromosome name, ori is the orientation (+/-) and pos gives the 0-based genomic coordinate in the '+' strand of chromosome chr. "
+												   "chr, ori, and pos together define the genomic location of the crosslink site and they are separated by single spaces. "
+												   "Then separated by single tabs, n_unique gives the number of uniquely mapped reads, "
+												   "and n_multi provides the expected number of multi-mapping reads at this site.\n\n"
+											  "  sample_name.alignments.bam\n"
+											  "    Only generated when '--keep-alignments' option is set.\n\n"
+											  "    This file stores the aligner-produced alignments in BAM format.\n\n"
+											  "  sample_name.stat\n"
+											  "    This folder contains learned model parameters from data. "
+												   "In the folder, 'sample_name.model' contains the estimated sequencing model parameters.\n\n"
+											  "  sample_name.temp\n"
+											  "    This is a temporary folder contains intermediate files. "
+												   "It will be deleted automatically after the program finishes unless '--keep-intermediate-files' option is on.\n\n")
 
-                                                                                                                                                                                                         
+																																																		 
 parser_iCLIP.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
 group = parser_iCLIP.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
 group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM format.", type = expand, metavar = "alignment_file.[sam/bam/cram]")
 group.add_argument("--reads", help = "Input are comma-separated lists of files containing single-end or paired-end reads. If input are single-end reads, only one list is required. "
-                                     "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists --- one for the first mates and the other for the second mates. "
-                                     "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
-                   nargs = '+', action = nargs_range([1, 2]), type = expandAll, metavar = "mate_read_file(s)")
+									 "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists --- one for the first mates and the other for the second mates. "
+									 "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
+				   nargs = '+', action = nargs_range([1, 2]), type = expandAll, metavar = "mate_read_file(s)")
 
 group = parser_iCLIP.add_argument_group(title = "Basic options")
 group.add_argument("--no-quality-scores", help = "Input reads do not contain quality scores.", action = "store_true", dest = "no_qual")
@@ -441,20 +445,20 @@ group.add_argument("--keep-intermediate-files", help = "If PROBer should keep in
 
 group = parser_iCLIP.add_argument_group(title = "iCLIP options")
 group.add_argument("--half-window-size", help = "PROBer will borrow information from adjacent crosslink sites within plus/minus half window size to help allocating multi-mapping reads.",
-                   type = int, default = 25, dest = "w", metavar = "<int>")
+				   type = int, default = 25, dest = "w", metavar = "<int>")
 group.add_argument("--rounds", help = "Number of EMS iterations to run.", type = int, default = 100, metavar = "<int>")
 group.add_argument("--maximum-read-length", help = "The maximum possible read length. You may set this option only if '--no-qualities' is set.",
-                   type = int, default = 1000, dest = "max_len", metavar = "<int>")
+				   type = int, default = 1000, dest = "max_len", metavar = "<int>")
 
 group.add_argument("--naive", help = argparse.SUPPRESS, action = "store_true")
 
 
 group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 100 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"-p number_of_threads -a -m 100 -S --chunkmbs 1024\"."
-                   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000\".", action = "store_true", default = True)
+				   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000\".", action = "store_true", default = True)
 group.add_argument("--bowtie-path", help = "The path to Bowtie executables.", type = expand, metavar = "<path>")
 group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, indel alignments enabled, with Bowtie2 parameters \"-p number_of_threads -k 101\"."
-                   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
+				   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 group.add_argument("--index-name", help = "The base name for Bowtie/Bowtie2 indices", type = expand, metavar = "<name>")
 group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of aligner-produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
@@ -493,130 +497,130 @@ os.environ["PYTHONPATH"] = mydir + os.pathsep + os.getenv("PYTHONPATH", ".")
 
 
 def gff3_to_gtf(input_gff, output_gtf, RNA_patterns):
-    """ Convert GFF3 file to GTF file"""
-    exons = []
-    trans2gene = dict()
+	""" Convert GFF3 file to GTF file"""
+	exons = []
+	trans2gene = dict()
 
-    rgx = re.compile("[\t ]+")
-    rgx2 = re.compile("^(" + "|".join(RNA_patterns.split(",")) + ")$")
+	rgx = re.compile("[\t ]+")
+	rgx2 = re.compile("^(" + "|".join(RNA_patterns.split(",")) + ")$")
 
-    fin = open(input_gff, "r")
-    for line in fin:
-        if line.find("##FASTA") >= 0:
-            break
-        if line.find("#") >= 0:
-            continue
+	fin = open(input_gff, "r")
+	for line in fin:
+		if line.find("##FASTA") >= 0:
+			break
+		if line.find("#") >= 0:
+			continue
 
-        arr = rgx.split(line)
-    
-        if arr[2] == "exon":
-            exons.append(line.strip())
-        elif rgx2.search(arr[2]) != None:
-            tid = None
-            gid = None
-            for attribute in arr[8].split(';'):
-                if tid == None and attribute.startswith("ID="):
-                    tid = attribute[3:].strip()
-                if gid == None and attribute.startswith("Parent="):
-                    gid = attribute[7:].strip()
-                if tid != None and gid != None:
-                    break
-            if tid != None and gid != None:
-                trans2gene[tid] = gid
-    fin.close()
+		arr = rgx.split(line)
+	
+		if arr[2] == "exon":
+			exons.append(line.strip())
+		elif rgx2.search(arr[2]) != None:
+			tid = None
+			gid = None
+			for attribute in arr[8].split(';'):
+				if tid == None and attribute.startswith("ID="):
+					tid = attribute[3:].strip()
+				if gid == None and attribute.startswith("Parent="):
+					gid = attribute[7:].strip()
+				if tid != None and gid != None:
+					break
+			if tid != None and gid != None:
+				trans2gene[tid] = gid
+	fin.close()
 
-    fout = open(output_gtf, "w")
-    for line in exons:
-        (fields, sep, attributes) = line.rpartition('\t')
-        pos = attributes.find("Parent=")
-        if pos < 0:
-            print("Line \"" + line + "\" does not contain a Parent attribute! Failed to convert GFF3 file!")
-            exit(-1)
-        pos += 7
-        rpos = attributes.find(';', pos)
-        if rpos < 0:
-            rpos = len(attributes)
-    
-        tids = attributes[pos:rpos].split(',')
-        for tid in tids:
-            tid = tid.strip()
-            gid = trans2gene.get(tid, None)
-            if gid != None:
-                fout.write("{}\tgene_id \"{}\"; transcript_id \"{}\";\n".format(fields, gid, tid))
-    fout.close()
+	fout = open(output_gtf, "w")
+	for line in exons:
+		(fields, sep, attributes) = line.rpartition('\t')
+		pos = attributes.find("Parent=")
+		if pos < 0:
+			print("Line \"" + line + "\" does not contain a Parent attribute! Failed to convert GFF3 file!")
+			exit(-1)
+		pos += 7
+		rpos = attributes.find(';', pos)
+		if rpos < 0:
+			rpos = len(attributes)
+	
+		tids = attributes[pos:rpos].split(',')
+		for tid in tids:
+			tid = tid.strip()
+			gid = trans2gene.get(tid, None)
+			if gid != None:
+				fout.write("{}\tgene_id \"{}\"; transcript_id \"{}\";\n".format(fields, gid, tid))
+	fout.close()
 
 
 
 if args.command == "prepare":
-    dir_ = os.path.dirname(args.ref_name)
-    if not os.path.exists(dir_):
-        os.makedirs(dir_)
+	dir_ = os.path.dirname(args.ref_name)
+	if not os.path.exists(dir_):
+		os.makedirs(dir_)
 
-    # Obtain all reference files
-    tmp_list = args.ref_fastas.split(',')
-    fasta_files = []
-    for afile in tmp_list:
-        afile = expand(afile)
-        if os.path.isfile(afile):
-            fasta_files.append(afile)
-        elif os.path.isdir(afile):
-            fasta_files.extend(glob.glob("{}/*.fa".format(afile)))
-            fasta_files.extend(glob.glob("{}/*.fasta".format(afile)))
-        else:
-            print("{} does not exist!".format(afile))
-            sys.exit(-1)
-    if len(fasta_files) <= 0:
-        print("reference_fasta_file(s) is empty! Please check if the directory name is correct or sequence files are sufficed with either '.fa' or '.fasta'.")
-        sys.exit(-1)
+	# Obtain all reference files
+	tmp_list = args.ref_fastas.split(',')
+	fasta_files = []
+	for afile in tmp_list:
+		afile = expand(afile)
+		if os.path.isfile(afile):
+			fasta_files.append(afile)
+		elif os.path.isdir(afile):
+			fasta_files.extend(glob.glob("{}/*.fa".format(afile)))
+			fasta_files.extend(glob.glob("{}/*.fasta".format(afile)))
+		else:
+			print("{} does not exist!".format(afile))
+			sys.exit(-1)
+	if len(fasta_files) <= 0:
+		print("reference_fasta_file(s) is empty! Please check if the directory name is correct or sequence files are sufficed with either '.fa' or '.fasta'.")
+		sys.exit(-1)
 
-    reference_in = ""
-        
-    if not args.genome:
-        # Prepare GTF file
-        gtf_file = None
-        if args.gff3 != None:
-            gtf_file = args.ref_name + os.extsep + "gtf"
-            gff3_to_gtf(args.gff3, gtf_file, args.gff3_RNA_pattern)
-        elif args.gtf != None:
-            gtf_file = args.gtf
+	reference_in = ""
+		
+	if not args.genome:
+		# Prepare GTF file
+		gtf_file = None
+		if args.gff3 != None:
+			gtf_file = args.ref_name + os.extsep + "gtf"
+			gff3_to_gtf(args.gff3, gtf_file, args.gff3_RNA_pattern)
+		elif args.gtf != None:
+			gtf_file = args.gtf
 
-        # Build reference        
-        command = ["PROBer-build-reference", args.ref_name]
-        if gtf_file != None:
-            command.extend(["--gtf", gtf_file])
-        if args.tran2gene != None:
-            command.extend(["--mapping", args.tran2gene])
-        # --n2g-index might need to be set if we allow N -> G for building Bowtie indices
-        if args.quiet:
-            command.append("-q")
-        command.extend(["--files", str(len(fasta_files))])
-        command.extend(fasta_files)
-        runProg(command)
+		# Build reference        
+		command = ["PROBer-build-reference", args.ref_name]
+		if gtf_file != None:
+			command.extend(["--gtf", gtf_file])
+		if args.tran2gene != None:
+			command.extend(["--mapping", args.tran2gene])
+		# --n2g-index might need to be set if we allow N -> G for building Bowtie indices
+		if args.quiet:
+			command.append("-q")
+		command.extend(["--files", str(len(fasta_files))])
+		command.extend(fasta_files)
+		runProg(command)
 
-        # reference_in = "{}.n2g.idx.fa".format(args.ref_name)
-        reference_in = "{}.transcripts.fa".format(args.ref_name)
-    else:
-        reference_in = ",".join(fasta_files)
+		# reference_in = "{}.n2g.idx.fa".format(args.ref_name)
+		reference_in = "{}.transcripts.fa".format(args.ref_name)
+	else:
+		reference_in = ",".join(fasta_files)
 
-    # Build aligner indices
-    if args.bowtie:
-        command = []
-        command.extend(["{}bowtie-build".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-f"])
-        if args.quiet:
-            command.append("-q")
-       # command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
-        command.extend([reference_in, args.ref_name]) # Do not convert N to G for bowtie indices, comment this line out for future releases
-        runProg(command)
+	# Build aligner indices
+	if args.bowtie:
+		command = []
+		command.extend(["{}bowtie-build".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-f"])
+		if args.quiet:
+			command.append("-q")
+	   # command.extend(["{}.n2g.idx.fa".format(args.ref_name), args.ref_name])
+		command.extend([reference_in, args.ref_name]) # Do not convert N to G for bowtie indices, may consider comment this line out for future releases
+		runProg(command)
 
-    if args.bowtie2:
-        command = []
-        command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
-        if args.quiet:
-            command.append("-q")
-        command.extend([reference_in, args.ref_name])
-        runProg(command)
+	if args.bowtie2:
+		command = []
+		command.extend(["{}bowtie2-build".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-f"])
+		if args.quiet:
+			command.append("-q")
+		command.extend([reference_in, args.ref_name])
+		runProg(command)
 
-    sys.exit(0)
+	sys.exit(0)
 
 
 
@@ -629,168 +633,172 @@ if args.command == "prepare":
 
 
 if args.command == "estimate":
-    check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
+	check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
  
-    dir_ = os.path.dirname(args.sample_name)
-    if dir_ != "":
-        dir_ += os.sep
-    base_ = os.path.basename(args.sample_name)
-    temp_dir = dir_ + base_ + ".temp" 
-    imdName = temp_dir + os.sep + base_
-    stat_dir = dir_ + base_ + ".stat"
-    statName = stat_dir + os.sep + base_
+	dir_ = os.path.dirname(args.sample_name)
+	if dir_ != "":
+		dir_ += os.sep
+	base_ = os.path.basename(args.sample_name)
+	temp_dir = dir_ + base_ + ".temp" 
+	imdName = temp_dir + os.sep + base_
+	stat_dir = dir_ + base_ + ".stat"
+	statName = stat_dir + os.sep + base_
 
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
+	if not os.path.exists(temp_dir):
+		os.makedirs(temp_dir)
 
-    if not os.path.exists(stat_dir):
-        os.makedirs(stat_dir)
+	if not os.path.exists(stat_dir):
+		os.makedirs(stat_dir)
 
-    model_type = None
-    if args.paired_end:
-        if args.no_qual:
-            model_type = 2
-        else:
-            model_type = 3
-    else:
-        if args.no_qual:
-            model_type = 0
-        else:
-            model_type = 1
-
-
-
-
-
-    args.has_control = True
-    if args.alignments != None:
-        args.has_control = len(args.alignments) == 2
-    else:
-        if args.paired_end:
-            if len(args.reads) == 1:
-                parser.error("You need to provide at least 2 files for paired-end data!")
-            args.has_control = len(args.reads) == 4
-        else:
-            if len(args.reads) == 4:
-                parser.error("You cannot provide 4 files for single-end data!")
-            args.has_control = len(args.reads) == 2
+	model_type = None
+	if args.paired_end:
+		if args.no_qual:
+			model_type = 2
+		else:
+			model_type = 3
+	else:
+		if args.no_qual:
+			model_type = 0
+		else:
+			model_type = 1
 
 
 
 
-            
-    t1 = t2 = t3 = 0.00
 
-    if args.time:
-        t1 = time.time()
+	args.has_control = True
+	if args.alignments != None:
+		args.has_control = len(args.alignments) == 2
+	else:
+		if args.paired_end:
+			if len(args.reads) == 1:
+				parser.error("You need to provide at least 2 files for paired-end data!")
+			args.has_control = len(args.reads) == 4
+		else:
+			if len(args.reads) == 4:
+				parser.error("You cannot provide 4 files for single-end data!")
+			args.has_control = len(args.reads) == 2
 
-    detectMem = None
-    if args.memory:
-        detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
-        detectMem.start()
 
-    # Parse alignments
-    command = []
-    posChannel = 4
 
-    if args.alignments != None:
-        command.extend(["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), args.alignments[0]])
-        pos = len(command) - 1
-        command.extend(["-m", "200"])
-        if args.read_length != None and args.size_selection_min < args.read_length:
-            command.extend(["--shorter-than", str(args.size_selection_min)])        
-        if args.quiet:
-            command.append("-q")
 
-        runProg(command)  # Run PROBer-parse-alignments on (-) channel
+			
+	t1 = t2 = t3 = 0.00
 
-        if args.has_control:
-            command[posChannel] = "minus"
-            command[pos] = args.alignments[1]
-            runProg(command)  # Run PROBer-parse-alignments on (+) channel
-     
-    else:
-        if args.bowtie2:
-            args.bowtie = False
+	if args.time:
+		t1 = time.time()
 
-        if args.bowtie:
-            command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "--norc", "-p", str(args.num_threads)])
-            #command.extend("-n 2 -e 99999999 -l 25 -a -m 200 -S".split())
-            command.extend("-v 3 -a -m 200 -S".split())  # For future release, need to comment this line out
+	detectMem = None
+	if args.memory:
+		detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
+		detectMem.start()
 
-            if not args.paired_end:
-                command.extend([args.ref_name, args.reads[0]])
-            else:
-                command.extend("-I 1 -X 1000 --chunkmbs 1024".split())
-                command.extend([args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
-        elif args.bowtie2:
-            command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "--norc", "-p", str(args.num_threads), "-k", "201"])
-            if not args.paired_end:
-                command.extend(["-x", args.ref_name, "-U", args.reads[0]])
-            else:
-                command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
-                command.extend(["-x", args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
-        else:
-            assert False
+	# Parse alignments
+	command = []
+	posChannel = 4
 
-        command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), "-", "-m", "200"]
-        if args.read_length != None and args.size_selection_min < args.read_length:
-            command2.extend(["--shorter-than", str(args.size_selection_min)])
-        if args.quiet:
-            command2.append("-q")
-        runProg(command, command2, "{}_plus.err".format(statName))  # Run aligner and then parse for (+) channel data
+	if args.alignments != None:
+		command.extend(["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), args.alignments[0]])
+		pos = len(command) - 1
+		command.extend(["-m", "200"])
+		if args.read_length != None and args.size_selection_min < args.read_length:
+			command.extend(["--shorter-than", str(args.size_selection_min)])        
+		if args.quiet:
+			command.append("-q")
 
-        if args.has_control:
-            pos = len(command) - 1
-            if not args.paired_end:
-                command[pos] = args.reads[1]
-            else:
-                command[pos - 2] = args.reads[2]
-                command[pos] = args.reads[3]
-            command2[posChannel] = "minus"
-            
-            runProg(command, command2, "{}_minus.err".format(statName))  # Run aligner and then parse for (-) channel data
+		runProg(command)  # Run PROBer-parse-alignments on (-) channel
 
-    if args.time:
-        t2 = time.time()
+		if args.has_control:
+			command[posChannel] = "minus"
+			command[pos] = args.alignments[1]
+			runProg(command)  # Run PROBer-parse-alignments on (+) channel
+	 
+	else:
+		if args.bowtie2:
+			args.bowtie = False
 
-    # Generate config file
-    fh = open("{}.config".format(imdName), 'w')
-    fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_selection_min, args.size_selection_max, args.gamma_init, args.beta_init))
-    fh.close()
+		if args.bowtie:
+			command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "--norc", "-p", str(args.num_threads)])
 
-    # Run EM    
-    command = ["PROBer-run-em", args.ref_name, str(model_type), args.sample_name, imdName, statName, str(args.num_threads)]
-    if args.read_length != None:
-        command.extend(["--read-length", str(args.read_length)])
-    if args.ml_est:
-        command.append("--maximum-likelihood")
-    if args.output_bam:
-        command.append("--output-bam")
-    if args.output_logMAP:
-        command.append("--output-logMAP")
-    if not args.has_control:
-        command.append("--no-control")
-    if args.quiet:
-        command.append("-q")
-    runProg(command)
+			if args.for_paper:
+				# for running structure-seq real data with Ding et. al.'s bowtie parameters
+				command.extend(['-v', '3'])
 
-    if args.time:
-        t3 = time.time()
-        fo = open("{}.time".format(args.sample_name), "w")
-        fo.write("Alignment/Parsing\t{:.0f}s\n".format(t2 - t1))
-        fo.write("EM\t{:.0f}s\n".format(t3 - t2))
-        fo.close()
+			command.extend("-a -m 200 -S".split())
 
-    if args.memory:
-        detectMem.event.set()
-        detectMem.join()
+			if not args.paired_end:
+				command.extend([args.ref_name, args.reads[0]])
+			else:
+				command.extend("-I 1 -X 1000 --chunkmbs 1024".split())
+				command.extend([args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
+		elif args.bowtie2:
+			command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "--norc", "-p", str(args.num_threads), "-k", "201"])
+			if not args.paired_end:
+				command.extend(["-x", args.ref_name, "-U", args.reads[0]])
+			else:
+				command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+				command.extend(["-x", args.ref_name, "-1", args.reads[0], "-2", args.reads[1]])
+		else:
+			assert False
 
-    if not args.keep:
-        command = ["rm", "-rf", temp_dir]
-        runProg(command)
-    
-    sys.exit(0)
+		command2 = ["PROBer-parse-alignments", args.ref_name, imdName, statName, "plus", str(args.num_threads), "-", "-m", "200"]
+		if args.read_length != None and args.size_selection_min < args.read_length:
+			command2.extend(["--shorter-than", str(args.size_selection_min)])
+		if args.quiet:
+			command2.append("-q")
+		runProg(command, command2, "{}_plus.err".format(statName))  # Run aligner and then parse for (+) channel data
+
+		if args.has_control:
+			pos = len(command) - 1
+			if not args.paired_end:
+				command[pos] = args.reads[1]
+			else:
+				command[pos - 2] = args.reads[2]
+				command[pos] = args.reads[3]
+			command2[posChannel] = "minus"
+			
+			runProg(command, command2, "{}_minus.err".format(statName))  # Run aligner and then parse for (-) channel data
+
+	if args.time:
+		t2 = time.time()
+
+	# Generate config file
+	fh = open("{}.config".format(imdName), 'w')
+	fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_selection_min, args.size_selection_max, args.gamma_init, args.beta_init))
+	fh.close()
+
+	# Run EM    
+	command = ["PROBer-run-em", args.ref_name, str(model_type), args.sample_name, imdName, statName, str(args.num_threads)]
+	if args.read_length != None:
+		command.extend(["--read-length", str(args.read_length)])
+	if args.ml_est:
+		command.append("--maximum-likelihood")
+	if args.output_bam:
+		command.append("--output-bam")
+	if args.output_logMAP:
+		command.append("--output-logMAP")
+	if not args.has_control:
+		command.append("--no-control")
+	if args.quiet:
+		command.append("-q")
+	runProg(command)
+
+	if args.time:
+		t3 = time.time()
+		fo = open("{}.time".format(args.sample_name), "w")
+		fo.write("Alignment/Parsing\t{:.0f}s\n".format(t2 - t1))
+		fo.write("EM\t{:.0f}s\n".format(t3 - t2))
+		fo.close()
+
+	if args.memory:
+		detectMem.event.set()
+		detectMem.join()
+
+	if not args.keep:
+		command = ["rm", "-rf", temp_dir]
+		runProg(command)
+	
+	sys.exit(0)
 
 
 
@@ -804,14 +812,14 @@ if args.command == "estimate":
 
 if args.command == "simulate":
 
-    command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, str(args.nreads), args.output_name]
-    if args.seed != None:
-        command.extend(["--seed", args.seed])
-    if args.no_control:
-        command.append("--no-control")
-    runProg(command)
-    
-    sys.exit(0)
+	command = ["PROBer-simulate-reads", args.ref_name, args.config_file, args.sample_name, args.channel, str(args.nreads), args.output_name]
+	if args.seed != None:
+		command.extend(["--seed", args.seed])
+	if args.no_control:
+		command.append("--no-control")
+	runProg(command)
+	
+	sys.exit(0)
 
 
 
@@ -824,87 +832,87 @@ if args.command == "simulate":
 
 
 if args.command == "iCLIP":
-    check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
-    if args.reads != None and args.index_name == None:
-        parser.error("If input are reads, '--index-name' must be set")
-    
-    dir_ = os.path.dirname(args.sample_name)
-    if dir_ != "":
-        dir_ += os.sep
-    base_ = os.path.basename(args.sample_name)
-    temp_dir = dir_ + base_ + ".temp" 
-    imdName = temp_dir + os.sep + base_
-    stat_dir = dir_ + base_ + ".stat"
-    statName = stat_dir + os.sep + base_
+	check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
+	if args.reads != None and args.index_name == None:
+		parser.error("If input are reads, '--index-name' must be set")
+	
+	dir_ = os.path.dirname(args.sample_name)
+	if dir_ != "":
+		dir_ += os.sep
+	base_ = os.path.basename(args.sample_name)
+	temp_dir = dir_ + base_ + ".temp" 
+	imdName = temp_dir + os.sep + base_
+	stat_dir = dir_ + base_ + ".stat"
+	statName = stat_dir + os.sep + base_
 
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
+	if not os.path.exists(temp_dir):
+		os.makedirs(temp_dir)
 
-    if not os.path.exists(stat_dir):
-        os.makedirs(stat_dir)
+	if not os.path.exists(stat_dir):
+		os.makedirs(stat_dir)
 
-    model_type = None
-    if args.paired_end:
-        if args.no_qual:
-            model_type = 2
-        else:
-            model_type = 3
-    else:
-        if args.no_qual:
-            model_type = 0
-        else:
-            model_type = 1
+	model_type = None
+	if args.paired_end:
+		if args.no_qual:
+			model_type = 2
+		else:
+			model_type = 3
+	else:
+		if args.no_qual:
+			model_type = 0
+		else:
+			model_type = 1
 
-    # run Analysis
-    command = []
-    if args.alignments != None:
-        command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w), str(args.num_threads)])
-        command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
-        if args.quiet:
-            command.append("-q")
+	# run Analysis
+	command = []
+	if args.alignments != None:
+		command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w), str(args.num_threads)])
+		command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+		if args.quiet:
+			command.append("-q")
 
-        if args.naive:
-            command.append("--naive")
+		if args.naive:
+			command.append("--naive")
 
-        runProg(command)
-    else:
-        if args.bowtie2:
-            args.bowtie = False
+		runProg(command)
+	else:
+		if args.bowtie2:
+			args.bowtie = False
 
-        if args.bowtie:        
-            command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-p", str(args.num_threads)])
-            command.extend("-a -m 100 -S --chunkmbs 1024".split())  
+		if args.bowtie:        
+			command.extend(["{}bowtie".format(args.bowtie_path + os.sep if args.bowtie_path != None else ""), "-p", str(args.num_threads)])
+			command.extend("-a -m 100 -S --chunkmbs 1024".split())  
 
-            if not args.paired_end:
-                command.extend([args.index_name, args.reads[0]])
-            else:
-                command.extend("-I 1 -X 1000".split())
-                command.extend([args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
-        elif args.bowtie2:
-            command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-p", str(args.num_threads), "-k", "101"])
-            if not args.paired_end:
-                command.extend(["-x", args.index_name, "-U", args.reads[0]])
-            else:
-                command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
-                command.extend(["-x", args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
-        else:
-            assert False
+			if not args.paired_end:
+				command.extend([args.index_name, args.reads[0]])
+			else:
+				command.extend("-I 1 -X 1000".split())
+				command.extend([args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
+		elif args.bowtie2:
+			command.extend(["{}bowtie2".format(args.bowtie2_path + os.sep if args.bowtie2_path != None else ""), "-p", str(args.num_threads), "-k", "101"])
+			if not args.paired_end:
+				command.extend(["-x", args.index_name, "-U", args.reads[0]])
+			else:
+				command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+				command.extend(["-x", args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
+		else:
+			assert False
 
 
-        command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w), str(args.num_threads)])
-        command2.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
-        if args.keep_alignments:
-            command2.append("--keep-alignments")
-        if args.quiet:
-            command2.append("-q")
+		command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w), str(args.num_threads)])
+		command2.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+		if args.keep_alignments:
+			command2.append("--keep-alignments")
+		if args.quiet:
+			command2.append("-q")
 
-        runProg(command, command2, "{}.err".format(statName))  # Run aligner and then analyze iCLIP data
+		runProg(command, command2, "{}.err".format(statName))  # Run aligner and then analyze iCLIP data
 
-    if not args.keep:
-        command = ["rm", "-rf", temp_dir]
-        runProg(command)
-    
-    sys.exit(0)
+	if not args.keep:
+		command = ["rm", "-rf", temp_dir]
+		runProg(command)
+	
+	sys.exit(0)
 
 
 
