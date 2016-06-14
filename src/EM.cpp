@@ -109,7 +109,7 @@ void preprocessAlignments(int channel) {
     read_models[channel]->update_preprocess(ag, false);
     ++N0[channel];
   }
-  hdr = parser->pass_header();
+  if (hdr == NULL) hdr = parser->pass_header();
   delete parser;
   if (verbose) { printf("Unalignable reads are preprocessed!\n"); }
 
@@ -151,15 +151,15 @@ void preprocessAlignments(int channel) {
       a_read->size = ag.size();
       
       for (int j = 0; j < ag.size(); ++j) {
-	BamAlignment *ba = ag.getAlignment(j);
-	aligns[j].tid = transcripts.getInternalSid(ba->getTid());
-	aligns[j].pos = ba->getLeftMostPos();
+        BamAlignment *ba = ag.getAlignment(j);
+        aligns[j].tid = transcripts.getInternalSid(ba->getTid());
+        aligns[j].pos = ba->getLeftMostPos();
 
-	if (is_paired) aligns[j].fragment_length = ba->getInsertSize();
-	else if (seqlen < read_length) aligns[j].fragment_length = ba->getAlignedLength();
-	else aligns[j].fragment_length = 0;
+        if (is_paired) aligns[j].fragment_length = ba->getInsertSize();
+        else if (seqlen < read_length) aligns[j].fragment_length = ba->getAlignedLength();
+        else aligns[j].fragment_length = 0;
 
-	aligns[j].frac = 1.0 / ag.size();
+        aligns[j].frac = 1.0 / ag.size();
       }
       whole_model->addAlignments(a_read, aligns);
       read_models[channel]->update_preprocess(ag, true);
@@ -218,6 +218,7 @@ void init() {
   memset(count0, 0, sizeof(count0));
   memset(logprob, 0, sizeof(logprob));
   
+  hdr = NULL;
   // Preprocess data for (-)
   if (has_control) preprocessAlignments(0);
   // Preprocess data for (+)
@@ -381,17 +382,14 @@ void EM() {
 void outputBamFiles(int channel) {
   char inp0F[STRLEN], inpF[STRLEN], inp2F[STRLEN], outF[STRLEN];
 
-  sprintf(inp0F, "%s_%s_N0.bam", imdName, channelStr[channel]);
   sprintf(outF, "%s_%s.bam", sampleName, channelStr[channel]);
-  
-  SamParser* parser0 = new SamParser(inp0F);
-  BamWriter* writer = new BamWriter(outF, parser0->getHeader(), "PROBer");
+  BamWriter* writer = new BamWriter(outF, hdr, "PROBer");
   AlignmentGroup ag;
   READ_INT_TYPE cnt = 0;
   
   for (int i = 0; i < num_threads; ++i) {
     sprintf(inpF, "%s_%s_%d.bam", imdName, channelStr[channel], i);
-    SamParser* parser = new SamParser(inpF);
+    SamParser* parser = new SamParser(inpF, hdr);
     InMemChunk *chunk = paramsVecs[channel][i]->chunk;
     READ_INT_TYPE nreads = chunk->nreads;
     InMemAlignG *a_read = NULL;
@@ -405,7 +403,7 @@ void outputBamFiles(int channel) {
       
       int size = a_read->size;
       for (int k = 0; k < size; ++k) 
-	ag.getAlignment(k)->setFrac(aligns[k].frac);
+        ag.getAlignment(k)->setFrac(aligns[k].frac);
       writer->write(ag, 2);
       
       ++cnt;
@@ -415,13 +413,15 @@ void outputBamFiles(int channel) {
   }
   
   // write out unalignable reads
+  sprintf(inp0F, "%s_%s_N0.bam", imdName, channelStr[channel]);
+  SamParser* parser0 = new SamParser(inp0F);
   ag.clear();
   while (parser0->next(ag)) writer->write(ag, 2);
   delete parser0;
   
   // write out filtered reads
   sprintf(inp2F, "%s_%s_N2.bam", imdName, channelStr[channel]);
-  SamParser* parser2 = new SamParser(inp2F);
+  SamParser* parser2 = new SamParser(inp2F, hdr);
   ag.clear();
   while (parser2->next(ag)) {
     ag.markAsFiltered(); // Mark each alignment as filtered by append a "ZF:A:!" field
