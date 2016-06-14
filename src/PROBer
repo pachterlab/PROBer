@@ -57,7 +57,7 @@ class MyParser(argparse.ArgumentParser):
 
 class DetectMem(threading.Thread):
 	def __init__(self, sample_name, aligner_name):
-		threading.Thread.__init__(self, daemon = True)
+		threading.Thread.__init__(self, daemon = False)
 		self.sample_name = sample_name
 		self.aligner_name = aligner_name
 		self.event = threading.Event()
@@ -107,7 +107,7 @@ class DetectMem(threading.Thread):
 					fields = line.split()
 
 					step_id = -1
-					if cmds[0].find(fields[self.cmdpos]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
+					if fields[self.cmdpos].find(cmds[0]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
 						step_id = 0
 					elif cmds[2].find(fields[self.cmdpos]) >= 0:
 						step_id = 1
@@ -137,16 +137,26 @@ class DetectMem(threading.Thread):
 
 	def convert(self, memstr, osstr):
 		value = 0
-		pos = len(memstr) - (2 if osstr == "Darwin" else 1)
-		unit = memstr[pos].lower()
-		if unit == 'g':
-			value = float(memstr[:pos])
-		elif unit == 'm':
-			value = float(memstr[:pos]) / 1024.0
-		elif unit == 'k':
-			value = float(memstr[:pos]) / 1024.0 / 1024.0
+		if osstr != "Darwin":
+			if memstr[-1] == 't':
+				value = float(memstr[:-1]) * 1024.0
+			elif memstr[-1] == 'g':
+				value = float(memstr[:-1])
+			elif memstr[-1] == 'm':
+				value = float(memstr[:-1]) / 1024.0
+			else:
+				value = float(memstr) / 1024.0 / 1024.0
 		else:
-			value = float(memstr[:pos + 1]) / 1024.0 / 1024.0 / 1024.0
+			if memstr[-2] == 't':
+				value = float(memstr[:-2]) * 1024.0
+			elif memstr[-2] == 'g':
+				value = float(memstr[:-2])
+			elif memstr[-2] == 'm':
+				value = float(memstr[:-2]) / 1024.0
+			elif memstr[-2] == 'k':
+				value = float(memstr[:-2]) / 1024.0 / 1024.0
+			else:
+				value = float(memstr[:-1]) / 1024.0 / 1024.0 / 1024.0
 
 		return value
 
