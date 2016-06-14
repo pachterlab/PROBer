@@ -90,7 +90,7 @@ class DetectMem(threading.Thread):
 				break
 		
 	def run(self):
-		cmds = [self.aligner_name, "PROBer-parse-alignments", "PROBer-run-em"]
+		cmds = [self.aligner_name, "PROBer-p", "PROBer-r"]
 
 		max_steps = [-1.0] * 2
 		max_evis = [""] * 2
@@ -107,9 +107,9 @@ class DetectMem(threading.Thread):
 					fields = line.split()
 
 					step_id = -1
-					if fields[self.cmdpos].find(cmds[0]) >= 0 or cmds[1].find(fields[self.cmdpos]) >= 0:
+					if fields[self.cmdpos].find(cmds[0]) >= 0 or fields[self.cmdpos].find(cmds[1]) >= 0:
 						step_id = 0
-					elif cmds[2].find(fields[self.cmdpos]) >= 0:
+					elif fields[self.cmdpos].find(cmds[2]) >= 0:
 						step_id = 1
 
 					if step_id >= 0:
