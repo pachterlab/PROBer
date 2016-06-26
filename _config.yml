@@ -12,11 +12,11 @@ title: "PROBer"
 
 
 # The slogan describes your website and is used on homepage in <title> and other important places
-slogan: "Quantitative modeling of transcriptome-wide RNA structure-probing experiments"
+slogan: "A general toolkit for analyzing sequencing-based 'toeprinting' assays"
 
 
 # The description is used on homepage and in the footer to quickly describe your website. Use a maximum of 150 characters for SEO-purposes.
-description: "»PROBer« is a RNA structure probing data quantification tool."
+description: "»PROBer«: A general toolkit for analyzing sequencing-based ‘toeprinting’ assays"
 
 
 # This URL is the main adresse. Don't include a slash at the end.

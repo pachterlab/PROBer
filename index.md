@@ -5,7 +5,7 @@
 # this work, you have to use › layout: frontpage
 #
 layout: frontpage
-title: "PROBer-Quantitative modeling of transcriptome-wide RNA structure-probing experiments"
+title: "PROBer: A general toolkit for analyzing sequencing-based 'toeprinting' assays"
 header:
    image_fullwidth: "RNA.jpg"   
 ---
@@ -13,4 +13,5 @@ header:
 # News
 
 * July 15, 2015 &emsp; PROBer website launched.
+* June 25, 2016 &emsp; PROBer v0.2.0 was uploaded.
 
