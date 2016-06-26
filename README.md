@@ -1,6 +1,6 @@
 # PROBer
 
-Quantitative modeling of transcriptome-wide RNA structure-probing experiments 
+A general toolkit for analyzing sequencing-based 'toeprinting' assays
 
 Bo Li, Akshay Tambe, Sharon Aviran and Lior Pachter.
 
@@ -21,7 +21,7 @@ Table of Contents
 
 ## <a name="introduction"></a> Introduction
 
-PROBer is a software to quantlify RNA structure probing experiments.
+PROBer is a software to quantify chemical modification profiles for a general set of sequencing-based 'toeprinting' assays.
 
 ## <a name="install"></a> Installation
 
@@ -40,13 +40,23 @@ PROBer prepare --help
 
 to get usage information.
 
-### Estimate RNA Structure Parameters
+### Estimate toeprinting parameters
 
-To estimate RNA structure parameters, you should run
+To estimate toeprinting parameters, you should run
 `PROBer estimate`. Run
 
 ```
 PROBer estimate --help
+```
+
+to get usage information.
+
+### Allocate iCLIP multi-mapping reads
+
+To allocate multi-mapping reads for iCLIP data, you should run `PROBer iCLIP`. Run
+
+```
+PROBer iCLIP --help
 ```
 
 to get usage information.
@@ -60,6 +70,16 @@ PROBer simulate --help
 ```
 
 to get usage information.
+
+### Get version information
+
+Run 
+
+```
+PROBer version
+```
+
+to get version information.
 
 ## <a name="example"></a> Example
 
@@ -78,7 +98,7 @@ The commands are listed below:
 
 ```
 PROBer prepare --gff3 TAIR10_GFF3_genes.gff --gff3-RNA-pattern mRNA,rRNA --bowtie --bowtie-path /sw/bowtie TAIR10_chr_all.fa arabidosis/arabidosis
-PROBer estimate -p 40 --primer-length 6 --size-selection-min 21 --size-selection-max 526 --read-length 37 --bowtie-path /sw/bowtie arabidosis/arabidosis test_sample --reads minus.fq plus.fq
+PROBer estimate -p 40 --primer-length 6 --size-selection-min 21 --size-selection-max 526 --read-length 37 --bowtie-path /sw/bowtie arabidosis/arabidosis test_sample --reads plus.fq minus.fq
 PROBer simulate arabidosis/arabidosis test_sample.temp/test_sample_minus.config test_sample minus 10000000 test_sim
 PROBer simulate arabidosis/arabidosis test_sample.temp/test_sample_plus.config test_sample plus 10000000 test_sim
 ```
