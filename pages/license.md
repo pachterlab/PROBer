@@ -8,7 +8,7 @@ permalink: "/license/"
 ---
 
 ~~~
-Copyright © 2015 Pachterlab (University of California at Berkeley).
+Copyright © 2016 Pachterlab (University of California at Berkeley).
 
 PROBer was written by Bo Li, with substaintial technical input from
 Akshay Tambe, Sharon Aviran and Lior Pachter.
