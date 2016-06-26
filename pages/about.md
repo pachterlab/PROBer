@@ -7,8 +7,7 @@ header:
 permalink: "/about/"
 ---
 
-__PROBer__ is a program to quantify RNA structure using
-chemical-probing-based NGS data.
+__PROBer__ is a program to quantify chemical modification profiles for a general set of sequencing-based 'toeprinting' assays, which aim at probing RNA structures (DMS/SHAPE-seq), detecting RNA modifications (Pseudo-seq), and investigating RNA-protein interactions (iCLIP).
 
 The project was a collaboration of [Bo
 Li](https://math.berkeley.edu/~bli/), [Akshay
