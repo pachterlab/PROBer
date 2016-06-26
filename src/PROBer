@@ -229,7 +229,7 @@ def runProg(command, command2 = None, catch_stderr = None):
 
 
 
-parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to estimate RNA structure probing parameters.")
+parser = MyParser(formatter_class = MyFormatter, description = "PROBer is a program to quantify chemical modification profiles for a general set of 'toeprinting' assays.")
 subparsers = parser.add_subparsers(title = "commands", dest = "command")
 subparsers.required = True
 
@@ -240,7 +240,7 @@ subparsers.required = True
 parser_prepare = subparsers.add_parser("prepare", help = "This command is used to prepare PROBer references.", formatter_class = MyFormatter,
 										description = "This program lets PROBer to build its references and optionally build Bowtie/Bowtie2 indices. "
 													  "For iCLIP data, users can use this program to build Bowtie/Bowtie2 indices for their genomes",
-										epilog = "OUTPUT:\n"
+										epilog = "L:OUTPUT:\n"
 												 "  PROBer reference files prefixed by 'reference_name'.")
 
 parser_prepare.add_argument("ref_fastas", help = "Either a comma-separated list of Multi-FASTA formatted files OR a directory name. If a directory name is specified, This program will read all files with suffix \".fa\" or \".fasta\" in this directory. The files should contain either the sequences of transcripts or an entire genome, depending on whether the --gtf or --gff3  option is used.", metavar = "reference_fasta_file(s)")
@@ -389,7 +389,7 @@ parser_estimate.add_argument("--for-paper", help = argparse.SUPPRESS, action = "
 
 parser_simulate = subparsers.add_parser("simulate", help = "This command is used to simulate reads.", formatter_class = MyFormatter,
 										description = "This program simulates reads using parameters learned from real data by program 'estimate'.",
-										epilog = "OUTPUT:\n"
+										epilog = "L:OUTPUT:\n"
 										"  If single-end reads are simulated, this program produces 'output_name_(minus|plus).(fa|fq)'. "
 										   "If paired-end reads are simulated, this program produces 'output_name_(minus|plus)_1.(fa|fq)' and 'output_name_(minus|plus)_2.(fa|fq).")
 
