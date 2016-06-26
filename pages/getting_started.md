@@ -14,7 +14,7 @@ The short tutorial below explains how to run __PROBer__ using a small example. P
 3. [Read the manual][3].
 
 [1]: {{ site.url }}/download/
-[2]: {{ site.url }}/resource/
+[2]: {{ site.url }}/source/
 [3]: {{ site.url }}/manual/
 
 If you want __PROBer__ to align raw reads for you, you also need to install [Bowtie](http://bowtie-bio.sourceforge.net/index.shtml) and/or [Bowtie 2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml).  
