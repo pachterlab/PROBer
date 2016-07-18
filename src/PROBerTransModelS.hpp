@@ -177,6 +177,7 @@ public:
       ends[channel][alignment->pos] += alignment->frac;
       starts[channel][alignment->pos + frag_len] += alignment->frac;
       N_obs[channel] += alignment->frac;
+      for (int c = 1; c <= frag_len; ++c) coverages[channel][alignment->pos + c] += alignment->frac;
     }
 
     return true;
@@ -288,6 +289,7 @@ private:
 
   double N_se[2]; // number of reads that we do not know their start positions
   double *starts[2], *ends[2], *ends_se[2];
+  double *coverages[2];
 
   double log_prob[2]; // log prior + log lik of a transcript, lgamma function parts are excldued 
 

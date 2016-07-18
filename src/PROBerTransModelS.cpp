@@ -87,6 +87,7 @@ PROBerTransModelS::PROBerTransModelS(int tid, const std::string& name, int trans
     starts[i] = NULL;
     ends[i] = NULL;
     ends_se[i] = NULL;
+    coverages[i] = NULL;
   }
 
   log_prob[0] = log_prob[1] = 0.0;
@@ -111,9 +112,11 @@ PROBerTransModelS::PROBerTransModelS(int tid, const std::string& name, int trans
     starts[i] = new double[len + 1];
     ends[i] = new double[len + 1];
     ends_se[i] = new double[len + 1];
+    coverages[i] = new double[len + 1];
     memset(starts[i], 0, sizeof(double) * (len + 1));
     memset(ends[i], 0, sizeof(double) * (len + 1));
     memset(ends_se[i], 0, sizeof(double) * (len + 1));
+    memset(coverages[i], 0, sizeof(double) * (len + 1));
   }  
 }
 
@@ -144,6 +147,7 @@ PROBerTransModelS::~PROBerTransModelS() {
     if (starts[i] != NULL) delete[] starts[i];
     if (ends[i] != NULL) delete[] ends[i];
     if (ends_se[i] != NULL) delete[] ends_se[i];
+    if (coverages[i] != NULL) delete[] coverages[i];
   }
 }
 
@@ -521,16 +525,24 @@ void PROBerTransModelS::read(std::ifstream& fin, int channel) {
 }
 
 void PROBerTransModelS::write(std::ofstream& fout, int channel) {
-  fout<< name<< '\t'<< len;
+  fout<< name<< '\t'<< len<< std::endl;
 
   if (channel == 0) {
-    for (int i = 1; i <= len; ++i) fout<< '\t'<< gamma[i];
+    for (int i = 0; i < len - 1; ++i) fout<< (int)ends[0][i]<< '\t';
+    fout<< (int)ends[0][len - 1]<< std::endl;
+    for (int i = 1; i < len; ++i) fout<< (int)coverages[0][i]<< '\t';
+    fout<< (int)coverages[0][len]<< std::endl; 
+    for (int i = 1; i < len; ++i) fout<< gamma[i]<< '\t';
+    fout<< gamma[len]<< std::endl;
   }
   else {
-    for (int i = 1; i <= len; ++i) fout<< '\t'<< beta[i];
+    for (int i = 0; i < len - 1; ++i) fout<< (int)ends[1][i]<< '\t';
+    fout<< (int)ends[1][len - 1]<< std::endl;
+    for (int i = 1; i < len; ++i) fout<< (int)coverages[1][i]<< '\t';
+    fout<< (int)coverages[1][len]<< std::endl; 
+    for (int i = 1; i < len; ++i) fout<< beta[i]<< '\t';
+    fout<< beta[len]<< std::endl;
   }
-
-  fout<< std::endl;
 }
 
 void PROBerTransModelS::writeFreq(std::ofstream& fc, std::ofstream& fout) {
