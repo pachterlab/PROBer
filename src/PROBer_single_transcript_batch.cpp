@@ -76,7 +76,7 @@ void setupConfig(char* configF) {
   assert(fscanf(fi, "%d %d %d %lf %lf", &primer_length, &min_frag_len, &max_frag_len, &gamma_init, &beta_init) == 5);
   fclose(fi);
 
-  assert(isJoint && isMAP);
+  // assert(isJoint && isMAP);
   PROBerTransModelS::setGlobalParams(primer_length, min_frag_len, max_frag_len, 2);
   PROBerTransModelS::setLearningRelatedParams(gamma_init, beta_init, 1.0, read_length, isMAP, turnOnHidden);
 }
