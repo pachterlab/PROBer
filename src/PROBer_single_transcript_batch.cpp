@@ -105,6 +105,8 @@ void assignTranscripts(char* inpBamF, char* listF) {
   assert(header != 0);
 
   // Initialize parallel computing required data structures
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);  
   threads.assign(nthreads, pthread_t());
   transvec.assign(nthreads, TransVecPerThread());
   for (int i = 0; i < nthreads; ++i) transvec[i].no = i;
@@ -259,6 +261,7 @@ void writeItOut(char* outName) {
 }
 
 void release() {
+  pthread_attr_destroy(&attr);
   for (int i = 0; i < M; ++i) {
     if (trans[i] != NULL) delete trans[i];
   }
