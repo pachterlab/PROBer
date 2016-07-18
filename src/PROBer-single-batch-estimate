@@ -80,47 +80,47 @@ if not os.path.exists(dir_):
     os.makedirs(dir_)
 
 
-command = []
-pos = 0
+# command = []
+# pos = 0
 
-command = ["{}rsem-calculate-expression".format("" if args.rsem_path == None else args.rsem_path + "/")]
-command.extend(["--strand-specific", "-p", str(args.num_threads), "--seed-length", "20"]) # seed length = 20 < 21 to make sure all reads are considered
+# command = ["{}rsem-calculate-expression".format("" if args.rsem_path == None else args.rsem_path + "/")]
+# command.extend(["--strand-specific", "-p", str(args.num_threads), "--seed-length", "20"]) # seed length = 20 < 21 to make sure all reads are considered
 
-if args.paired_end:
-    command.append("--paired-end")
+# if args.paired_end:
+#     command.append("--paired-end")
     
-if args.alignments != None:
-    command.extend(["--alignments", args.alignments[0]])
-    pos = len(command) - 1
-elif not args.paired_end:
-    # Use Bowtie for RSEM
-    if args.bowtie_path != None:
-        command.extend(["--bowtie-path", args.bowtie_path])
-    pos = len(command)
-    command.extend([args.reads[0]])
-else:
-    # Use Bowtie2
-    command.append("--bowtie2")
-    if args.bowtie2_path != None:
-        command.extend(["--bowtie2-path", args.bowtie2_path])
-    pos = len(command)
-    command.extend([args.reads[0], args.reads[1]])
+# if args.alignments != None:
+#     command.extend(["--alignments", args.alignments[0]])
+#     pos = len(command) - 1
+# elif not args.paired_end:
+#     # Use Bowtie for RSEM
+#     if args.bowtie_path != None:
+#         command.extend(["--bowtie-path", args.bowtie_path])
+#     pos = len(command)
+#     command.extend([args.reads[0]])
+# else:
+#     # Use Bowtie2
+#     command.append("--bowtie2")
+#     if args.bowtie2_path != None:
+#         command.extend(["--bowtie2-path", args.bowtie2_path])
+#     pos = len(command)
+#     command.extend([args.reads[0], args.reads[1]])
 
-command.extend([args.ref_name, "{}_minus".format(args.sample_name)])
+# command.extend([args.ref_name, "{}_minus".format(args.sample_name)])
 
-runProg(command)
+# runProg(command)
 
-if args.alignments != None:
-    command[pos] = args.alignments[1]
-elif not args.paired_end:
-    command[pos] = args.reads[1]
-else:
-    command[pos] = args.reads[2]
-    command[pos + 1] = args.reads[3]
+# if args.alignments != None:
+#     command[pos] = args.alignments[1]
+# elif not args.paired_end:
+#     command[pos] = args.reads[1]
+# else:
+#     command[pos] = args.reads[2]
+#     command[pos + 1] = args.reads[3]
 
-command[-1] = "{}_plus".format(args.sample_name);
+# command[-1] = "{}_plus".format(args.sample_name);
 
-runProg(command)
+# runProg(command)
 
 # Generate config file
 fh = open("{}.config".format(args.sample_name), 'w')
@@ -128,7 +128,8 @@ fh.write("{0}\n{1}\n{2}\n{3}\n{4}\n".format(args.primer_length, args.size_select
 fh.close()
 
 # Run EM    
-command = ["PROBer-single-transcript-batch", "{}.config".format(args.sample_name), "{}_minus.transcript.bam".format(args.sample_name), "{}_plus.transcript.bam".format(args.sample_name), args.sample_name]
+# command = ["PROBer-single-transcript-batch", "{}.config".format(args.sample_name), "{}_minus.transcript.bam".format(args.sample_name), "{}_plus.transcript.bam".format(args.sample_name), args.sample_name]
+command = ["PROBer-single-transcript-batch", "{}.config".format(args.sample_name), args.alignments[0], args.alignments[1], args.sample_name]
 
 command.extend(["-p", str(args.num_threads)])
 if not args.paired_end:

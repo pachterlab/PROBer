@@ -165,8 +165,8 @@ void parseAlignments(char *inpF, int channel) {
     ima.fragment_length = (is_paired ? abs(b->core.isize) : (b->core.l_qseq < read_length ? b->core.l_qseq : 0));
     assert(ima.fragment_length >= 0);
     uint8_t *p_tag = bam_aux_get(b, "ZW");
-    assert(p_tag != NULL);
-    ima.frac = double(bam_aux2f(p_tag));
+    
+    ima.frac = p_tag != NULL ? double(bam_aux2f(p_tag)) : 1.0;
     
     trans[b->core.tid]->model->addAlignment(&ima);
     trans[b->core.tid]->Nobs[channel] += ima.frac;
