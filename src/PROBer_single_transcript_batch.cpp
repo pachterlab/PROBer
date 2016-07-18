@@ -262,6 +262,7 @@ void writeItOut(char* outName) {
 }
 
 void release() {
+  pthread_attr_destroy(&attr);
   for (int i = 0; i < M; ++i) {
     if (trans[i] != NULL) delete trans[i];
   }
