@@ -217,7 +217,7 @@ public:
   // no check, must guarantee the type is consistent
   char tag2A(uint8_t* p) { return bam_aux2A(p); }
   int tag2i(uint8_t* p) { return bam_aux2i(p); }
-  float tag2f(uint8_t* p) { return *(float*)(p + 1); } 
+  float tag2f(uint8_t* p) { return bam_aux2f(p); } 
   double tag2d(uint8_t* p) { return bam_aux2f(p); }
   char* tag2Z(uint8_t* p) { return bam_aux2Z(p); }
   char* tag2H(uint8_t* p) { return bam_aux2Z(p); }
@@ -257,7 +257,7 @@ protected:
   static const uint8_t rnt_table[16];
   
   bool is_paired;
-  char is_aligned; // 2 bits, from left to right, the first bit represents first mate and the second bit represents the second mate
+  char is_aligned; // 2 bits, from right to left, the first bit represents first mate and the second bit represents the second mate
                    // Thus, 0, unalignable; 1, only first mate; 2, only second mate; 3, both mates
   bam1_t *b, *b2;
 
