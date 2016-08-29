@@ -916,7 +916,7 @@ if args.command == "iCLIP":
 		command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w), str(args.num_threads)])
 		command2.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
 		if args.eCLIP:
-			command.append("--eCLIP")
+			command2.append("--eCLIP")
 		if args.keep_alignments:
 			command2.append("--keep-alignments")
 		if args.quiet:
