@@ -448,6 +448,7 @@ group.add_argument("--reads", help = "Input are comma-separated lists of files c
 				   nargs = '+', action = nargs_range([1, 2]), type = expandAll, metavar = "mate_read_file(s)")
 
 group = parser_iCLIP.add_argument_group(title = "Basic options")
+group.add_argument("--eCLIP", help = "The protocol used is eCLIP", action = "store_true")
 group.add_argument("--no-quality-scores", help = "Input reads do not contain quality scores.", action = "store_true", dest = "no_qual")
 group.add_argument("--paired-end", help = "Input reads are paired-end reads.", action = "store_true", dest = "paired_end")
 group.add_argument("-p", "--number-of-threads", help = "Number of threads this program can use.", type = int, default = 1, dest = "num_threads", metavar = "<int>")
@@ -845,7 +846,9 @@ if args.command == "iCLIP":
 	check_mutually_exclusive(parser, [args.alignments, args.reads], "--alignments and --reads", required = True)
 	if args.reads != None and args.index_name == None:
 		parser.error("If input are reads, '--index-name' must be set")
-	
+	if args.eCLIP and not args.paired_end:
+		parser.error("eCLIP data must be paired-ended")
+
 	dir_ = os.path.dirname(args.sample_name)
 	if dir_ != "":
 		dir_ += os.sep
@@ -878,9 +881,10 @@ if args.command == "iCLIP":
 	if args.alignments != None:
 		command.extend(["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, args.alignments, str(args.w), str(args.num_threads)])
 		command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+		if args.eCLIP:
+			command.append("--eCLIP")
 		if args.quiet:
 			command.append("-q")
-
 		if args.naive:
 			command.append("--naive")
 
@@ -903,7 +907,7 @@ if args.command == "iCLIP":
 			if not args.paired_end:
 				command.extend(["-x", args.index_name, "-U", args.reads[0]])
 			else:
-				command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split())
+				command.extend("-I 1 -X 1000 --no-mixed --no-discordant".split()) # allow mixed alignments
 				command.extend(["-x", args.index_name, "-1", args.reads[0], "-2", args.reads[1]])
 		else:
 			assert False
@@ -911,6 +915,8 @@ if args.command == "iCLIP":
 
 		command2 = (["PROBer-analyze-iCLIP", str(model_type), args.sample_name, imdName, statName, "-", str(args.w), str(args.num_threads)])
 		command2.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
+		if args.eCLIP:
+			command.append("--eCLIP")
 		if args.keep_alignments:
 			command2.append("--keep-alignments")
 		if args.quiet:

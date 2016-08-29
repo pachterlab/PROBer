@@ -77,10 +77,10 @@ public:
     else return bam_is_rev(b2) ? '-' : '+';
   }
 
-  // designed for iCLIP, return cross link site in forward strand
-  int getCrosslinkSite() const {
-    assert(is_aligned & 1);
-    return bam_is_rev(b) ? bam_endpos(b) : b->core.pos - 1;
+  // designed for iCLIP (mate == 1) / eCLIP (mate == 2), return cross link site in forward strand coordinate
+  int getCrosslinkSite(int mate = 1) const {
+    if (mate == 1) return bam_is_rev(b) ? bam_endpos(b) : b->core.pos - 1;
+    else return bam_is_rev(b2) ? bam_endpos(b2) : b2->core.pos - 1;
   }
   
   /*
