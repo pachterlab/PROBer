@@ -41,7 +41,7 @@ public:
 
   void init();
   void collect(const Profile* o);
-  void finish();
+  void finish(); // No pseudo-count here. However, if we assume Illumina platform and the read length difference is due to trimming, it should be fine.
 
   void read(std::ifstream& fin);
   void write(std::ofstream& fout);
