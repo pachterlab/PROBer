@@ -884,7 +884,7 @@ if args.command == "iCLIP":
 		if args.eCLIP:
 			command.append("--eCLIP")
 		if args.keep_alignments:
-			command2.append("--keep-alignments")
+			command.append("--keep-alignments")
 		if args.quiet:
 			command.append("-q")
 		if args.naive:
