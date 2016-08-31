@@ -635,7 +635,7 @@ int main(int argc, char* argv[]) {
 	bowtie_filter = false;
 	max_hit_allowed = 2147483647; // 2^31 - 1
 	min_len = -1;
-	max_len = -1;
+	max_len = 1000; // Change it to 1000 bp
 	keep_alignments = false;
 	rounds = 100; // default is 100 rounds
 
