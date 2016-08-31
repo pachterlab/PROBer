@@ -883,6 +883,8 @@ if args.command == "iCLIP":
 		command.extend(["-m", "100", "--rounds", str(args.rounds), "--max-len", str(args.max_len)])
 		if args.eCLIP:
 			command.append("--eCLIP")
+		if args.keep_alignments:
+			command2.append("--keep-alignments")
 		if args.quiet:
 			command.append("-q")
 		if args.naive:
