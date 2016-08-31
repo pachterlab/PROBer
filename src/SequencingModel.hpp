@@ -26,7 +26,7 @@
 
 class SequencingModel {
 public:
-  SequencingModel(bool hasQual, int maxL = -1);
+  SequencingModel(bool hasQual, int maxL = 1000);
   ~SequencingModel();
 
   double getProb(char dir, int pos, const RefSeq* refseq, const CIGARstring* cigar, const SEQstring* seq, const QUALstring* qual = NULL);

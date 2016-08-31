@@ -1,14 +1,32 @@
-#include<cstring>
-#include<cassert>
-#include<string>
-#include<fstream>
+/* Copyright (c) 2016
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
+#include <cstring>
+#include <cassert>
+#include <string>
+#include <fstream>
 
 #include "utils.h"
 #include "Profile.hpp"
 
 Profile::Profile(int maxL) {
-  if (maxL < 0) maxL = 1000; // default is 1000bp, which is very long
-  
   proLen = maxL;
   size = proLen * NCODES * NCODES;
   p = new double[proLen][NCODES][NCODES];

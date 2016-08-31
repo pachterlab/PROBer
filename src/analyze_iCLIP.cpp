@@ -1,16 +1,36 @@
-#include<cstdio>
-#include<cstring>
-#include<cstdlib>
-#include<cassert>
-#include<string>
-#include<map>
-#include<vector>
-#include<fstream>
-#include<iostream>
-#include<sstream>
-#include<algorithm>
-#include<pthread.h>
-#include<unordered_map>
+/* Copyright (c) 2016
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cassert>
+#include <string>
+#include <map>
+#include <vector>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <algorithm>
+#include <pthread.h>
+#include <unordered_map>
 
 #include "htslib/sam.h"
 
@@ -203,12 +223,13 @@ void parseAlignments(const char* alignF) {
 	READ_INT_TYPE cnt = 0;
 	
 	while (parser->next(ag)) {
-		if (keep_alignments) writerBam->write(ag);
-		
 		bool isAligned = ag.isAligned();
 
-		if (ag.isFiltered() || ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len) || \
-		   (isAligned && ag.size() > max_hit_allowed) || (!isAligned && bowtie_filter && is_filtered_bowtie(ag))) {
+		if (ag.isFiltered()) { ++N2; }
+		else if ((isAligned && ag.size() > max_hit_allowed) || (!isAligned && bowtie_filter && is_filtered_bowtie(ag)) || \
+			ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len)) {
+			// Read should be filtered, mark as filtered
+			ag.markAsFiltered();
 			++N2;
 		}
 		else if (isAligned) {
@@ -225,6 +246,8 @@ void parseAlignments(const char* alignF) {
 			}
 			else {
 				++N12;
+				if (model_type >= 2) model->update(ag);
+
 				n_mhits += ag.size();
 				ag.sort_alignments();
 				writer->write(ag);
@@ -235,6 +258,8 @@ void parseAlignments(const char* alignF) {
 			++N0;
 		}
 
+		if (keep_alignments) writerBam->write(ag);
+		
 		++cnt;
 		if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
 	}

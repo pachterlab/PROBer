@@ -50,7 +50,7 @@ public:
   }
 
   bool read(samFile* in, bam_hdr_t* header);
-  bool write(samFile* out, bam_hdr_t* header, int choice = 0);
+  bool write(samFile* out, bam_hdr_t* header, int choice = 0); // only writ out one alignment for filtered reads
 
   bool isPaired() const { return (s > 0) && alignments[0]->isPaired(); }
 
@@ -137,7 +137,8 @@ inline bool AlignmentGroup::read(samFile* in, bam_hdr_t* header) {
 inline bool AlignmentGroup::write(samFile *out, bam_hdr_t* header, int choice) {
   assert(s > 0);
   alignments[0]->write(out, header);
-  for (int i = 1; i < s; ++i) alignments[i]->write(out, header, choice, alignments[0]);
+  if (s > 1 && !alignments[0]->isFiltered())
+    for (int i = 1; i < s; ++i) alignments[i]->write(out, header, choice, alignments[0]);
   return true;
 }
 

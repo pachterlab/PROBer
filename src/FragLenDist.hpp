@@ -18,49 +18,37 @@
    USA
 */
 
-#ifndef PROFILE_H_
-#define PROFILE_H_
+#ifndef FRAGFragLenDist_H_
+#define FRAGFragLenDist_H_
 
+#include <cassert>
 #include <fstream>
+#include <vector>
 
-#include "utils.h"
-#include "sampling.hpp"
-
-class Profile {
+class FragLenDist {
 public:
-  Profile(int maxL = 1000);
-  ~Profile();
+  FragLenDist(int maxL = 1000);
 
-  double getProb(int pos, int ref_base, int read_base) {
-    return p[pos][ref_base][read_base];
+  int getMinL() const { return lb; }
+  int getMaxL() const { return ub; }
+
+  double getProb(int len) const { return pmf[len - lb]; }
+
+  // For estimating FragLenDist, distribute multi-mapping reads evenly
+  // I have looked at one real eCLIP data set, the distribution of unique reads only and all reads (with multi reads evenly distributed) are very similar
+  void update(int len, double frac = 1.0) {
+    if (len > ub) { ub = len; pmf.resize(len, 0.0); }
+    pmf[len - lb] += frac;
   }
 
-  void update(int pos, int ref_base, int read_base, double frac) {
-    p[pos][ref_base][read_base] += frac;
-  }
-
-  void init();
-  void collect(const Profile* o);
   void finish();
 
   void read(std::ifstream& fin);
   void write(std::ofstream& fout);
 
-  char simulate(Sampler* sampler, int pos, int ref_base) {
-    return code2base[sampler->sample(pc[pos][ref_base], NCODES)];
-  }
-
-  void startSimulation();
-  void finishSimulation();
-  
 private:
-  static const int NCODES = 5;
-  
-  int proLen; // profile length
-  int size; // # of items in p;
-  double (*p)[NCODES][NCODES]; //profile matrices
-  
-  double (*pc)[NCODES][NCODES]; // for simulation
+  int lb, ub, span; // [lb, ub], span = ub - lb + 1
+  std::vector<double> pmf; // probability mass function, cumulative density function, and counts of noise reads
 };
 
-#endif /* PROFILE_H_ */
+#endif 
