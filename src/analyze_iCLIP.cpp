@@ -651,7 +651,6 @@ int main(int argc, char* argv[]) {
 		if (!strcmp(argv[i], "--rounds")) rounds = atoi(argv[i + 1]);
 
 		if (!strcmp(argv[i], "--naive")) isNaive = true;
-
 	}
 
 

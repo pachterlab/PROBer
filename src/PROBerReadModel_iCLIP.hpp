@@ -148,7 +148,7 @@ inline void PROBerReadModel_iCLIP::calcProbs(AlignmentGroup& ag, double* conprbs
       refseq.setUp(dir, cigar, mdstr, seq);
       conprbs[i] *= seqmodel->getProb(dir, 0, &refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
 
-      conprbs[i] *= fld->getProb(ba->getInsertSize()); // fragment length distribution
+      // conprbs[i] *= fld->getProb(ba->getInsertSize()); // fragment length distribution
     }
   }
 
