@@ -61,11 +61,16 @@ public:
   int getModelType() const { return model_type; }
 
   void update(AlignmentGroup& ag);
-  void finish() { seqmodel->finish(); }
   void calcProbs(AlignmentGroup& ag, double* conprbs);
+
+  void finish() { 
+    seqmodel->finish();
+    if (fld != NULL) fld->finish();
+  }
   
   void read(const char* modelF);
   void write(const char* modelF);
+
 private:
   int model_type;
   FragLenDist* fld;
@@ -148,7 +153,7 @@ inline void PROBerReadModel_iCLIP::calcProbs(AlignmentGroup& ag, double* conprbs
       refseq.setUp(dir, cigar, mdstr, seq);
       conprbs[i] *= seqmodel->getProb(dir, 0, &refseq, &cigar, &seq, ((model_type & 1) ? &qual : NULL));
 
-      // conprbs[i] *= fld->getProb(ba->getInsertSize()); // fragment length distribution
+      conprbs[i] *= fld->getProb(ba->getInsertSize()); // fragment length distribution
     }
   }
 
