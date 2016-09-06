@@ -441,7 +441,7 @@ parser_iCLIP = subparsers.add_parser("iCLIP", help = "This command is used to al
 parser_iCLIP.add_argument("sample_name", help = "The output name of this run. All outputs use this name as their prefixes.", type = expand, metavar = "sample_name")
 
 group = parser_iCLIP.add_argument_group(title = "Input", description = "Input alignments or reads, options are mutually exclusive. If input are alignments, all alignments of a same read should group together and each paired-end alignment's two mates should be adjacent.")
-group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM format.", type = expand, metavar = "alignment_file.[sam/bam/cram]")
+group.add_argument("--alignments", help = "Input are alignments in SAM/BAM/CRAM format.", type = expandAll, metavar = "alignment_file.[sam/bam/cram]")
 group.add_argument("--reads", help = "Input are comma-separated lists of files containing single-end or paired-end reads. If input are single-end reads, only one list is required. "
 									 "If input are paired-end reads, i.e. '--paired-end' is set, PROBer needs two lists --- one for the first mates and the other for the second mates. "
 									 "By default, these files should be in FASTQ format. If '--no-quality-scores' is specified, multi-FASTA format files are expected instead.",
