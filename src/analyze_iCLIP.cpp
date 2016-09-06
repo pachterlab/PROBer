@@ -155,14 +155,13 @@ PROBerReadModel_iCLIP* model;
 /***  string variables  ***/
 
 char sampleName[STRLEN], imdName[STRLEN], statName[STRLEN];
-char alignF[STRLEN];
+char *alignFList; // refer to a comma separate list of bam files
 char multiF[STRLEN], allF[STRLEN]; // multi-mapping reads, all reads
 char outF[STRLEN], modelF[STRLEN];
 
 /***  optional arguments and auxiliary variables ***/  
 int mate; // The mate carry binding information, default is 1, which assumes iCLIP protocol; 2 if eCLIP
 
-bool bowtie_filter;
 int max_hit_allowed; // maximum number of alignments allowed
 int min_len; // minimum read length required
 int max_len; // maximum read length
@@ -190,19 +189,25 @@ inline bool is_filtered_bowtie(AlignmentGroup &ag) {
 }
 
 // Categorize reads and learn sequencing error model from uniquely-mapping reads
-void parseAlignments(const char* alignF) {
-	SamParser* parser;
-	BamWriter *writer, *writerBam;
+void parseAlignments(char* alignFList) {
+	char* alignF;
+	const char* program_id;
 
-	READ_INT_TYPE N0, N11, N12, N2;
+	bool bowtie_filter;
+
+	SamParser* parser = NULL;
+	BamWriter *writer = NULL, *writerBam = NULL;
+
+	READ_INT_TYPE N0, N11, N12, N2, cnt;
 
 	pair<KeyType, ValueType> my_pair;
+
+
 	
+	alignF = strtok(alignFList, ",");
+	assert(alignF != NULL);
+
 	parser = new SamParser(alignF);
-	
-	const char* program_id = parser->getProgramID();
-	if (!strcmp(program_id, "Bowtie") || !strcmp(program_id, "bowtie")) bowtie_filter = true;
-	
 	const bam_hdr_t* header = parser->getHeader();
 
 	// store chromosome names from BAM header to vector chr_names
@@ -216,57 +221,72 @@ void parseAlignments(const char* alignF) {
 		sprintf(allF, "%s.alignments.bam", sampleName);
 		writerBam = new BamWriter(allF, header);
 	}
+
+	
 		
 	N0 = N11 = N12 = N2 = 0;
 	n_mhits = 0;
 
-	READ_INT_TYPE cnt = 0;
-	
-	while (parser->next(ag)) {
-		bool isAligned = ag.isAligned();
+	do {
+		program_id = parser->getProgramID();
+		bowtie_filter = !strcmp(program_id, "Bowtie") || !strcmp(program_id, "bowtie");
 
-		if (ag.isFiltered()) { ++N2; }
-		else if ((isAligned && ag.size() > max_hit_allowed) || (!isAligned && bowtie_filter && is_filtered_bowtie(ag)) || \
-			ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len)) {
-			// Read should be filtered, mark as filtered
-			ag.markAsFiltered();
-			++N2;
-		}
-		else if (isAligned) {
-			// Read is alignable
-			if (ag.size() == 1) {
-				++N11;
-				model->update(ag);
+		cnt = 0;
+		ag.clear();
+		
+		while (parser->next(ag)) {
+			bool isAligned = ag.isAligned();
 
-				ba = ag.getAlignment(0);
-				my_pair.first.cid = ba->getTid();
-				my_pair.first.dir = ba->getMateDir(mate);
-				my_pair.first.pos = ba->getCrosslinkSite(mate);
-				posMap.insert(my_pair).first->second.c += 1;
+			if (ag.isFiltered()) { ++N2; }
+			else if ((isAligned && ag.size() > max_hit_allowed) || (!isAligned && bowtie_filter && is_filtered_bowtie(ag)) || \
+				ag.getSeqLength() < min_len || (ag.isPaired() && ag.getSeqLength(2) < min_len)) {
+				// Read should be filtered, mark as filtered
+				ag.markAsFiltered();
+				++N2;
+			}
+			else if (isAligned) {
+				// Read is alignable
+				if (ag.size() == 1) {
+					++N11;
+					model->update(ag);
+
+					ba = ag.getAlignment(0);
+					my_pair.first.cid = ba->getTid();
+					my_pair.first.dir = ba->getMateDir(mate);
+					my_pair.first.pos = ba->getCrosslinkSite(mate);
+					posMap.insert(my_pair).first->second.c += 1;
+				}
+				else {
+					++N12;
+					if (model_type >= 2) model->update(ag);
+
+					n_mhits += ag.size();
+					ag.sort_alignments();
+					writer->write(ag);
+				}
 			}
 			else {
-				++N12;
-				if (model_type >= 2) model->update(ag);
-
-				n_mhits += ag.size();
-				ag.sort_alignments();
-				writer->write(ag);
-			}
-		}
-		else {
 			// Read is unalignable
-			++N0;
-		}
+				++N0;
+			}
 
-		if (keep_alignments) writerBam->write(ag);
+			if (keep_alignments) writerBam->write(ag);
 		
-		++cnt;
-		if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
-	}
-	
+			++cnt;
+			if (verbose && (cnt % 1000000 == 0)) cout<< cnt<< " reads are processed!"<< endl;
+		}
+		
+		if (verbose) cout<< alignF<< " is processed."<< endl;
+
+		delete parser;
+		parser = NULL;
+
+		alignF = strtok(NULL, ",");
+		if (alignF != NULL) parser = new SamParser(alignF);
+	} while (parser != NULL);
+
 	if (verbose) cout<< "N0 = "<< N0<< ", N11 = "<< N11<< ", N12 = "<< N12<< ", N2 = "<< N2<< ", n_mhits = "<< n_mhits<< endl<< "parseAlignments is finished."<< endl;
 
-	delete parser;
 	delete writer;
 	if (keep_alignments) delete writerBam;
 }
@@ -626,13 +646,12 @@ int main(int argc, char* argv[]) {
 	strcpy(sampleName, argv[2]);
 	strcpy(imdName, argv[3]);
 	strcpy(statName, argv[4]);
-	strcpy(alignF, argv[5]);
+	alignFList = argv[5];
 	w = atoi(argv[6]);
 	num_threads = atoi(argv[7]);
 
 
 	mate = 1;	
-	bowtie_filter = false;
 	max_hit_allowed = 2147483647; // 2^31 - 1
 	min_len = -1;
 	max_len = 1000; // Change it to 1000 bp
@@ -658,7 +677,7 @@ int main(int argc, char* argv[]) {
 
 
 	init();  
-	parseAlignments(alignF);
+	parseAlignments(alignFList);
 	model->finish();
 	processMultiReads();
 	distributeTasks();
