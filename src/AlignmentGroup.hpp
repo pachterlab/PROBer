@@ -50,7 +50,7 @@ public:
   }
 
   bool read(samFile* in, bam_hdr_t* header);
-  bool write(samFile* out, bam_hdr_t* header, int choice = 0); // only writ out one alignment for filtered reads
+  bool write(samFile* out, bam_hdr_t* header, int choice = 0); // only write out one alignment for filtered reads
 
   bool isPaired() const { return (s > 0) && alignments[0]->isPaired(); }
 
