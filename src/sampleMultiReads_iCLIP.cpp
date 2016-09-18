@@ -159,10 +159,6 @@ void sampleMultiReads() {
 					fracs.assign(s, 1.0);
 					if (!isNaive) {
 						model->calcProbs(ag, conprbs);
-						
-						cout<< s<<endl;
-						for (int i = 0; i < s; ++i) cout<< conprbs[i]<< "\t"; cout<<endl;
-
 						for (int i = 0; i < s; ++i) fracs[i] *= conprbs[i];
 					}
 					for (int i = 0; i < s; ++i) {
@@ -170,15 +166,11 @@ void sampleMultiReads() {
 						it = weightTable.find(KeyType(ba->getTid(), ba->getMateDir(mate), ba->getCrosslinkSite(mate)));
 						fracs[i] *= (it == weightTable.end() ? 0.0 : it->second);
 						if (i > 0) fracs[i] += fracs[i - 1];
-						cout<< it->second<< "\t"<< fracs[i]<< endl;
 					}
 					if (fracs[s - 1] > 0.0) {
-						int num = sampler->sample(fracs, s);
-						cout<< num;
-						ba = ag.getAlignment(num);
+						ba = ag.getAlignment(sampler->sample(fracs, s));
 						writer->write(*ba);
 						++N12;
-						exit(-1);
 					}
 				}
 			}
