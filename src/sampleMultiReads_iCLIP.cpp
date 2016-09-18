@@ -146,14 +146,15 @@ void sampleMultiReads() {
 	sprintf(outF, "%s.sampled.bam", sampleName);
 	writer = new BamWriter(outF, header, "Sampled iCLIP/eCLIP BAM");
 
+	READ_INT_TYPE cnt = 0, N11 = 0, N12 = 0;
+
 	do {
-		READ_INT_TYPE cnt = 0;
 		ag.clear();
 		
 		while (parser->next(ag)) {
 			if (!ag.isFiltered() && ag.isAligned()) {
 				s = ag.size();
-				if (s == 1) writer->write(ag);
+				if (s == 1) { ++N11; writer->write(ag); }
 				else {
 					fracs.assign(s, 1.0);
 					if (!isNaive) {
@@ -169,6 +170,7 @@ void sampleMultiReads() {
 					if (fracs[s - 1] > 0.0) {
 						ba = ag.getAlignment(sampler->sample(fracs, s));
 						writer->write(*ba);
+						++N12;
 					}
 				}
 			}
@@ -185,6 +187,8 @@ void sampleMultiReads() {
 		alignF = strtok(NULL, ",");
 		if (alignF != NULL) parser = new SamParser(alignF);
 	} while (parser != NULL);
+
+	if (verbose) cout<< "N11 = "<< N11<< ", N12 = "<< N12<< "."<< endl;
 
 	delete writer;
 	delete sampler;
