@@ -600,7 +600,7 @@ void output() {
 	IterType iter;
 
 	for (iter = posMap.begin(); iter != posMap.end(); ++iter)
-		fprintf(fo, "%s %c %d\t%d\t%.2f\n", chr_names[iter->first.cid].c_str(), iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
+		fprintf(fo, "%s %c %d\t%d\t%.10g\n", chr_names[iter->first.cid].c_str(), iter->first.dir, iter->first.pos, iter->second.c, iter->second.weight);
 
 	fclose(fo);
 
@@ -638,7 +638,7 @@ void release() {
 int main(int argc, char* argv[]) {
 	// n_threads here
 	if (argc < 8) { 
-		printf("PROBer-analyze-iCLIP model_type sampleName imdName statName alignF w num_threads [--eCLIP] [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [-q]\n");
+		printf("PROBer-analyze-iCLIP model_type sampleName imdName statName alignF w num_threads [--eCLIP] [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [][-q]\n");
 		exit(-1);
 	}
 
