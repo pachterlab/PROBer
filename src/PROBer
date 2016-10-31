@@ -112,7 +112,7 @@ class DetectMem(threading.Thread):
 				for line in lines[self.nskip : -1]:
 					fields = line.split()
 
-					if bingo(self, fields[self.cmdpos]):
+					if self.bingo(fields[self.cmdpos]):
 						is_active = True
 						fout.write(line + "\n")
 						mem += self.convert(fields[self.mempos], self.os)
