@@ -59,7 +59,9 @@ class DetectMem(threading.Thread):
 	def __init__(self, sample_name, aligner_name):
 		threading.Thread.__init__(self, daemon = False)
 		self.sample_name = sample_name
-		self.aligner_name = aligner_name
+		self.cmds = ["PROBer-p", "PROBer-r", "PROBer-a"]
+		if aligner_name != "unknown":
+			self.cmds.append(aligner_name)
 		self.event = threading.Event()
 		self.os = subprocess.check_output("uname -s".split()).decode()[:-1].capitalize()
 		self.usr = subprocess.check_output("id -un".split()).decode()[:-1]
@@ -87,53 +89,47 @@ class DetectMem(threading.Thread):
 						self.cmdpos = j
 					elif fields[j] == mem_keyword:
 						self.mempos = j
-				break
-		
-	def run(self):
-		cmds = [self.aligner_name, "PROBer-p", "PROBer-r"]
+				break	
 
-		max_steps = [-1.0] * 2
-		max_evis = [""] * 2
+	def bingo(self, command):
+		for cmd in self.cmds:
+			if command.find(cmd) >= 0:
+				return True
+		return False
+
+	def run(self):
+		max_mem = 0.0
+		max_evis = ""
 
 		with open("{}.raw.mem".format(self.sample_name), "w") as fout:
 			while not self.event.is_set():
 				lines = subprocess.check_output(self.command).decode().split("\n")
 
 				is_active = False
-				steps = [-1.0] * 2
-				evis = [""] * 2
+				mem = 0.0
+				evis = ""
 
 				for line in lines[self.nskip : -1]:
 					fields = line.split()
 
-					step_id = -1
-					if fields[self.cmdpos].find(cmds[0]) >= 0 or fields[self.cmdpos].find(cmds[1]) >= 0:
-						step_id = 0
-					elif fields[self.cmdpos].find(cmds[2]) >= 0:
-						step_id = 1
-
-					if step_id >= 0:
+					if bingo(self, fields[self.cmdpos]):
 						is_active = True
 						fout.write(line + "\n")
-						value = self.convert(fields[self.mempos], self.os)
-						steps[step_id] = max(steps[step_id], 0.0) + value
-						evis[step_id] += line + "\n"
+						mem += self.convert(fields[self.mempos], self.os)
+						evis += line + "\n"
 
 				if is_active:
 					fout.write("-------------------\n")
-					for i in xrange(2):
-						if max_steps[i] < steps[i]:
-							max_steps[i] = steps[i]
-							max_evis[i] = evis[i]
+					if max_mem < mem:
+						max_mem = mem
+						max_evis = evis
 
 				self.event.wait(3)
 
 		with open("{}.mem".format(self.sample_name), "w") as fout:
-			fout.write("Alignment and Parsing\t{:.2f} GB\n".format(max_steps[0]))
-			fout.write("EM Algorithm\t{:.2f} GB\n".format(max_steps[1]))
+			fout.write("Peak memory\t{:.2f} GB\n".format(max_mem))
 			fout.write("\nEvidence:\n")
-			fout.write(max_evis[0] + "\n")
-			fout.write(max_evis[1])
+			fout.write(max_evis)
 
 	def convert(self, memstr, osstr):
 		value = 0
@@ -474,6 +470,8 @@ group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", 
 group.add_argument("--index-name", help = "The base name for Bowtie/Bowtie2 indices", type = expand, metavar = "<name>")
 group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of aligner-produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
 
+parser_iCLIP.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
+parser_iCLIP.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_iCLIP.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 
@@ -876,6 +874,11 @@ if args.command == "iCLIP":
 		else:
 			model_type = 1
 
+	detectMem = None
+	if args.memory:
+		detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
+		detectMem.start()
+
 	# run Analysis
 	command = []
 	if args.alignments != None:
@@ -885,6 +888,8 @@ if args.command == "iCLIP":
 			command.append("--eCLIP")
 		if args.keep_alignments:
 			command.append("--keep-alignments")
+		if args.time:
+			command.append("--time")
 		if args.quiet:
 			command.append("-q")
 		if args.naive:
@@ -921,10 +926,16 @@ if args.command == "iCLIP":
 			command2.append("--eCLIP")
 		if args.keep_alignments:
 			command2.append("--keep-alignments")
+		if args.time:
+			command2.append("--time")
 		if args.quiet:
 			command2.append("-q")
 
 		runProg(command, command2, "{}.err".format(statName))  # Run aligner and then analyze iCLIP data
+
+	if args.memory:
+		detectMem.event.set()
+		detectMem.join()
 
 	if not args.keep:
 		command = ["rm", "-rf", temp_dir]

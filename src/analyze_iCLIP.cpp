@@ -18,6 +18,7 @@
    USA
 */
 
+#include <ctime>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -158,6 +159,7 @@ char sampleName[STRLEN], imdName[STRLEN], statName[STRLEN];
 char *alignFList; // refer to a comma separate list of bam files
 char multiF[STRLEN], allF[STRLEN]; // multi-mapping reads, all reads
 char outF[STRLEN], modelF[STRLEN];
+char timeF[STRLEN];
 
 /***  optional arguments and auxiliary variables ***/  
 int mate; // The mate carry binding information, default is 1, which assumes iCLIP protocol; 2 if eCLIP
@@ -167,8 +169,10 @@ int min_len; // minimum read length required
 int max_len; // maximum read length
 bool keep_alignments; // if keep the BAM file
 bool last_round;
+bool record_time;
 
 bool isNaive;
+
 vector<string> chr_names;
 
 
@@ -638,7 +642,7 @@ void release() {
 int main(int argc, char* argv[]) {
 	// n_threads here
 	if (argc < 8) { 
-		printf("PROBer-analyze-iCLIP model_type sampleName imdName statName alignF w num_threads [--eCLIP] [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--naive] [][-q]\n");
+		printf("PROBer-analyze-iCLIP model_type sampleName imdName statName alignF w num_threads [--eCLIP] [-m max_hit_allowed] [--shorter-than min_len] [--keep-alignments] [--max-len max_len] [--rounds rounds] [--time] [--naive] [-q]\n");
 		exit(-1);
 	}
 
@@ -657,6 +661,7 @@ int main(int argc, char* argv[]) {
 	max_len = 1000; // Change it to 1000 bp
 	keep_alignments = false;
 	rounds = 100; // default is 100 rounds
+	record_time = false;
 
 	isNaive = false;
 	
@@ -668,6 +673,7 @@ int main(int argc, char* argv[]) {
 		if (!strcmp(argv[i], "--keep-alignments")) keep_alignments = true;
 		if (!strcmp(argv[i], "--max-len")) max_len = atoi(argv[i + 1]);
 		if (!strcmp(argv[i], "--rounds")) rounds = atoi(argv[i + 1]);
+		if (!strcmp(argv[i], "--time")) record_time = true;
 
 		if (!strcmp(argv[i], "--naive")) isNaive = true;
 	}
@@ -675,9 +681,15 @@ int main(int argc, char* argv[]) {
 
 	if (isNaive) rounds = 0;
 
+	time_t a, b, c;
+
+	if (record_time) a = time(NULL);
 
 	init();  
 	parseAlignments(alignFList);
+
+	if (record_time) b = time(NULL);
+
 	model->finish();
 	processMultiReads();
 	distributeTasks();
@@ -685,5 +697,14 @@ int main(int argc, char* argv[]) {
 	output();
 	release();
 
+	if (record_time) {
+		c = time(NULL);
+		sprintf(timeF, "%s.time", sampleName);
+		FILE *fo = fopen(timeF, "w");
+		fprintf(fo, "Alignment/Parsing\t%ds\n", int(b - a));
+		fprintf(fo, "EMS\t%ds\n", int(c - b));
+		fclose(fo);
+	}
+	
 	return 0;
 }
