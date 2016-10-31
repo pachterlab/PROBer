@@ -681,7 +681,7 @@ int main(int argc, char* argv[]) {
 
 	if (isNaive) rounds = 0;
 
-	time_t a, b, c;
+	time_t a = 0, b = 0, c = 0;
 
 	if (record_time) a = time(NULL);
 
@@ -705,6 +705,6 @@ int main(int argc, char* argv[]) {
 		fprintf(fo, "EMS\t%ds\n", int(c - b));
 		fclose(fo);
 	}
-	
+
 	return 0;
 }
