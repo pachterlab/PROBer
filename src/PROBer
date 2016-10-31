@@ -146,7 +146,7 @@ class DetectMem(threading.Thread):
 
 		with open("{}.mem".format(self.sample_name), "w") as fout:
 			fout.write("Alignment & Parsing\t{0:.2f} GB\n".format(max_mem[0]))
-			fout.write("{algorithm}\t{0:.2f} GB\n".format("EM" if self.PROBer_type == "estimate" else "EMS", max_mem[1]))
+			fout.write("{0}\t{1:.2f} GB\n".format("EM" if self.PROBer_type == "estimate" else "EMS", max_mem[1]))
 			fout.write("\n\nEvidence:\n")
 			fout.write(max_evis[0] + "\n")
 			fout.write(max_evis[1])
