@@ -56,12 +56,11 @@ class MyParser(argparse.ArgumentParser):
 		sys.exit(-1)
 
 class DetectMem(threading.Thread):
-	def __init__(self, sample_name, aligner_name):
+	def __init__(self, PROBer_type, sample_name, aligner_name):
 		threading.Thread.__init__(self, daemon = False)
+		self.PROBer_type = PROBer_type 
 		self.sample_name = sample_name
-		self.cmds = ["PROBer-p", "PROBer-r", "PROBer-a"]
-		if aligner_name != "unknown":
-			self.cmds.append(aligner_name)
+		self.aligner_name = aligner_name
 		self.event = threading.Event()
 		self.os = subprocess.check_output("uname -s".split()).decode()[:-1].capitalize()
 		self.usr = subprocess.check_output("id -un".split()).decode()[:-1]
@@ -91,45 +90,66 @@ class DetectMem(threading.Thread):
 						self.mempos = j
 				break	
 
-	def bingo(self, command):
-		for cmd in self.cmds:
-			if command.find(cmd) >= 0:
-				return True
-		return False
+	def cmd2pid(self, command):
+		if command.find(self.aligner_name) >= 0:
+			return (0, True)
+		if self.PROBer_type == "estimate":
+			if command.find("PROBer-p") >= 0:
+				return (0, False)
+			if command.find("PROBer-r") >= 0:
+				return (1, False)
+		else:
+			assert self.PROBer_type == "iCLIP"
+			if command.find("PROBer-a") >= 0:
+				return (1, False)
+		return (-1, False)
 
 	def run(self):
-		max_mem = 0.0
-		max_evis = ""
+		max_mem = [0.0] * 2
+		max_evis = [""] * 2
 
 		with open("{}.raw.mem".format(self.sample_name), "w") as fout:
 			while not self.event.is_set():
 				lines = subprocess.check_output(self.command).decode().split("\n")
 
 				is_active = False
-				mem = 0.0
-				evis = ""
+				seen_aligner = False
+				mem = [0.0] * 2
+				evis = [""] * 2
 
 				for line in lines[self.nskip : -1]:
 					fields = line.split()
 
-					if self.bingo(fields[self.cmdpos]):
+					pid, is_aligner = self.cmd2pid(fields[self.cmdpos])
+					seen_aligner = seen_aligner or is_aligner
+					if pid >= 0:
 						is_active = True
 						fout.write(line + "\n")
-						mem += self.convert(fields[self.mempos], self.os)
-						evis += line + "\n"
+						mem[pid] += self.convert(fields[self.mempos], self.os)
+						evis[pid] += line + "\n"
 
 				if is_active:
 					fout.write("-------------------\n")
-					if max_mem < mem:
-						max_mem = mem
-						max_evis = evis
+					
+					if self.PROBer_type == "iCLIP" and seen_aligner:
+						mem[0] += mem[1]
+						evis[0] += evis[1]
+						mem[1] = 0.0
+						evis[1] = 0.0
+
+					for i in range(2):
+						if max_mem[i] < mem[i]:
+							max_mem[i] = mem[i]
+							max_evis[i] = evis[i]
 
 				self.event.wait(3)
 
 		with open("{}.mem".format(self.sample_name), "w") as fout:
-			fout.write("Peak memory\t{:.2f} GB\n".format(max_mem))
-			fout.write("\nEvidence:\n")
-			fout.write(max_evis)
+			fout.write("Alignment & Parsing\t{0:.2f} GB\n".format(max_mem[0]))
+			fout.write("{algorithm}\t{0:.2f} GB\n".format("EM" if self.PROBer_type == "estimate" else "EMS", max_mem[1]))
+			fout.write("\n\nEvidence:\n")
+			fout.write(max_evis[0] + "\n")
+			fout.write(max_evis[1])
 
 	def convert(self, memstr, osstr):
 		value = 0
@@ -368,13 +388,13 @@ group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, inde
 				   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 
-parser_estimate.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
-parser_estimate.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 
 ### Hidden options used for PROBer paper analysis snakemake workflow
 parser_estimate.add_argument("--for-paper", help = argparse.SUPPRESS, action = "store_true") # add -v 3 to bowtie
+parser_estimate.add_argument("--time", help = argparse.SUPPRESS, action = "store_true") # "Output time consumed by each step."
+parser_estimate.add_argument("--memory", help = argparse.SUPPRESS, action = "store_true") # "Output memory used by each step."
 
 
 #################################################
@@ -457,9 +477,6 @@ group.add_argument("--rounds", help = "Number of EMS iterations to run.", type =
 group.add_argument("--maximum-read-length", help = "The maximum possible read length. You may set this option only if '--no-qualities' is set.",
 				   type = int, default = 1000, dest = "max_len", metavar = "<int>")
 
-group.add_argument("--naive", help = argparse.SUPPRESS, action = "store_true")
-
-
 group = parser_iCLIP.add_argument_group(title = "Alignment options", description = "User can choose from Bowtie and Bowtie2. All reads with more than 100 alignments will be filtered by this script.")
 group.add_argument("--bowtie", help = "Use bowtie aligner to align reads, with Bowtie parameters \"-p number_of_threads -a -m 100 -S --chunkmbs 1024\"."
 				   " If \"--paired-end\" is set, additionaly enable Bowtie parameters \"-I 1 -X 1000\".", action = "store_true", default = True)
@@ -470,9 +487,13 @@ group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", 
 group.add_argument("--index-name", help = "The base name for Bowtie/Bowtie2 indices", type = expand, metavar = "<name>")
 group.add_argument("--keep-alignments", help = "Turn on this option will enable PROBer to keep a copy of aligner-produced alignments in 'sample_name.alignments.bam'.", action = "store_true")
 
-parser_iCLIP.add_argument("--time", help = "Output time consumed by each step.", action = "store_true")
-parser_iCLIP.add_argument("--memory", help = "Output memory used by each step.", action = "store_true")
 parser_iCLIP.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
+
+### Hidden options used for PROBer paper analysis snakemake workflow
+group.add_argument("--naive", help = argparse.SUPPRESS, action = "store_true")
+parser_iCLIP.add_argument("--time", help = argparse.SUPPRESS, action = "store_true") # "Output time consumed by each step."
+parser_iCLIP.add_argument("--memory", help = argparse.SUPPRESS, action = "store_true") # "Output memory used by each step."
+
 
 
 #################################################
@@ -699,7 +720,8 @@ if args.command == "estimate":
 
 	detectMem = None
 	if args.memory:
-		detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
+		assert args.alignments == None
+		detectMem = DetectMem(args.command, args.sample_name, "bowtie2" if args.bowtie2 else "bowtie")
 		detectMem.start()
 
 	# Parse alignments
@@ -876,7 +898,8 @@ if args.command == "iCLIP":
 
 	detectMem = None
 	if args.memory:
-		detectMem = DetectMem(args.sample_name, "unknown" if args.alignments != None else ("bowtie2" if args.bowtie2 else "bowtie"))
+		assert args.alignments == None
+		detectMem = DetectMem(args.command, args.sample_name, "bowtie2" if args.bowtie2 else "bowtie")
 		detectMem.start()
 
 	# run Analysis
