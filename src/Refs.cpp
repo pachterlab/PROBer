@@ -1,4 +1,4 @@
-/* Copyright (c) 2015
+/* Copyright (c) 2016
    Bo Li (University of California, Berkeley)
    bli25@berkeley.edu
 
@@ -18,61 +18,61 @@
    USA
 */
 
-#include<cstdio>
-#include<cassert>
-#include<string>
-#include<fstream>
-#include<vector>
+#include <cstdio>
+#include <cassert>
+#include <string>
+#include <fstream>
+#include <vector>
 
 #include "my_assert.h"
 #include "RefSeq.hpp"
 #include "Refs.hpp"
 
 Refs::Refs() {
-  M = 0;
-  seqs.assign(1, NULL);
+	M = 0;
+	seqs.assign(1, NULL);
 }
 
 Refs::~Refs() {
-  for (int i = 1; i <= M; ++i) delete seqs[i];
+	for (int i = 1; i <= M; ++i) delete seqs[i];
 }
 
 void Refs::readFrom(char* inpF) {
-  std::ifstream fin(inpF);
-  RefSeq* seq;
+	std::ifstream fin(inpF);
+	RefSeq* seq;
 
-  general_assert(fin.is_open(), "Cannot open " + cstrtos(inpF) + "! It may not exist.");
-  
-  M = 0;
-  seqs.assign(1, NULL);
-  seq = new RefSeq();
-  
-  while (seq->read(fin)) {
-    seqs.push_back(seq);
-    ++M;
-    seq = new RefSeq();
-  }
-  delete seq;
-  
-  fin.close();
+	general_assert(fin.is_open(), "Cannot open " + cstrtos(inpF) + "! It may not exist.");
+	
+	M = 0;
+	seqs.assign(1, NULL);
+	seq = new RefSeq();
+	
+	while (seq->read(fin)) {
+		seqs.push_back(seq);
+		++M;
+		seq = new RefSeq();
+	}
+	delete seq;
+	
+	fin.close();
 
-  assert(M + 1 == (int)seqs.size());
+	assert(M + 1 == (int)seqs.size());
 
-  if (verbose) { printf("Refs.readFrom finished!\n"); }
+	if (verbose) { printf("Refs.readFrom finished!\n"); }
 }
 
 void Refs::writeTo(char* outF) {
-  std::ofstream fout(outF);
-  for (int i = 1; i <= M; ++i) 
-    seqs[i]->write(fout);
-  fout.close();
-  if (verbose) { printf("Refs.writeTo finished!\n"); }
+	std::ofstream fout(outF);
+	for (int i = 1; i <= M; ++i) 
+		seqs[i]->write(fout);
+	fout.close();
+	if (verbose) { printf("Refs.writeTo finished!\n"); }
 }
 
 void Refs::writeTransListTo(char* outF) {
-  std::ofstream fout(outF);
-  for (int i = 1; i <= M; ++i)
-    fout<< seqs[i]->getName()<< '\t'<< seqs[i]->getLen()<< std::endl;
-  fout.close();
-  if (verbose) { printf("Refs.writeTransListTo finished!\n"); }
+	std::ofstream fout(outF);
+	for (int i = 1; i <= M; ++i)
+		fout<< seqs[i]->getName()<< '\t'<< seqs[i]->getLen()<< std::endl;
+	fout.close();
+	if (verbose) { printf("Refs.writeTransListTo finished!\n"); }
 }

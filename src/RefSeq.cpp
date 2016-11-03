@@ -1,4 +1,4 @@
-/* Copyright (c) 2015
+/* Copyright (c) 2016
    Bo Li (University of California, Berkeley)
    bli25@berkeley.edu
 
@@ -18,9 +18,9 @@
    USA
 */
 
-#include<cassert>
-#include<string>
-#include<fstream>
+#include <cassert>
+#include <string>
+#include <fstream>
 
 #include "CIGARstring.hpp"
 #include "MDstring.hpp"
@@ -28,53 +28,53 @@
 #include "RefSeq.hpp"
 
 RefSeq::RefSeq() {
-  len = 0;
-  name = seq = "";
+	len = 0;
+	name = seq = "";
 }
 
 /*
-  @function   constructor.
-  @param   name   transcript name
-  @param   rawseq    raw transcript sequence
+	@function   constructor.
+	@param   name   transcript name
+	@param   rawseq    raw transcript sequence
  */
 RefSeq::RefSeq(const std::string& name, const std::string& rawseq) {
-  len = rawseq.length();
-  assert(len > 0);
-  
-  this->name = name;
-  this->seq = rawseq;
-  
-  convertRawSeq();
+	len = rawseq.length();
+	assert(len > 0);
+	
+	this->name = name;
+	this->seq = rawseq;
+	
+	convertRawSeq();
 }
 
 RefSeq::RefSeq(const RefSeq& o) {
-  len = o.len;
-  name = o.name;
-  seq = o.seq;
+	len = o.len;
+	name = o.name;
+	seq = o.seq;
 }
 
 RefSeq& RefSeq::operator= (const RefSeq &rhs) {
-  if (this != &rhs) {
-    len = rhs.len;
-    name = rhs.name;
-    seq = rhs.seq;
-  }
-  
-  return *this;
+	if (this != &rhs) {
+		len = rhs.len;
+		name = rhs.name;
+		seq = rhs.seq;
+	}
+	
+	return *this;
 }
 
 bool RefSeq::read(std::ifstream& fin) {
-  std::string line;
+	std::string line;
 
-  if (!getline(fin, name)) return false;
-  name = name.substr(1);
-  if (!getline(fin, seq)) return false;
-  len = seq.length();
+	if (!getline(fin, name)) return false;
+	name = name.substr(1);
+	if (!getline(fin, seq)) return false;
+	len = seq.length();
 
-  return true;
+	return true;
 }
 
 void RefSeq::write(std::ofstream& fout) {
-  fout<< ">"<< name<< std::endl;
-  fout<< seq<< std::endl;
+	fout<< ">"<< name<< std::endl;
+	fout<< seq<< std::endl;
 }

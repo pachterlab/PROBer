@@ -26,42 +26,42 @@
 #include "FragLenDist.hpp"
 
 FragLenDist::FragLenDist(int maxL) {
-  assert(maxL > 0);
-  lb = 1; ub = maxL; span = ub - lb + 1;
-  pmf.assign(maxL, 0.0);
+	assert(maxL > 0);
+	lb = 1; ub = maxL; span = ub - lb + 1;
+	pmf.assign(maxL, 0.0);
 }
 
 
 void FragLenDist::finish() {
-  double sum = 0.0;
+	double sum = 0.0;
 
-  for (lb = 1; pmf[lb] == 0.0 && lb <= ub; ++lb);
-  for (int i = lb; i <= ub; ++i) {
-    sum += pmf[i];
-    pmf[i - lb] = pmf[i];
-  }
-  assert(sum > 0.0);
-  span = ub - lb + 1;
-  pmf.resize(span);
-  for (int i = 0; i < span; ++i) pmf[i] /= sum;
+	for (lb = 1; pmf[lb] == 0.0 && lb <= ub; ++lb);
+	for (int i = lb; i <= ub; ++i) {
+		sum += pmf[i];
+		pmf[i - lb] = pmf[i];
+	}
+	assert(sum > 0.0);
+	span = ub - lb + 1;
+	pmf.resize(span);
+	for (int i = 0; i < span; ++i) pmf[i] /= sum;
 }
 
 void FragLenDist::read(std::ifstream& fin) {
-  std::string line;
-  while (getline(fin, line)) {
-    if (line.substr(0, 12) == "#FragLenDist") break;
-  }
-  assert(fin.good());
+	std::string line;
+	while (getline(fin, line)) {
+		if (line.substr(0, 12) == "#FragLenDist") break;
+	}
+	assert(fin.good());
 
-  assert(fin>> lb>> ub>> span);
-  pmf.resize(span, 0.0);
-  for (int i = 0; i < span; ++i) assert(fin>> pmf[i]);
-  getline(fin, line);
+	assert(fin>> lb>> ub>> span);
+	pmf.resize(span, 0.0);
+	for (int i = 0; i < span; ++i) assert(fin>> pmf[i]);
+	getline(fin, line);
 }
 
 void FragLenDist::write(std::ofstream& fout) {
-  fout<< "#FragLenDist, format: lb ub span; [lb, ub], span = ub - lb + 1, probability mass function values"<< std::endl;
-  fout<< lb<< '\t'<< ub<< '\t'<< span<< std::endl;  
-  for (int i = 0; i < span - 1; ++i) fout<< pmf[i]<< '\t';
-  fout<< pmf[span - 1]<< std::endl<< std::endl;
+	fout<< "#FragLenDist, format: lb ub span; [lb, ub], span = ub - lb + 1, probability mass function values"<< std::endl;
+	fout<< lb<< '\t'<< ub<< '\t'<< span<< std::endl;  
+	for (int i = 0; i < span - 1; ++i) fout<< pmf[i]<< '\t';
+	fout<< pmf[span - 1]<< std::endl<< std::endl;
 }

@@ -1,6 +1,26 @@
-#include<cassert>
-#include<string>
-#include<fstream>
+/* Copyright (c) 2016
+   Bo Li (University of California, Berkeley)
+   bli25@berkeley.edu
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.   
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+*/
+
+#include <cassert>
+#include <string>
+#include <fstream>
 
 #include "utils.h"
 #include "sampling.hpp"
@@ -15,175 +35,175 @@
 #include "PROBerReadModel.hpp"
 
 PROBerReadModel::PROBerReadModel(int model_type, Refs* refs, int read_length) : model_type(model_type), refs(refs), read_length(read_length) {
-  mld1 = mld2 = NULL;
-  qd = NULL; npro = NULL; seqmodel = NULL;
+	mld1 = mld2 = NULL;
+	qd = NULL; npro = NULL; seqmodel = NULL;
 
-  mld1 = new MateLenDist();
-  if (model_type >= 2) mld2 = new MateLenDist();
-  if (model_type == 1 || model_type == 3) qd = new QualDist();
-  npro = new NoiseProfile(true);
+	mld1 = new MateLenDist();
+	if (model_type >= 2) mld2 = new MateLenDist();
+	if (model_type == 1 || model_type == 3) qd = new QualDist();
+	npro = new NoiseProfile(true);
 
-  max_len = 0;
-  loglik = 0.0;
-  sampler = NULL;
+	max_len = 0;
+	loglik = 0.0;
+	sampler = NULL;
 }
 
 PROBerReadModel::PROBerReadModel(PROBerReadModel* master_model) {
-  mld1 = mld2 = NULL;
-  qd = NULL; npro = NULL; seqmodel = NULL;
+	mld1 = mld2 = NULL;
+	qd = NULL; npro = NULL; seqmodel = NULL;
 
-  model_type = master_model->model_type;
-  max_len = master_model->max_len;
-  loglik = 0.0;
+	model_type = master_model->model_type;
+	max_len = master_model->max_len;
+	loglik = 0.0;
 
-  npro = new NoiseProfile();
-  seqmodel = new SequencingModel((model_type & 1), max_len);
+	npro = new NoiseProfile();
+	seqmodel = new SequencingModel((model_type & 1), max_len);
 
-  refs = master_model->refs;
-  sampler = NULL;
+	refs = master_model->refs;
+	sampler = NULL;
 
-  read_length = -1;
+	read_length = -1;
 }
 
 PROBerReadModel::PROBerReadModel(Refs* refs, Sampler* sampler) : refs(refs), sampler(sampler) {
-  model_type = -1; // not initilaized yet
+	model_type = -1; // not initilaized yet
 
-  mld1 = mld2 = NULL;
-  qd = NULL; npro = NULL; seqmodel = NULL;
+	mld1 = mld2 = NULL;
+	qd = NULL; npro = NULL; seqmodel = NULL;
 
-  max_len = 0;
-  loglik = 0.0;
+	max_len = 0;
+	loglik = 0.0;
 
-  read_length = -1;
+	read_length = -1;
 }
 
 PROBerReadModel::~PROBerReadModel() {
-  if (mld1 != NULL) delete mld1;
-  if (mld2 != NULL) delete mld2;
-  if (qd != NULL) delete qd;
-  if (seqmodel != NULL) delete seqmodel;
-  if (npro != NULL) delete npro;
+	if (mld1 != NULL) delete mld1;
+	if (mld2 != NULL) delete mld2;
+	if (qd != NULL) delete qd;
+	if (seqmodel != NULL) delete seqmodel;
+	if (npro != NULL) delete npro;
 
-  refs = NULL;
-  sampler = NULL;
+	refs = NULL;
+	sampler = NULL;
 }
 
 void PROBerReadModel::finish_preprocess() {
-  loglik = 0.0;
-  mld1->finish();
-  loglik += mld1->getLogP();
-  if (model_type >= 2) {
-    mld2->finish();
-    loglik += mld2->getLogP();
-  }
-  if (model_type & 1) loglik += qd->finish();
-  npro->calcInitParams();
+	loglik = 0.0;
+	mld1->finish();
+	loglik += mld1->getLogP();
+	if (model_type >= 2) {
+		mld2->finish();
+		loglik += mld2->getLogP();
+	}
+	if (model_type & 1) loglik += qd->finish();
+	npro->calcInitParams();
 
-  max_len = mld1->getMaxL();
-  if (model_type >= 2 && max_len < mld2->getMaxL()) max_len = mld2->getMaxL();
-  seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
+	max_len = mld1->getMaxL();
+	if (model_type >= 2 && max_len < mld2->getMaxL()) max_len = mld2->getMaxL();
+	seqmodel = new SequencingModel((model_type == 1 || model_type == 3), max_len);
 }
 
 void PROBerReadModel::init() {
-  seqmodel->init();
-  npro->init();
+	seqmodel->init();
+	npro->init();
 }
 
 void PROBerReadModel::collect(PROBerReadModel* o) {
-  seqmodel->collect(o->seqmodel);
-  npro->collect(o->npro);
+	seqmodel->collect(o->seqmodel);
+	npro->collect(o->npro);
 }
 
 void PROBerReadModel::finish() {
-  seqmodel->finish();
-  npro->finish();
+	seqmodel->finish();
+	npro->finish();
 }
 
 void PROBerReadModel::read(const char* modelF) {
-  std::string line;
-  std::ifstream fin(modelF);
-  assert(fin.is_open());
+	std::string line;
+	std::ifstream fin(modelF);
+	assert(fin.is_open());
 
-  // Read model type
-  while (getline(fin, line)) {
-    if (line.substr(0, 11) == "#Model Type") break;
-  }
-  assert(fin.good());
-  assert(fin>> model_type);
-  getline(fin, line);
+	// Read model type
+	while (getline(fin, line)) {
+		if (line.substr(0, 11) == "#Model Type") break;
+	}
+	assert(fin.good());
+	assert(fin>> model_type);
+	getline(fin, line);
 
-  // Read mate length distribution 1
-  mld1 = new MateLenDist();
-  mld1->read(fin);
+	// Read mate length distribution 1
+	mld1 = new MateLenDist();
+	mld1->read(fin);
 
-  // Read mate length distribution 2
-  if (model_type >= 2) {
-    mld2 = new MateLenDist();
-    mld2->read(fin);
-  }
+	// Read mate length distribution 2
+	if (model_type >= 2) {
+		mld2 = new MateLenDist();
+		mld2->read(fin);
+	}
 
-  // Read QualDist
-  if (model_type & 1) {
-    qd = new QualDist();
-    qd->read(fin);
-  }
+	// Read QualDist
+	if (model_type & 1) {
+		qd = new QualDist();
+		qd->read(fin);
+	}
 
-  // Read sequencing model
-  seqmodel = new SequencingModel((model_type & 1));
-  seqmodel->read(fin);
+	// Read sequencing model
+	seqmodel = new SequencingModel((model_type & 1));
+	seqmodel->read(fin);
 
-  // Read noise profile model
-  npro = new NoiseProfile();
-  npro->read(fin);
+	// Read noise profile model
+	npro = new NoiseProfile();
+	npro->read(fin);
 
-  fin.close();
+	fin.close();
 
-  if (verbose) printf("PROBerReadModel::read finished!\n");
+	if (verbose) printf("PROBerReadModel::read finished!\n");
 }
 
 void PROBerReadModel::write(const char* modelF) {
-  std::ofstream fout(modelF);
-  assert(fout.is_open());
+	std::ofstream fout(modelF);
+	assert(fout.is_open());
 
-  fout.precision(10);
-  fout.unsetf(std::ios::floatfield);
+	fout.precision(10);
+	fout.unsetf(std::ios::floatfield);
 
-  // Write model type
-  fout<< "#Model Type: 0, SE, no qual; 1, SE, qual; 2, PE, no qual; 3 PE, qual"<< std::endl;
-  fout<< model_type<< std::endl<< std::endl;
+	// Write model type
+	fout<< "#Model Type: 0, SE, no qual; 1, SE, qual; 2, PE, no qual; 3 PE, qual"<< std::endl;
+	fout<< model_type<< std::endl<< std::endl;
 
-  // Write mate length distribution 1
-  fout<< "#Mate length distribution 1"<< std::endl;
-  mld1->write(fout);
+	// Write mate length distribution 1
+	fout<< "#Mate length distribution 1"<< std::endl;
+	mld1->write(fout);
 
-  // Write mate length distribution 2
-  if (model_type >= 2) {
-    fout<< "#Mate length distribution 2"<< std::endl;
-    mld2->write(fout);
-  }
+	// Write mate length distribution 2
+	if (model_type >= 2) {
+		fout<< "#Mate length distribution 2"<< std::endl;
+		mld2->write(fout);
+	}
 
-  // Write QualDist
-  if (model_type & 1) qd->write(fout);
+	// Write QualDist
+	if (model_type & 1) qd->write(fout);
 
-  // Write sequencing model
-  seqmodel->write(fout);
+	// Write sequencing model
+	seqmodel->write(fout);
 
-  // Write noise profile
-  npro->write(fout);
+	// Write noise profile
+	npro->write(fout);
 
-  fout.close();
+	fout.close();
 
-  if (verbose) printf("PROBerReadModel::write finished!\n");
+	if (verbose) printf("PROBerReadModel::write finished!\n");
 }
 
 void PROBerReadModel::startSimulation() {
-  if (model_type & 1) qd->startSimulation();
-  seqmodel->startSimulation();
-  npro->startSimulation();
+	if (model_type & 1) qd->startSimulation();
+	seqmodel->startSimulation();
+	npro->startSimulation();
 }
 
 void PROBerReadModel::finishSimulation() {
-  if (model_type & 1) qd->finishSimulation();
-  seqmodel->finishSimulation();
-  npro->finishSimulation();
+	if (model_type & 1) qd->finishSimulation();
+	seqmodel->finishSimulation();
+	npro->finishSimulation();
 }

@@ -27,28 +27,28 @@
 
 class FragLenDist {
 public:
-  FragLenDist(int maxL = 1000);
+	FragLenDist(int maxL = 1000);
 
-  int getMinL() const { return lb; }
-  int getMaxL() const { return ub; }
+	int getMinL() const { return lb; }
+	int getMaxL() const { return ub; }
 
-  double getProb(int len) const { return pmf[len - lb]; }
+	double getProb(int len) const { return pmf[len - lb]; }
 
-  // For estimating FragLenDist, distribute multi-mapping reads evenly
-  // I have looked at one real eCLIP data set, the distribution of unique reads only and all reads (with multi reads evenly distributed) are very similar
-  void update(int len, double frac = 1.0) {
-    if (len > ub) { ub = len; pmf.resize(len, 0.0); }
-    pmf[len - lb] += frac;
-  }
+	// For estimating FragLenDist, distribute multi-mapping reads evenly
+	// I have looked at one real eCLIP data set, the distribution of unique reads only and all reads (with multi reads evenly distributed) are very similar
+	void update(int len, double frac = 1.0) {
+		if (len > ub) { ub = len; pmf.resize(len, 0.0); }
+		pmf[len - lb] += frac;
+	}
 
-  void finish();
+	void finish();
 
-  void read(std::ifstream& fin);
-  void write(std::ofstream& fout);
+	void read(std::ifstream& fin);
+	void write(std::ofstream& fout);
 
 private:
-  int lb, ub, span; // [lb, ub], span = ub - lb + 1
-  std::vector<double> pmf; // probability mass function, cumulative density function, and counts of noise reads
+	int lb, ub, span; // [lb, ub], span = ub - lb + 1
+	std::vector<double> pmf; // probability mass function, cumulative density function, and counts of noise reads
 };
 
 #endif 

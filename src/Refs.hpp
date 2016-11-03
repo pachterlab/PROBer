@@ -1,4 +1,4 @@
-/* Copyright (c) 2015
+/* Copyright (c) 2016
    Bo Li (University of California, Berkeley)
    bli25@berkeley.edu
 
@@ -21,35 +21,35 @@
 #ifndef REFS_H_
 #define REFS_H_
 
-#include<string>
-#include<vector>
+#include <string>
+#include <vector>
 
 #include "RefSeq.hpp"
 
 /**
-   No padding poly(A) tails
+	 No padding poly(A) tails
  */
 class Refs {
  public:
-  Refs();
-  ~Refs();
-  
-  void readFrom(char* inpF);
-  void writeTo(char* outF);
-  void writeTransListTo(char* outF);
-  
-  int getM() const { return M; } // get number of isoforms
+	Refs();
+	~Refs();
+	
+	void readFrom(char* inpF);
+	void writeTo(char* outF);
+	void writeTransListTo(char* outF);
+	
+	int getM() const { return M; } // get number of isoforms
 
-  const RefSeq* getRef(int sid) const { return seqs[sid]; } // get a particular reference
+	const RefSeq* getRef(int sid) const { return seqs[sid]; } // get a particular reference
 
-  void addRef(const std::string& name, const std::string& rawseq) {
-    ++M;
-    seqs.push_back(new RefSeq(name, rawseq));
-  }
-  
+	void addRef(const std::string& name, const std::string& rawseq) {
+		++M;
+		seqs.push_back(new RefSeq(name, rawseq));
+	}
+	
  private:
-  int M; // # of isoforms, id starts from 1
-  std::vector<RefSeq*> seqs;  // reference sequences, starts from 1; 0 is for noise transcript
+	int M; // # of isoforms, id starts from 1
+	std::vector<RefSeq*> seqs;  // reference sequences, starts from 1; 0 is for noise transcript
 };
 
 #endif

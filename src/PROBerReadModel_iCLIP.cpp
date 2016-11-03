@@ -29,66 +29,66 @@
 PROBerReadModel_iCLIP::PROBerReadModel_iCLIP() : model_type(-1), fld(NULL), seqmodel(NULL) {}
 
 PROBerReadModel_iCLIP::PROBerReadModel_iCLIP(int model_type, int max_len) : model_type(model_type) {
-  fld = NULL; seqmodel = NULL;
-  if (model_type >= 2) fld = new FragLenDist(max_len);
-  seqmodel = new SequencingModel((model_type & 1), max_len);
-  seqmodel->init(); // initialize seqmodel for updates
+	fld = NULL; seqmodel = NULL;
+	if (model_type >= 2) fld = new FragLenDist(max_len);
+	seqmodel = new SequencingModel((model_type & 1), max_len);
+	seqmodel->init(); // initialize seqmodel for updates
 }
 
 PROBerReadModel_iCLIP::~PROBerReadModel_iCLIP() {
-  if (fld != NULL) delete fld;
-  if (seqmodel != NULL) delete seqmodel;
+	if (fld != NULL) delete fld;
+	if (seqmodel != NULL) delete seqmodel;
 }
 
 void PROBerReadModel_iCLIP::read(const char* modelF) {
-  std::string line;
-  std::ifstream fin(modelF);
-  assert(fin.is_open());
+	std::string line;
+	std::ifstream fin(modelF);
+	assert(fin.is_open());
 
-  // Read model type
-  while (getline(fin, line)) {
-    if (line.substr(0, 11) == "#Model Type") break;
-  }
-  assert(fin.good());
-  assert(fin>> model_type);
-  getline(fin, line);
+	// Read model type
+	while (getline(fin, line)) {
+		if (line.substr(0, 11) == "#Model Type") break;
+	}
+	assert(fin.good());
+	assert(fin>> model_type);
+	getline(fin, line);
 
-  // Read FragLenDist if model_type >= 2
-  if (model_type >= 2) {
-    fld = new FragLenDist();
-    fld->read(fin);
-  }
+	// Read FragLenDist if model_type >= 2
+	if (model_type >= 2) {
+		fld = new FragLenDist();
+		fld->read(fin);
+	}
 
-  // Read sequencing model
-  seqmodel = new SequencingModel((model_type & 1));
-  seqmodel->read(fin);
+	// Read sequencing model
+	seqmodel = new SequencingModel((model_type & 1));
+	seqmodel->read(fin);
 
 
-  fin.close();
+	fin.close();
 
-  if (verbose) printf("PROBerReadModel_iCLIP::read finished!\n");
+	if (verbose) printf("PROBerReadModel_iCLIP::read finished!\n");
 }
 
 void PROBerReadModel_iCLIP::write(const char* modelF) {
-  std::ofstream fout(modelF);
-  assert(fout.is_open());
+	std::ofstream fout(modelF);
+	assert(fout.is_open());
 
-  fout.precision(10);
-  fout.unsetf(std::ios::floatfield);
+	fout.precision(10);
+	fout.unsetf(std::ios::floatfield);
 
-  // Write model type
-  fout<< "#Model Type: 0, SE, no qual; 1, SE, qual; 2, PE, no qual; 3 PE, qual"<< std::endl;
-  fout<< model_type<< std::endl<< std::endl;
+	// Write model type
+	fout<< "#Model Type: 0, SE, no qual; 1, SE, qual; 2, PE, no qual; 3 PE, qual"<< std::endl;
+	fout<< model_type<< std::endl<< std::endl;
 
-  // Write FragLenDist if model_type >= 2
-  if (model_type >= 2) fld->write(fout);
-  
-  // Write sequencing model
-  seqmodel->write(fout);
+	// Write FragLenDist if model_type >= 2
+	if (model_type >= 2) fld->write(fout);
+	
+	// Write sequencing model
+	seqmodel->write(fout);
 
-  fout.close();
+	fout.close();
 
-  if (verbose) printf("PROBerReadModel::write finished!\n");
+	if (verbose) printf("PROBerReadModel::write finished!\n");
 }
 
 
