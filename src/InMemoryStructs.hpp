@@ -31,6 +31,8 @@ struct InMemAlign {
 	double conprb, frac; // conprb, the conditional probability of generating the read based on read_model; frac the expected weight
 
 	InMemAlign() : tid(0), pos(0), fragment_length(0), conprb(0.0), frac(0.0) {}
+
+	InMemAlign(int tid, int pos, int fragment_length, double conprb, double frac = 0.0) : tid(tid), pos(pos), fragment_length(fragment_length), conprb(conprb), frac(frac) {}
 };
 
 // In memory alignment group

@@ -177,33 +177,33 @@ void PROBerTransModelS::init() {
 	if (state != 0) for (int i = 1; i <= len; ++i) beta[i] = beta_init;
 
 	// count vectors for fragment starts and ends
-	start = new double[len + 1];
-	end = new double[len + 1];
+	if (start == NULL) start = new double[len + 1];
+	if (end == NULL) end = new double[len + 1];
 	memset(start, 0, sizeof(double) * (len + 1));
 	memset(end, 0, sizeof(double) * (len + 1));
 
 	// start2 and end2
-	start2 = new double[len + 1];
-	end2 = new double[len + 1];
+	if (start2 == NULL) start2 = new double[len + 1];
+	if (end2 == NULL) end2 = new double[len + 1];
 	memset(start2, 0, sizeof(double) * (len + 1));
 	memset(end2, 0, sizeof(double) * (len + 1));
 
 	// Auxiliary arrays
-	logsum = new double[len + 1];
+	if (logsum == NULL) logsum = new double[len + 1];
 	assert(efflen > 0);
-	margin_prob = new double[efflen];
+	if (margin_prob == NULL) margin_prob = new double[efflen];
 	memset(logsum, 0, sizeof(double) * (len + 1));
 	memset(margin_prob, 0, sizeof(double) * efflen);
 	
 	if (state == 2) {
-		dcm = new double[len + 1];
-		ccm = new double[len + 1];
+		if (dcm == NULL) dcm = new double[len + 1];
+		if (ccm == NULL) ccm = new double[len + 1];
 		memset(dcm, 0, sizeof(double) * (len + 1));
 		memset(ccm, 0, sizeof(double) * (len + 1));
 	}
 	
 	if (hasSE) {
-		end_se = new double[len + 1];
+		if (end_se == NULL) end_se = new double[len + 1];
 		memset(end_se, 0, sizeof(double) * (len + 1));
 
 		efflen2 = len - min_alloc_len + 1;
@@ -211,7 +211,7 @@ void PROBerTransModelS::init() {
 		if (efflen2 == efflen) efflen2 = -1; // If equal, do not need to build margin_prob2
 
 		if (efflen2 > 0) {
-			margin_prob2 = new double[efflen2];
+			if (margin_prob2 == NULL) margin_prob2 = new double[efflen2];
 			memset(margin_prob2, 0, sizeof(double) * (efflen2));
 		}
 	}
@@ -359,17 +359,17 @@ void PROBerTransModelS::EM_step(double N_tot) {
 			break;
 		case 3:
 			if (isMAP) {
-	value = dbeta / (cbeta + dbeta);
-	for (int i = 1; i <= len; ++i) {
-		gamma[i] = (dgamma + dcm[i]) / (cgamma + ccm[i] + dgamma + dcm[i]); 
-		beta[i] = value;
-	}
+				value = dbeta / (cbeta + dbeta);
+				for (int i = 1; i <= len; ++i) {
+					gamma[i] = (dgamma + dcm[i]) / (cgamma + ccm[i] + dgamma + dcm[i]); 
+					beta[i] = value;
+				}
 			}
 			else {
-	for (int i = 1; i <= len; ++i) {
-		gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
-		beta[i] = 0.0;
-	}
+				for (int i = 1; i <= len; ++i) {
+					gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
+					beta[i] = 0.0;
+				}
 			}
 			break;
 		default: assert(false);
@@ -394,18 +394,18 @@ void PROBerTransModelS::EM_step(double N_tot) {
 			curr = (end_se[0] > 0.0 && mp[0] > 0.0) ? end_se[0] / mp[0] : 0.0;
 			start[min_alloc_len] += curr;
 			for (int i = 1, pos = min_alloc_len + 1; i < effl; ++i, ++pos) {
-	prev = curr;
-	curr = (end_se[i] > 0.0 && mp[i] > 0.0) ? end_se[i] / mp[i] : 0.0;
-	max_end_i = (pos - 1) - max_frag_len;
+				prev = curr;
+				curr = (end_se[i] > 0.0 && mp[i] > 0.0) ? end_se[i] / mp[i] : 0.0;
+				max_end_i = (pos - 1) - max_frag_len;
 	
-	value = prev;
-	if (max_end_i >= 0) {
-		value -= ((end_se[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end_se[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
-		if (value < 0.0) value = 0.0;
-	}
+				value = prev;
+				if (max_end_i >= 0) {
+					value -= ((end_se[max_end_i] > 0.0 && mp[max_end_i] > 0.0) ? end_se[max_end_i] * (exp(logsum[pos - 1] - logsum[max_end_i + min_alloc_len]) / mp[max_end_i]) : 0.0);
+					if (value < 0.0) value = 0.0;
+				}
 	
-	curr += (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * value;
-	start[pos] += curr;
+				curr += (channel == 0 ? (1.0 - gamma[pos]) : (1.0 - gamma[pos]) * (1.0 - beta[pos])) * value;
+				start[pos] += curr;
 			}
 		}
 
@@ -438,7 +438,6 @@ void PROBerTransModelS::EM_step(double N_tot) {
 					psum = (channel == 0 ? psum * (1.0 - gamma[pos + 1]) + gamma[pos + 1]: psum * (1.0 - gamma[pos + 1]) * (1.0 - beta[pos + 1]) + (gamma[pos + 1] + beta[pos + 1] - gamma[pos + 1] * beta[pos + 1]));
 				}
 			}
-
 		}
 		else {
 			memset(start2, 0, sizeof(double) * (len + 1));
@@ -459,48 +458,48 @@ void PROBerTransModelS::EM_step(double N_tot) {
 			
 			switch(getState()) {
 			case 0: 
-	// learn separately, (-) channel 
-	if (isMAP) {
-		gamma[i] = (dgamma + dc) / (dgamma + dc + cgamma + cc);
-		assert(gamma[i] > 0.0 && gamma[i] < 1.0);
-	}
-	else {
-		gamma[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-	}
-	break;
+				// learn separately, (-) channel 
+				if (isMAP) {
+					gamma[i] = (dgamma + dc) / (dgamma + dc + cgamma + cc);
+					assert(gamma[i] > 0.0 && gamma[i] < 1.0);
+				}
+				else {
+					gamma[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+				}
+				break;
 			case 1:
-	// learn separately, (+) channel
-	if (isMAP) {
-		solveQuadratic1(beta[i], gamma[i], dc, cc);
-	}
-	else {
-		beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-		beta[i] = ((beta[i] > gamma[i]) && (gamma[i] < 1.0) ? (beta[i] - gamma[i]) / (1.0 - gamma[i]) : 0.0);
-		if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
-	}
-	break;
+				// learn separately, (+) channel
+				if (isMAP) {
+					solveQuadratic1(beta[i], gamma[i], dc, cc);
+				}
+				else {
+					beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+					beta[i] = ((beta[i] > gamma[i]) && (gamma[i] < 1.0) ? (beta[i] - gamma[i]) / (1.0 - gamma[i]) : 0.0);
+					if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
+				}
+				break;
 			case 2:
-	dcm[i] = dc;
-	ccm[i] = cc;
-	break;
+				dcm[i] = dc;
+				ccm[i] = cc;
+				break;
 			case 3:
-	if (isMAP) {
-				solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
-	}
-	else {
-		gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
-		beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
-		if (beta[i] > gamma[i]) { 
-			assert(gamma[i] < 1.0);
-			beta[i] = (beta[i] - gamma[i]) / (1.0 - gamma[i]);
-		}
-		else {
-			gamma[i] = (dcm[i] + dc > 0.0 ? (dcm[i] + dc) / (dcm[i] + ccm[i] + dc + cc) : 0.0);
-			beta[i] = 0.0;
-		}
-		if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
-	}
-	break;
+				if (isMAP) {
+					solveQuadratic2(gamma[i], beta[i], dcm[i], ccm[i], dc, cc);
+				}
+				else {
+					gamma[i] = (dcm[i] > 0.0 ? dcm[i] / (dcm[i] + ccm[i]) : 0.0);
+					beta[i] = (dc > 0.0 ? dc / (dc + cc) : 0.0);
+					if (beta[i] > gamma[i]) { 
+						assert(gamma[i] < 1.0);
+						beta[i] = (beta[i] - gamma[i]) / (1.0 - gamma[i]);
+					}
+					else {
+						gamma[i] = (dcm[i] + dc > 0.0 ? (dcm[i] + dc) / (dcm[i] + ccm[i] + dc + cc) : 0.0);
+						beta[i] = 0.0;
+					}
+					if (isZero(1.0 - beta[i])) beta[i] = 1.0 - 1e-8; // truncate beta to be < 1 to calculate crate
+				}
+				break;
 			default: assert(false);
 			}
 		}

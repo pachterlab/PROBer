@@ -4,7 +4,8 @@ include_directories(BEFORE ${HTSLIB_DIR})
 
 file(GLOB sources *.cpp)
 file(GLOB headers *.h *.hpp)
-list(REMOVE_ITEM sources buildRef.cpp parseAlignments.cpp EM.cpp simulation.cpp analyze_iCLIP.cpp sampleMultiReads_iCLIP.cpp PROBer_single_transcript_batch.cpp)
+list(REMOVE_ITEM sources buildRef.cpp parseAlignments.cpp EM.cpp simulation.cpp analyze_iCLIP.cpp sampleMultiReads_iCLIP.cpp Gibbs.cpp bootstrap.cpp)
+list(REMOVE_ITEM sources PROBer_single_transcript_batch.cpp)
 
 add_compile_options(-Wall -O3 -ffast-math)
 add_library(PROBer_core ${sources} ${headers})
@@ -20,6 +21,8 @@ add_executable(PROBer-analyze-iCLIP analyze_iCLIP.cpp)
 add_dependencies(PROBer-analyze-iCLIP HTSlib)
 add_executable(PROBer-sample-iCLIP sampleMultiReads_iCLIP.cpp)
 add_dependencies(PROBer-sample-iCLIP HTSlib)
+add_executable(PROBer-run-gibbs Gibbs.cpp)
+add_executable(PROBer-bootstrap bootstrap.cpp)
 
 add_executable(PROBer-single-transcript-batch PROBer_single_transcript_batch.cpp)
 add_dependencies(PROBer-single-transcript-batch HTSlib)
@@ -30,6 +33,9 @@ target_link_libraries(PROBer-run-em PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LI
 target_link_libraries(PROBer-simulate-reads PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
 target_link_libraries(PROBer-analyze-iCLIP PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
 target_link_libraries(PROBer-sample-iCLIP PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
+target_link_libraries(PROBer-run-gibbs PROBer_core pthread)
+target_link_libraries(PROBer-bootstrap PROBer_core pthread)
+
 
 target_link_libraries(PROBer-single-transcript-batch PROBer_core ${HTSLIB_DIR}/libhts.a ${ZLIB_LIBRARIES} pthread)
 configure_file(utils.py utils.py COPYONLY)
@@ -37,5 +43,5 @@ configure_file(PROBer-single-batch-estimate PROBer-single-batch-estimate COPYONL
 
 configure_file(PROBer PROBer COPYONLY)
 
-install(TARGETS PROBer-build-reference PROBer-parse-alignments PROBer-run-em PROBer-simulate-reads PROBer-analyze-iCLIP DESTINATION bin)
+install(TARGETS PROBer-build-reference PROBer-parse-alignments PROBer-run-em  PROBer-simulate-reads PROBer-analyze-iCLIP PROBer-sample-iCLIP PROBer-run-gibbs PROBer-bootstrap DESTINATION bin)
 install(PROGRAMS PROBer DESTINATION bin)

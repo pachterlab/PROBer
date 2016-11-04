@@ -86,7 +86,7 @@ bool keepGoing;
 
 int M; // Number of transcripts
 int N0[2], N_eff[2]; // Number of unalignable reads, number of effective reads (unaligned + aligned)
-double count0[2], logprob[2]; // Used in EM algorithm, number of unalignable reads and log probability for each channel
+double count0[2], logprob[2]; // Used in EM algorithm, number of background reads and log probability for each channel
 
 int model_type; 
 int num_threads;
@@ -108,7 +108,7 @@ vector<pthread_t> threads;
 pthread_attr_t attr;
 int rc;
 
-bool output_bam, output_logMAP;
+bool output_bam, output_logMAP, output_gibbs_input;
 
 bam_hdr_t *hdr;
 
@@ -454,6 +454,48 @@ void outputBamFiles(int channel) {
 	if (verbose) printf("OUTPUT BAM for %s channel is done!\n", channelStr[channel]);
 }
 
+void outputGibbsInput(int channel) {
+	char outF[STRLEN];
+	FILE *fo;
+
+	sprintf(outF, "%s_%s.gibbs_input", statName, channelStr[channel]);
+	fo = fopen(outF, "w");
+	fprintf(fo, "%d %d %d\n", N_eff[channel] - N0[channel], N0[channel], M);
+	for (int i = 0; i < num_threads; ++i) {
+		InMemChunk *chunk = paramsVecs[channel][i]->chunk;
+		READ_INT_TYPE nreads = chunk->nreads;
+		InMemAlignG *a_read = NULL;
+		InMemAlign *aligns = NULL;
+		for (READ_INT_TYPE j = 0; j < nreads; ++j) {
+			assert(chunk->next(a_read, aligns));
+			
+			int size = a_read->size;
+
+			int num_out = 0;
+			double sum = a_read.noise_conprb;
+			
+			for (int k = 0; k < size; ++k) {
+				aligns[k].conprb *= whole_model->getConProb(aligns[k].tid, aligns[k].pos, aligns[k].fragment_length);
+				if (aligns[k].conprb > 0.0) sum += aligns[k].conprb, ++num_out;
+			}
+
+			assert(sum > 0.0);
+			a_read.noise_conprb /= sum;
+			for (int k = 0; k < size; ++k)
+				if (aligns[k].conprb > 0.0) aligns[k].conprb /= sum;
+
+			fprintf(fo, "%d %.6g", num_out, a_read.noise_conprb);
+			for (int k = 0; k < size; ++k)
+				if (aligns[k].conprb > 0.0)  
+					fprintf(fo, " %d %d %d %.6g", aligns[k].tid, aligns[k].pos, aligns[k].fragment_length, aligns[k].conprb);
+			fprintf(fo, "\n")
+		}
+	}
+
+	fclose(fo);
+	if (verbose) printf("Generated Gibbs input for %s channel.\n", channelStr[channel]);
+}
+
 void writeResults() {
 	// output read model parameters
 	char readModelF[STRLEN];
@@ -486,6 +528,11 @@ void writeResults() {
 		fclose(fo);
 	}
 
+	if (output_gibbs_input) {
+		if (has_control) outputGibbsInput(0);
+		outputGibbsInput(1);
+	}
+
 	if (verbose) printf("WriteResults is finished!\n");
 }
 
@@ -506,7 +553,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
 	if (argc < 7) {
-		printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [--no-control] [-q]\n");
+		printf("Usage: PROBer-run-em refName model_type sampleName imdName statName num_of_threads [--read-length read_length] [--maximum-likelihood] [--output-bam] [--output-logMAP] [--no-control] [--output-gibbs-input] [-q]\n");
 		exit(-1);
 	}
 
@@ -519,6 +566,7 @@ int main(int argc, char* argv[]) {
 
 	output_bam = false;
 	output_logMAP = false;
+	output_gibbs_input = false;
 	read_length = -1;
 	isMAP = true;
 	has_control = true;
@@ -527,6 +575,7 @@ int main(int argc, char* argv[]) {
 		if (!strcmp(argv[i], "--maximum-likelihood")) isMAP = false;
 		if (!strcmp(argv[i], "--output-bam")) output_bam = true;
 		if (!strcmp(argv[i], "--output-logMAP")) output_logMAP = true;
+		if (!strcmp(argv[i], "--output-gibbs-input")) output_gibbs_input = true;
 		if (!strcmp(argv[i], "--no-control")) has_control = false;
 		if (!strcmp(argv[i], "-q")) verbose = false;
 	}

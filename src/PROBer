@@ -388,6 +388,9 @@ group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, inde
 				   " If \"--paired-end\" is set, additionaly enable Bowtie2 parameters \"-I 1 -X 1000 --no-mixed --no-discordant\".", action = "store_true")
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 
+parser_estimate.add_argument("--run-gibbs", help = "Run Gibbs sampler for quantifying the variation in estimates; results are stored in <directory>.", metavar = "<directory>")
+parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in Gibbs sampler.", type = check_seed, metavar = "<uint32>")
+
 parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
 
@@ -810,6 +813,8 @@ if args.command == "estimate":
 		command.append("--output-logMAP")
 	if not args.has_control:
 		command.append("--no-control")
+	if args.run_gibbs != None:
+		command.append("--output-gibbs-input")
 	if args.quiet:
 		command.append("-q")
 	runProg(command)
@@ -829,6 +834,16 @@ if args.command == "estimate":
 		command = ["rm", "-rf", temp_dir]
 		runProg(command)
 	
+	if args.run_gibbs != None:
+		command = ["PROBer-run-gibbs", statName + "_plus.gibbs_input", args.run_gibbs, "200", "20", "10", "-p", str(args.num_threads)]
+		if args.has_control:
+			command.extend(["--minus", statName + "_minus.gibbs_input"])
+		if args.seed != None:
+			command.extend(["--seed", args.seed])
+		if args.quiet:
+			command.append("-q")
+		runProg(command)
+
 	sys.exit(0)
 
 

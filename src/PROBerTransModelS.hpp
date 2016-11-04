@@ -174,6 +174,18 @@ public:
 		return res;
 	}
 
+	// clear the alignments
+	void clear() {
+		N_obs[0] = N_obs[1] = 0.0;
+		prob_pass[0] = prob_pass[1] = 1.0;
+		log_prob[0] = log_prob[1] = 0.0;
+		for (int i = 0; i < 2; ++i) {
+			memset(starts[i], 0, sizeof(double) * (len + 1));
+			memset(ends[i], 0, sizeof(double) * (len + 1));
+			memset(ends_se[i], 0, sizeof(double) * (len + 1));
+		}
+	}
+
 	/*
 		@param   alignment   an in memory alignment belong to this transcript
 		@return   true if the alignment is added, false otherwise
@@ -259,6 +271,16 @@ public:
 		@comment: free memory allocated to cdf_end
 	 */
 	void finishSimulation();
+
+	/*
+		@param   choice    0, gamma; 1, beta
+		@return  a copy of gamma or beta starting from position 1
+	*/
+	double* getCopy(int choice) {
+		double* vec = new double[len];
+		memcpy(vec, (choice == 0 ? gamma : beta) + 1, sizeof(double) * len);
+		return vec;
+	}
 
 private:
 	static const double INF; // Define exp(1000) as infinite to avoid the partial sum be -inf
