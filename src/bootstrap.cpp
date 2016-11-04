@@ -11,8 +11,8 @@
 
 #include "utils.h"
 #include "my_assert.h"
-#include "sampling.h"
 
+#include "sampling.hpp"
 #include "InMemoryStructs.hpp"
 #include "PROBerTransModelS.hpp"
 
@@ -49,7 +49,7 @@ seedType seed;
 
 EngineFactory factory;
 
-void find_target(char* refName, char* tname) {
+void find_target(char* refName, string transcript_name) {
 	char inpF[STRLEN];
 	ifstream fin;
 	string line;
@@ -68,7 +68,7 @@ void find_target(char* refName, char* tname) {
 		strin>> name>> len;
 		++id;
 
-		if (!strcmp(name, transcript)) {
+		if (name == transcript_name) {
 			target_id = id;
 			target_length = len;
 			break;
@@ -86,15 +86,14 @@ void init() {
 	paramsArray = new Params[nThreads];
 	threads = new pthread_t[nThreads];
 
-	hasSeed ? engineFactory::init(seed) : engineFactory::init();
+	hasSeed ? factory.init(seed) : factory.init();
 	for (int i = 0; i < nThreads; ++i) {
 		paramsArray[i].no = i;
 		paramsArray[i].sampler = factory.new_sampler();		
 		sprintf(inpF, "%s/gibbs_out_%d.txt", input_dir, i);
-		paramsArray[i].fin.open(inpF)
+		paramsArray[i].fin.open(inpF);
 		paramsArray[i].estimates.clear();
 	}
-	engineFactory::finish();
 
 	/* set thread attribute to be joinable */
 	pthread_attr_init(&attr);
@@ -166,11 +165,11 @@ void* bootstrap(void* arg) {
 			model->clear();
 			if (hasControl) {
 				for (int j = 0; j < csize; ++j) 
-					model->addAlignment(&control[int(params->sampler.random() * csize)]);
+					model->addAlignment(&control[int(params->sampler->random() * csize)]);
 				model->flipState();
 			}
 			for (int j = 0; j < tsize; ++j)
-				model->addAlignment(&treatment[int(params->sampler.random() * tsize)]);
+				model->addAlignment(&treatment[int(params->sampler->random() * tsize)]);
 			if (hasControl) model->flipState();
 
 			runEM(model, (hasControl ? tsize + csize : tsize));
@@ -185,7 +184,7 @@ void* bootstrap(void* arg) {
 void output() {
 	char outF[STRLEN];
 	FILE *fo;
-	int len = target_length - PROBerTransModelS::primer_length;
+	int len = target_length - PROBerTransModelS::get_primer_length();
 	
 	int pos, vlen = 0;
 	vector<double> values;
@@ -200,10 +199,10 @@ void output() {
 		pos = 0;
 		for (int j = 0; j < nThreads; ++j) 
 			for (size_t k = 0; k < paramsArray[j].estimates.size(); ++k)
-				vector[pos++] = paramsArray[j].estimates[k][i];
-		sort(vector.begin(), vector.end());
+				values[pos++] = paramsArray[j].estimates[k][i];
+		sort(values.begin(), values.end());
 		for (int j = 0; j < vlen; ++i)	
-			fprintf(fo, "%.6g%c", vector[j], (j < vlen - 1 ? ' ' : '\n'));
+			fprintf(fo, "%.6g%c", values[j], (j < vlen - 1 ? ' ' : '\n'));
 	}
 	fclose(fo);
 }
@@ -215,7 +214,7 @@ void release() {
 	for (int i = 0; i < nThreads; ++i) {
 		paramsArray[i].fin.close();
 		delete paramsArray[i].sampler;
-		for (size_t k = 0; k < paramsArray[i].estimates.size() ++k) 
+		for (size_t k = 0; k < paramsArray[i].estimates.size(); ++k) 
 			delete[] paramsArray[i].estimates[k];
 	}
 	delete[] paramsArray;			
@@ -229,7 +228,7 @@ int main(int argc, char* argv[]) {
 			" [--primer-length primer_length(default: 6)] [--size-selection-min min_frag_len(required)]"
 			" [--size-selection-max max_frag_len(required)] [--read-length read_length]"
 			" [--gamma-init gamma_init(default: 0.0001)] [--beta-init beta_init(default: 0.0001)]"
-			" [-p number_of_threads] [--no-control] [--seed seed] [-q]\n")
+			" [-p number_of_threads] [--no-control] [--seed seed] [-q]\n");
 		exit(-1);
 	}
 

@@ -472,7 +472,7 @@ void outputGibbsInput(int channel) {
 			int size = a_read->size;
 
 			int num_out = 0;
-			double sum = a_read.noise_conprb;
+			double sum = a_read->noise_conprb;
 			
 			for (int k = 0; k < size; ++k) {
 				aligns[k].conprb *= whole_model->getConProb(aligns[k].tid, aligns[k].pos, aligns[k].fragment_length);
@@ -480,15 +480,15 @@ void outputGibbsInput(int channel) {
 			}
 
 			assert(sum > 0.0);
-			a_read.noise_conprb /= sum;
+			a_read->noise_conprb /= sum;
 			for (int k = 0; k < size; ++k)
 				if (aligns[k].conprb > 0.0) aligns[k].conprb /= sum;
 
-			fprintf(fo, "%d %.6g", num_out, a_read.noise_conprb);
+			fprintf(fo, "%d %.6g", num_out, a_read->noise_conprb);
 			for (int k = 0; k < size; ++k)
 				if (aligns[k].conprb > 0.0)  
 					fprintf(fo, " %d %d %d %.6g", aligns[k].tid, aligns[k].pos, aligns[k].fragment_length, aligns[k].conprb);
-			fprintf(fo, "\n")
+			fprintf(fo, "\n");
 		}
 	}
 

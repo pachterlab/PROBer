@@ -29,8 +29,8 @@
 
 #include "utils.h"
 #include "my_assert.h"
-#include "sampling.h"
 
+#include "sampling.hpp"
 #include "InMemoryStructs.hpp"
 
 using namespace std;
@@ -73,7 +73,7 @@ void load_data(char* inpF, bool isControl) {
 	int tmp_N1, tmp_N0, tmp_M;
 
 	fin.open(inpF);
-	general_assert(fin.is_open(), "Cannot open " + cstrtos(ofgF) + "!");
+	general_assert(fin.is_open(), "Cannot open " + cstrtos(inpF) + "!");
 	fin>> tmp_N1>> tmp_N0>> tmp_M;
 	if (!isControl) N1 = tmp_N1, N0 = tmp_N0, M = tmp_M;
 	else N1 += tmp_N1, N0 += tmp_N0, assert(M == tmp_M); 
@@ -84,7 +84,7 @@ void load_data(char* inpF, bool isControl) {
 
 		int size;
 		int tid, pos, fragment_length;
-		double conprb, frac; //
+		double conprb;
 
 		strin>> size>> conprb;
 		hits.push_back(InMemAlign(0, 0, 0, conprb));
@@ -112,7 +112,7 @@ void init() {
 	paramsArray = new Params[nThreads];
 	threads = new pthread_t[nThreads];
 
-	hasSeed ? engineFactory::init(seed) : engineFactory::init();
+	hasSeed ? factory.init(seed) : factory.init();
 	for (int i = 0; i < nThreads; ++i) {
 		paramsArray[i].no = i;
 
@@ -137,7 +137,7 @@ void writeGibbsOut(FILE* fo, vector<int>& z) {
 	for (int i = 0; i < N1; ++i) {
 		hid = s[i] + z[i];
 		if (hits[hid].tid != 0) 
-			printf(fo, "%d %d %d ", hits[hid].tid, hits[hid].pos, hits[hid].fragment_length);
+			fprintf(fo, "%d %d %d ", hits[hid].tid, hits[hid].pos, hits[hid].fragment_length);
 	}
 	printf("\n");
 }
@@ -160,7 +160,7 @@ void* Gibbs(void* arg) {
 			arr[j - fr] = hits[j].conprb;
 			if (j > fr) arr[j - fr] += arr[j - fr - 1];  // cumulative
 		}
-		z[i] = abs(hits[fr + params->sampler.sample(arr, len)].tid);
+		z[i] = abs(hits[fr + params->sampler->sample(arr, len)].tid);
 		++counts[z[i]];
 	}
 
@@ -176,7 +176,7 @@ void* Gibbs(void* arg) {
 				arr[j - fr] = (counts[abs(hits[j].tid)] + pseudoC) * hits[j].conprb;
 				if (j > fr) arr[j - fr] += arr[j - fr - 1]; //cumulative
 			}
-			z[i] = abs(hits[fr + params->sampler.sample(arr, len)].tid);
+			z[i] = abs(hits[fr + params->sampler->sample(arr, len)].tid);
 			++counts[z[i]];
 		}
 
@@ -246,7 +246,7 @@ int main(int argc, char* argv[]) {
 	assert(N1 == s.size() - 1);
 
 	if (verbose) printf("Gibbs started!\n");
-	system("mkdir -p " + string(outdir));
+	system(("mkdir -p " + string(outdir)).c_str());
 
 	init();
 	for (int i = 0; i < nThreads; ++i) {
