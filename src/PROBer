@@ -389,7 +389,7 @@ group.add_argument("--bowtie2", help = "Use bowtie2 aligner to align reads, inde
 group.add_argument("--bowtie2-path", help = "The path to Bowtie2 executables.", type = expand, metavar = "<path>")
 
 parser_estimate.add_argument("--run-gibbs", help = "Run Gibbs sampler for quantifying the variation in estimates; results are stored in <directory>.", metavar = "<directory>")
-parser_simulate.add_argument("--seed", help = "The seed initializing the random number generator used in Gibbs sampler.", type = check_seed, metavar = "<uint32>")
+parser_estimate.add_argument("--seed", help = "The seed initializing the random number generator used in Gibbs sampler.", type = check_seed, metavar = "<uint32>")
 
 parser_estimate.add_argument("-q", "--quiet", help = "Suppress the output of logging information.", action = "store_true")
 
