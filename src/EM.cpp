@@ -466,6 +466,8 @@ void outputGibbsInput(int channel) {
 		READ_INT_TYPE nreads = chunk->nreads;
 		InMemAlignG *a_read = NULL;
 		InMemAlign *aligns = NULL;
+		
+		chunk->reset();
 		for (READ_INT_TYPE j = 0; j < nreads; ++j) {
 			assert(chunk->next(a_read, aligns));
 			
