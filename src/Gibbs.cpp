@@ -139,7 +139,7 @@ void writeGibbsOut(FILE* fo, vector<int>& z) {
 		if (hits[hid].tid != 0) 
 			fprintf(fo, "%d %d %d ", hits[hid].tid, hits[hid].pos, hits[hid].fragment_length);
 	}
-	printf("\n");
+	fprintf(fo, "\n");
 }
 
 void* Gibbs(void* arg) {
