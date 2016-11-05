@@ -161,6 +161,8 @@ void* bootstrap(void* arg) {
 
 		tsize = treatment.size();
 		csize = control.size();
+		printf("tsize = %d, csize = %d\n");
+		
 		for (int i = 0; i < num_trials; ++i) {
 			model->clear();
 			if (hasControl) {
