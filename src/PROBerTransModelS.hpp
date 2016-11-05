@@ -176,9 +176,9 @@ public:
 
 	// clear the alignments
 	void clear() {
+		hasSE = false;
 		N_obs[0] = N_obs[1] = 0.0;
-		prob_pass[0] = prob_pass[1] = 1.0;
-		log_prob[0] = log_prob[1] = 0.0;
+		N_se[0] = N_se[1] = 0.0;
 		for (int i = 0; i < 2; ++i) {
 			memset(starts[i], 0, sizeof(double) * (len + 1));
 			memset(ends[i], 0, sizeof(double) * (len + 1));

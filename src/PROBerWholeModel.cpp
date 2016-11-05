@@ -97,9 +97,9 @@ PROBerWholeModel::PROBerWholeModel(const char* config_file, int init_state, bool
 			case 0: consts[0] = totlen * PROBerTransModel::getLGamma(0); break;
 			case 1: consts[1] = totlen * PROBerTransModel::getLGamma(1); break;
 			case 2: 
-	consts[0] = totlen * PROBerTransModel::getLGamma(0);
-	consts[1] = totlen * PROBerTransModel::getLGamma(1);
-	break;
+				consts[0] = totlen * PROBerTransModel::getLGamma(0);
+				consts[1] = totlen * PROBerTransModel::getLGamma(1);
+				break;
 			default: assert(false);
 			}
 		}
@@ -148,9 +148,9 @@ void PROBerWholeModel::init() {
 			case 0: consts[0] += totlen * PROBerTransModel::getDefault(0); break;
 			case 1: consts[1] += totlen * PROBerTransModel::getDefault(1); break;
 			case 2: 
-	consts[0] += totlen * PROBerTransModel::getDefault(0); 
-	consts[1] += totlen * PROBerTransModel::getDefault(1);
-	break;
+				consts[0] += totlen * PROBerTransModel::getDefault(0); 
+				consts[1] += totlen * PROBerTransModel::getDefault(1);
+				break;
 			default: assert(false);
 			}
 		}

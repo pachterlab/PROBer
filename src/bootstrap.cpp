@@ -223,8 +223,8 @@ void release() {
 
 
 int main(int argc, char* argv[]) {
-	if (argc < 6) {
-		printf("Usage: PROBer-bootstrap ref_name input_dir config_file transcript_name num_trials" 
+	if (argc < 5) {
+		printf("Usage: PROBer-bootstrap ref_name input_dir transcript_name num_trials" 
 			" [--primer-length primer_length(default: 6)] [--size-selection-min min_frag_len(required)]"
 			" [--size-selection-max max_frag_len(required)] [--read-length read_length]"
 			" [--gamma-init gamma_init(default: 0.0001)] [--beta-init beta_init(default: 0.0001)]"
@@ -233,8 +233,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	input_dir = argv[2];
-	tname = argv[5];
-	num_trials = atoi(argv[5]);
+	tname = argv[3];
+	num_trials = atoi(argv[4]);
 
 	primer_length = 6;
 	read_length = 0;
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
 	nThreads = 1;
 	hasControl = true;
 	hasSeed = false;
-	for (int i = 6; i < argc; ++i) {
+	for (int i = 5; i < argc; ++i) {
 		if (!strcmp(argv[i], "--primer-length")) primer_length = atoi(argv[i + 1]);
 		if (!strcmp(argv[i], "--size-selection-min")) min_frag_len = atoi(argv[i + 1]);
 		if (!strcmp(argv[i], "--size-selection-max")) max_frag_len = atoi(argv[i + 1]);

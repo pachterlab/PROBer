@@ -90,7 +90,7 @@ void load_data(char* inpF, bool isControl) {
 		hits.push_back(InMemAlign(0, 0, 0, conprb));
 		for (int i = 0; i < size; ++i) {
 			strin>> tid>> pos>> fragment_length>> conprb;
-			hits.push_back(InMemAlign(tid, pos, fragment_length, conprb));
+			hits.push_back(InMemAlign(isControl ? -tid : tid, pos, fragment_length, conprb));
 		}
 		s.push_back(hits.size());
 	}
@@ -117,7 +117,7 @@ void init() {
 		paramsArray[i].no = i;
 
 		paramsArray[i].nsamples = quotient;
-		if (i < left) paramsArray[i].nsamples++;
+		if (i < left) ++paramsArray[i].nsamples;
 
 		sprintf(outF, "%s/gibbs_out_%d.txt", outdir, i);
 		paramsArray[i].fo = fopen(outF, "w");
@@ -194,7 +194,7 @@ void release() {
 	pthread_attr_destroy(&attr);
 	delete[] threads;
 
-	for (int i = 0; i < nThreads; i++) {
+	for (int i = 0; i < nThreads; ++i) {
 		fclose(paramsArray[i].fo);
 		delete paramsArray[i].sampler;
 	}
