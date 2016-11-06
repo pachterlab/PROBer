@@ -42,6 +42,7 @@ configure_file(utils.py utils.py COPYONLY)
 configure_file(PROBer-single-batch-estimate PROBer-single-batch-estimate COPYONLY)
 
 configure_file(PROBer PROBer COPYONLY)
-
+configure_file(PROBer-generateVariationPlot PROBer-generateVariationPlot COPYONLY)
+ 
 install(TARGETS PROBer-build-reference PROBer-parse-alignments PROBer-run-em  PROBer-simulate-reads PROBer-analyze-iCLIP PROBer-sample-iCLIP PROBer-run-gibbs PROBer-bootstrap DESTINATION bin)
-install(PROGRAMS PROBer DESTINATION bin)
+install(PROGRAMS PROBer PROBer-generateVariationPlot DESTINATION bin)

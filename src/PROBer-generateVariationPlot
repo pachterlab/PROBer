@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+from sys import argv, exit
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+if len(argv) != 8:
+	print("Usage: PROBer-generateVariationPlot transcript_name estimates.beta bootstrap.txt percent start_position(1-based) end_position(1-based) output.pdf")
+	exit(-1)
+
+lp_value = (1.0 - float(argv[4])) / 2.0
+up_value = 1.0 - lp_value
+
+start = int(argv[5])
+end = int(argv[6])
+
+estimates = []
+with open(argv[2]) as fin:
+	for line in fin:
+		fields = line.strip().split()
+		if fields[0] == argv[1]:
+			estimates = [float(x) for x in fields[2:]]
+
+n = len(estimates)
+assert n > 0
+
+lefts = []
+heights = estimates
+ymind = []
+ymaxd = []
+with open(argv[3]) as fin:
+	for i in range(n):
+		values = [float(x) for x in next(fin).strip().split()]
+		lower_p = np.percentile(values, 5)
+		upper_p = np.percentile(values, 95)
+		lefts.append(i)
+		ymind.append(estimates[i] - lower_p)
+		ymaxd.append(upper_p - estimates[i])
+mids = [x + 0.5 for x in lefts]
+
+with PdfPages(argv[7]) as pdf:
+	plt.bar(lefts[start - 1 : end], heights[start - 1 : end], width = 1.0, color = 'none')
+	plt.errorbar(mids[start - 1 : end], heights[start - 1 : end], yerr = [ymind[start - 1 : end], ymaxd[start - 1 : end]], fmt = 'none', ecolor = 'red')
+	plt.xlabel("Transcript coordinate")
+	plt.ylabel("Modification reactivity (in beta)")
+	pdf.savefig()
+	plt.close()

@@ -161,7 +161,7 @@ void* bootstrap(void* arg) {
 
 		tsize = treatment.size();
 		csize = control.size();
-		printf("tsize = %d, csize = %d\n");
+		printf("tsize = %d, csize = %d\n", tsize, csize);
 		
 		for (int i = 0; i < num_trials; ++i) {
 			model->clear();
@@ -176,6 +176,7 @@ void* bootstrap(void* arg) {
 
 			runEM(model, (hasControl ? tsize + csize : tsize));
 			params->estimates.push_back(model->getCopy(hasControl ? 1 : 0));
+			printf("no = %d, i = %d\n", params->no, i);
 		}
 	}
 	delete model;
@@ -203,7 +204,7 @@ void output() {
 			for (size_t k = 0; k < paramsArray[j].estimates.size(); ++k)
 				values[pos++] = paramsArray[j].estimates[k][i];
 		sort(values.begin(), values.end());
-		for (int j = 0; j < vlen; ++i)	
+		for (int j = 0; j < vlen; ++j)	
 			fprintf(fo, "%.6g%c", values[j], (j < vlen - 1 ? ' ' : '\n'));
 	}
 	fclose(fo);
@@ -278,6 +279,7 @@ int main(int argc, char* argv[]) {
 		rc = pthread_join(threads[i], NULL);
 		pthread_assert(rc, "pthread_join", "Cannot join thread " + itos(i) + " (numbered from 0)!");
 	}
+	printf("Bootstrapping is done!\n");
 	output();
 	release();
 
