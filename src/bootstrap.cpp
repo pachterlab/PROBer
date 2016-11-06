@@ -227,7 +227,7 @@ void release() {
 
 int main(int argc, char* argv[]) {
 	if (argc < 5) {
-		printf("Usage: PROBer-bootstrap ref_name input_dir transcript_name num_trials" 
+		printf("Usage: PROBer-bootstrap reference_name input_dir transcript_name num_trials" 
 			" [--primer-length primer_length(default: 6)] [--size-selection-min min_frag_len(required)]"
 			" [--size-selection-max max_frag_len(required)] [--read-length read_length]"
 			" [--gamma-init gamma_init(default: 0.0001)] [--beta-init beta_init(default: 0.0001)]"
