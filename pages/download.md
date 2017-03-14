@@ -26,7 +26,7 @@ The __PROBer__ GitHub repository is [here](http://github.com/pachterlab/PROBer).
 
     {% for post in site.categories.releases %}
         <tr>
-	    <td>Release notes: <a href="{{ site.url }}{{ post.url }}">{{ post.version }}</a></td>
+	    <td>Release notes: <a href="{{ site.url }}{{ site.baseurl }}{{ post.url }}">{{ post.version }}</a></td>
      	    <td><span class="entry-date"><time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%B %d, %Y" }}</time></span></td>
 
             <td><a href="https://github.com/pachterlab/PROBer/releases/download/{{ post.version }}/PROBer_mac-{{ post.version }}.tar.gz">Mac</a></td>
