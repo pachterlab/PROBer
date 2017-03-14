@@ -12,7 +12,7 @@ header:
 
 # News
 
-* November 8, 2016 &emsp; PROBer v0.3.0 was uploaded.
-* June 26, 2016 &emsp; PROBer v0.2.0 was uploaded.
+* March 14, 2017 &emsp; PROBer v0.3.1 was released.
+* November 8, 2016 &emsp; PROBer v0.3.0 was released.
+* June 26, 2016 &emsp; PROBer v0.2.0 was released.
 * July 15, 2015 &emsp; PROBer website launched.
-
