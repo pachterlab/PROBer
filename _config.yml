@@ -21,8 +21,8 @@ description: "»PROBer«: A general toolkit for analyzing sequencing-based ‘to
 
 # This URL is the main adresse. Don't include a slash at the end.
 #
-url: "http://pachterlab.github.io/PROBer"
-baseurl: ""
+url: "http://pachterlab.github.io"
+baseurl: "/PROBer"
 
 # This is for the editing function in _/includes/improve_content.html
 # Leave it empty if your site is not on GitHub/GitHub Pages
